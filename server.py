@@ -16,16 +16,16 @@ load_dotenv()
 # Configuration Models
 class ModelConfig(BaseModel):
     model_name: str
+    max_tokens: Optional[int] = 1000
     additional_params: Dict[str, Any] = {}
 
 class ServerConfig(BaseModel):
-    default_model: str
     models: Dict[str, ModelConfig]
 
 # Request/Response Models
 class QueryRequest(BaseModel):
     prompt: str
-    model_id: Optional[str] = None
+    model_id: str  # Now required
     temperature: Optional[float] = 0.7
     max_tokens: Optional[int] = 1000
 
@@ -43,30 +43,34 @@ class ModelManager:
         self._initialize_models()
 
     def _initialize_models(self):
-        env_keys = {
-            'openai': 'OPENAI_API_KEY',
-            'anthropic': 'ANTHROPIC_API_KEY',
-            'huggingface': 'HUGGINGFACE_API_KEY'
+        api_keys = {
+            'openai': os.getenv('OPENAI_API_KEY'),
+            'anthropic': os.getenv('ANTHROPIC_API_KEY'),
+            'huggingface': os.getenv('HUGGINGFACE_API_KEY')
         }
         
         for model_id, model_config in self.config.models.items():
             try:
                 provider = model_config.model_name.split('/')[0]
-                token = os.getenv(env_keys.get(provider))
+                api_key = api_keys.get(provider)
+                
+                if not api_key:
+                    raise ValueError(f"API key not found for provider: {provider}")
                 
                 lm = dspy.LM(
                     model_config.model_name,
-                    token=token,
+                    api_key=api_key,
+                    max_tokens=model_config.max_tokens,
                     **model_config.additional_params
                 )
                 self.models[model_id] = lm
+                logging.info(f"Successfully initialized model: {model_id}")
             except Exception as e:
                 logging.error(f"Failed to initialize model {model_id}: {str(e)}")
                 raise
 
     @contextmanager
-    def get_model(self, model_id: Optional[str] = None):
-        model_id = model_id or self.config.default_model
+    def get_model(self, model_id: str):
         if model_id not in self.models:
             raise ValueError(f"Model {model_id} not found")
         try:
@@ -92,13 +96,14 @@ async def startup_event():
 @app.post("/predict", response_model=QueryResponse)
 async def predict(request: QueryRequest):
     with model_manager.get_model(request.model_id) as lm:
+        dspy.configure(lm=lm)
         try:
             predictor = dspy.Predict(Predictor, lm)
             result = predictor(input=request.prompt)
             
             return QueryResponse(
                 response=result.output,
-                model_used=request.model_id or model_manager.config.default_model,
+                model_used=request.model_id,
                 metadata={
                     "timestamp": datetime.utcnow().isoformat(),
                     "temperature": request.temperature,
