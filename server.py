@@ -88,10 +88,18 @@ class Predictor(dspy.Signature):
 app = FastAPI()
 model_manager = None
 
-@app.on_event("startup")
-async def startup_event():
+# Create lifespan context manager
+@asynccontextmanager
+async def lifespan(app: FastAPI):
     global model_manager
     model_manager = ModelManager("config.yaml")
+    
+    yield
+    # Shutdown: Clean up resources if needed
+    model_manager = None
+
+# FastAPI Application with lifespan
+app = FastAPI(lifespan=lifespan)
 
 @app.post("/predict", response_model=QueryResponse)
 async def predict(request: QueryRequest):
