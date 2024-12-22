@@ -1,6 +1,7 @@
 from pydantic import BaseModel, Field
-from typing import Dict, Any, Optional
-from datetime import datetime
+from typing import Dict, Any, Optional, Union
+
+from app.core.types import MediaType
 
 class ModelConfig(BaseModel):
     model_name: str
@@ -35,3 +36,16 @@ class QueryResponse(BaseModel):
         # disable protected namespace checks to allow the model_used field
         'protected_namespaces': ()
     }
+    
+class PipelineRequest(BaseModel):
+    """Generic request schema for pipeline processing."""
+    pipeline_id: str
+    content: Union[str, bytes]  # Text content or base64 encoded image
+    media_type: MediaType
+    params: Dict[str, Any] = {}
+
+class PipelineResponse(BaseModel):
+    """Generic response schema for pipeline results."""
+    content: Any
+    media_type: MediaType
+    metadata: Dict[str, Any]

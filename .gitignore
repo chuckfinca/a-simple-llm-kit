@@ -32,3 +32,5 @@ build/
 coverage.xml
 htmlcov/
 
+# Project specific
+tree
