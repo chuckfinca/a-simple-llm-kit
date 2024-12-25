@@ -1,15 +1,12 @@
 from fastapi import APIRouter, HTTPException, Request
 from app.api.schemas import PipelineRequest, PipelineResponse, QueryRequest, QueryResponse
 from app.core.pipeline import Pipeline
-from app.core.types import PipelineData
-from app.pipelines.registry import PipelineRegistry
-from app.pipelines.steps.text import TextCompletionStep
-from app.services.pipelines.predictor import PredictorStep
+from app.core.types import PipelineData, MediaType
+from app.core.factories import create_text_processor, create_ocr_processor
 from app.services.prediction import PredictionService
 from datetime import datetime
 
 router = APIRouter()
-registry = PipelineRegistry()
 
 @router.post("/predict", response_model=QueryResponse)
 async def predict(request: Request, query: QueryRequest):
@@ -31,20 +28,30 @@ async def predict(request: Request, query: QueryRequest):
 
 @router.post("/pipeline/predict")
 async def predict_pipeline(request: Request, pipeline_req: PipelineRequest):
-    # Create predictor pipeline using the app's model manager
     model_manager = request.app.state.model_manager
-    pipeline_steps = [TextCompletionStep(model_manager, pipeline_req.params.get("model_id", "gpt-4"))]
-    pipeline = Pipeline(pipeline_steps)
     
-    # Execute pipeline
-    result = await pipeline.execute(PipelineData(
-        media_type=pipeline_req.media_type,
-        content=pipeline_req.content,
-        metadata=pipeline_req.params
-    ))
+    # Use factories to create processors based on media type
+    if pipeline_req.media_type == MediaType.TEXT:
+        processors = [create_text_processor(model_manager, pipeline_req.params.get("model_id"))]
+    elif pipeline_req.media_type == MediaType.IMAGE:
+        processors = [create_ocr_processor(model_manager, pipeline_req.params.get("model_id"))]
+    else:
+        raise HTTPException(status_code=400, detail=f"Unsupported media type: {pipeline_req.media_type}")
     
-    return PipelineResponse(
-        content=result.content,
-        media_type=result.media_type,
-        metadata=result.metadata
-    )
+    try:
+        pipeline = Pipeline(processors)
+        
+        # Execute pipeline
+        result = await pipeline.execute(PipelineData(
+            media_type=pipeline_req.media_type,
+            content=pipeline_req.content,
+            metadata=pipeline_req.params
+        ))
+        
+        return PipelineResponse(
+            content=result.content,
+            media_type=result.media_type,
+            metadata=result.metadata
+        )
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
