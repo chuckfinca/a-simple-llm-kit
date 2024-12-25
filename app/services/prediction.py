@@ -1,3 +1,4 @@
+import code
 from app.models.predictor import Predictor
 from app.api.schemas import QueryRequest
 import dspy
@@ -12,3 +13,4 @@ class PredictionService:
             predictor = dspy.Predict(Predictor, lm)
             result = predictor(input=request.prompt)
             return result.output
+         

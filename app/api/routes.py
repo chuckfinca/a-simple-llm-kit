@@ -3,6 +3,7 @@ from app.api.schemas import PipelineRequest, PipelineResponse, QueryRequest, Que
 from app.core.pipeline import Pipeline
 from app.core.types import PipelineData
 from app.pipelines.registry import PipelineRegistry
+from app.pipelines.steps.text import TextCompletionStep
 from app.services.pipelines.predictor import PredictorStep
 from app.services.prediction import PredictionService
 from datetime import datetime
@@ -32,7 +33,7 @@ async def predict(request: Request, query: QueryRequest):
 async def predict_pipeline(request: Request, pipeline_req: PipelineRequest):
     # Create predictor pipeline using the app's model manager
     model_manager = request.app.state.model_manager
-    pipeline_steps = [PredictorStep(model_manager, pipeline_req.params.get("model_id", "gpt-4"))]
+    pipeline_steps = [TextCompletionStep(model_manager, pipeline_req.params.get("model_id", "gpt-4"))]
     pipeline = Pipeline(pipeline_steps)
     
     # Execute pipeline
