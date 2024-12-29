@@ -1,12 +1,12 @@
 from enum import Enum
 from typing import Dict, Any
-from pydantic import BaseModel
+import pydantic
 
 class MediaType(Enum):
     TEXT = "text"
     IMAGE = "image"
 
-class PipelineData(BaseModel):
+class PipelineData(pydantic.BaseModel):
     """Container for data passing through pipeline steps"""
     media_type: MediaType
     content: Any

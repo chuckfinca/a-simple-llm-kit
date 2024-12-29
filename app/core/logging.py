@@ -1,9 +1,9 @@
 import logging
 import sys
 from typing import Optional
-from pydantic import BaseModel
+import pydantic
 
-class LogConfig(BaseModel):
+class LogConfig(pydantic.BaseModel):
     """Logging configuration to be set for the server"""
     LOGGER_NAME: str = "llm_server"
     LOG_FORMAT: str = "%(levelprefix)s | %(asctime)s | %(message)s"
