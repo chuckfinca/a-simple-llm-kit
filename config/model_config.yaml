@@ -1,9 +1,14 @@
 models:
-  gpt-4:
+  gpt-4o-mini:
     model_name: "openai/gpt-4o-mini"
     max_tokens: 3000
     additional_params: {}
-  llama:
+  Meta-Llama-3.1-8B-Instruct:
     model_name: "huggingface/meta-llama/Meta-Llama-3.1-8B-Instruct"
     max_tokens: 3000
     additional_params: {}
+  Qwen2-VL-7B-Instruct:
+    model_name: "huggingface/Qwen/Qwen2-VL-7B-Instruct"
+    max_tokens: 3000
+    additional_params: {}
+    

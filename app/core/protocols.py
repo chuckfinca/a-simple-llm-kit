@@ -1,4 +1,4 @@
-from typing import Protocol, Any, TypeVar, Dict
+from typing import Protocol, Any, TypeVar
 from app.core.types import MediaType, PipelineData
 
 T = TypeVar('T')
