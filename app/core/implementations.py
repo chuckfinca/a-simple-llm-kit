@@ -46,7 +46,7 @@ class ImageType(Enum):
     PNG = "png"
     JPEG = "jpeg"
     NONE = "none"
-check claude for bugfix
+
 class ImageInput(BaseModel):
     content: Union[str, bytes]
     type: ImageType = Field(default=ImageType.NONE)
