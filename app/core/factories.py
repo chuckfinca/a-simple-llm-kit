@@ -1,4 +1,4 @@
-from app.core.implementations import DSPyBackend, ImageConverterStep, ImageValidator, ModelProcessor
+from app.core.implementations import DSPyBackend, ImageConverterStep, ImageTypeValidator, ModelProcessor
 from app.core.pipeline import Pipeline
 from app.core.protocols import Processor
 from app.core.types import MediaType
@@ -20,7 +20,7 @@ def create_business_card_processor(model_manager, model_id: str) -> Processor:
     backend = DSPyBackend(model_manager, model_id, BusinessCardExtractor)
     
     pipeline = Pipeline([
-        ImageValidator(),
+        ImageTypeValidator(),
         ImageConverterStep(),
         ModelProcessor(
             backend=backend,

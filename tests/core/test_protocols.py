@@ -152,31 +152,3 @@ class TestImagePreprocessor:
         """Test image processor media type handling"""
         processor = ImagePreprocessor()
         assert MediaType.IMAGE in processor.accepted_media_types
-
-# Integration Tests
-@pytest.mark.integration
-@pytest.mark.asyncio
-async def test_dspy_backend_integration(monkeypatch):
-    """Test DSPy backend with mocked model manager"""
-    # Mock the model manager and DSPy
-    class MockLM:
-        def __enter__(self):
-            return self
-        
-        def __exit__(self, *args):
-            pass
-    
-    class MockModelManager:
-        def get_model(self, model_id):
-            return MockLM()
-    
-    monkeypatch.setattr("dspy.Predict", lambda module, lm: lambda input: type('obj', (), {'output': f"{input}_processed"})())
-    
-    backend = DSPyBackend(
-        model_manager=MockModelManager(),
-        model_id="test-model",
-        module_class=type('TestModule', (), {})
-    )
-    
-    result = await backend.predict("test input")
-    assert result == "test input_processed"

@@ -10,16 +10,20 @@ from app.core.protocols import ModelBackend
 
 class DSPyBackend:
     """DSPy-based model implementation"""
-    def __init__(self, model_manager, model_id: str, signature):
+    def __init__(self, model_manager, model_id: str, signature_class):
         self.model_manager = model_manager
         self.model_id = model_id
-        self.signature = signature
+        self.signature_class = signature_class
     
     async def predict(self, input: Any) -> Any:
         with self.model_manager.get_model(self.model_id) as lm:
             dspy.configure(lm=lm)
-            predictor = dspy.Predict(self.signature, lm)
-            result = predictor(input=input)
+            predictor = dspy.Predict(self.signature_class, lm)
+            print(input)
+            if self.signature_class.__name__ == 'BusinessCardExtractor':
+                result = predictor(image=input)
+            else:
+                result = predictor(input=input)
             return result.output
 
 class ModelProcessor:
@@ -47,67 +51,69 @@ class ImageType(Enum):
     JPEG = "jpeg"
     NONE = "none"
 
-class ImageInput(BaseModel):
-    content: Union[str, bytes]
-    type: ImageType = Field(default=ImageType.NONE)
+class ImageTypeValidator:
+    """Validates and detects image types in the pipeline"""
     
-    @field_validator("content")
-    @classmethod
-    def validate_image(cls, v: Union[str, bytes], info) -> Union[str, bytes]:
-        image_type = None
-        
-        if isinstance(v, bytes):
-            if v.startswith(b'\x89PNG\r\n'):
-                image_type = ImageType.PNG
-            elif v.startswith(b'\xff\xd8\xff'):
-                image_type = ImageType.JPEG
-            else:
-                raise ValueError("Invalid image bytes")
-                
-        elif isinstance(v, str):
-            path = Path(v)
-            if path.exists():
-                with open(path, 'rb') as f:
-                    header = f.read(4)
-                    if header.startswith(b'\x89PNG'):
-                        image_type = ImageType.PNG
-                    elif header.startswith(b'\xff\xd8\xff'):
-                        image_type = ImageType.JPEG
-                    else:
-                        raise ValueError("Not a PNG/JPEG file")
-            else:
-                try:
-                    decoded = base64.b64decode(v)
-                    if decoded.startswith((b'\x89PNG', b'\xff\xd8\xff')):
-                        image_type = ImageType.BASE64
-                except:
-                    raise ValueError("Must be valid file path or base64 string")
-                    
-        if not image_type:
-            raise ValueError("Input must be string or bytes")
-            
-        info.context["type"] = image_type
-        return v
+    def __init__(self):
+        self._accepted_types = [MediaType.IMAGE]
     
-    @field_validator("type", mode="before")
-    @classmethod
-    def set_type(cls, v, info):
-        return info.context.get("type", ImageType.NONE)
-    
-
-class ImageValidator:
-    """Validates image input format"""
     @property
-    def accepted_media_types(self) -> list[MediaType]:
-        return [MediaType.IMAGE]
-        
+    def accepted_media_types(self) -> List[MediaType]:
+        """Implement accepted_media_types as required by Processor protocol"""
+        return self._accepted_types
+    
     async def process(self, data: PipelineData) -> PipelineData:
-        validated = ImageInput(content=data.content)
+        """Implement process method as required by Processor protocol"""
+        # Validate the image type
+        image_type = self.detect_type(data.content)
+        
+        # Return data with updated metadata
         return PipelineData(
             media_type=MediaType.IMAGE,
             content=data.content,
-            metadata={**data.metadata, "image_type": validated.type.value}
+            metadata={
+                **data.metadata,
+                'detected_image_type': image_type.value,
+                'validated': True
+            }
         )
+    
+    @staticmethod
+    def detect_type(content: Union[str, bytes]) -> ImageType:
+        if isinstance(content, bytes):
+            return ImageTypeValidator._detect_from_bytes(content)
+        return ImageTypeValidator._detect_from_str(content)
+            
+    @staticmethod
+    def _detect_from_bytes(data: bytes) -> ImageType:
+        if data.startswith(b'\x89PNG\r\n'):
+            return ImageType.PNG
+        if data.startswith(b'\xff\xd8\xff'):
+            return ImageType.JPEG
+        raise ValueError("Invalid image bytes")
+    
+    @staticmethod
+    def _detect_from_str(data: str) -> ImageType:
+        path = Path(data)
+        if path.exists():
+            with open(path, 'rb') as f:
+                return ImageTypeValidator._detect_from_bytes(f.read(4))
+                
+        try:
+            decoded = base64.b64decode(data)
+            if ImageTypeValidator._detect_from_bytes(decoded):
+                return ImageType.BASE64
+        except:
+            raise ValueError("Must be valid file path or base64 string")
+
+
+class ImageInput(BaseModel):
+    content: Union[str, bytes] 
+    type: ImageType = Field(default_factory=lambda: ImageType.NONE)
+    
+    def __init__(self, **data):
+        super().__init__(**data)
+        self.type = ImageTypeValidator.detect_type(self.content)
         
 
 class ImageConverterStep:
