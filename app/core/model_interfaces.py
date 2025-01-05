@@ -1,5 +1,5 @@
 from typing import Any, Optional, Protocol, runtime_checkable
-from pydantic import BaseModel
+import pydantic
 
 @runtime_checkable
 class ModelOutput(Protocol):
@@ -16,14 +16,14 @@ class Signature(Protocol):
         """Process raw model output into standardized format"""
         ...
 
-class TextOutput(BaseModel):
+class TextOutput(pydantic.BaseModel):
     """Text output from language models"""
     text: str
     
     def to_response(self) -> str:
         return self.text
 
-class BusinessCardOutput(BaseModel):
+class BusinessCardOutput(pydantic.BaseModel):
     """Structured business card data"""
     name: dict
     work: dict

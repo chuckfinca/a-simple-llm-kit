@@ -5,15 +5,6 @@ import dspy
 
 from app.core.model_interfaces import BusinessCardOutput
 
-class BusinessCardOutput(pydantic.BaseModel):
-    name: dict
-    work: dict
-    contact: dict
-    notes: Optional[str] = None
-    
-    def to_response(self) -> dict:
-        return self.model_dump()
-
 class BusinessCardExtractor(dspy.Signature):
     """Extract business card information from an image."""
 
