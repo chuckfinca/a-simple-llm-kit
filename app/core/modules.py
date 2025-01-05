@@ -1,7 +1,18 @@
-from typing import Optional, List
+from typing import Any, Optional, List
 from typing_extensions import TypedDict
-
+import pydantic
 import dspy
+
+from app.core.model_interfaces import BusinessCardOutput
+
+class BusinessCardOutput(pydantic.BaseModel):
+    name: dict
+    work: dict
+    contact: dict
+    notes: Optional[str] = None
+    
+    def to_response(self) -> dict:
+        return self.model_dump()
 
 class BusinessCardExtractor(dspy.Signature):
     """Extract business card information from an image."""
@@ -41,3 +52,28 @@ class BusinessCardExtractor(dspy.Signature):
     # Optional Information
     social_profiles: List[str] = dspy.OutputField() #(description="List of social media profiles")
     notes: Optional[str] = dspy.OutputField() #(description="Additional notes or information")
+
+    @classmethod
+    def process_output(cls, result: Any) -> BusinessCardOutput:
+        return BusinessCardOutput(
+            name={
+                "prefix": result.name_prefix,
+                "given_name": result.given_name,
+                "middle_name": result.middle_name,
+                "family_name": result.family_name,
+                "suffix": result.name_suffix
+            },
+            work={
+                "job_title": result.job_title,
+                "department": result.department_name,
+                "organization": result.organization_name
+            },
+            contact={
+                "phone_numbers": result.phone_numbers,
+                "email_addresses": result.email_addresses,
+                "postal_addresses": result.postal_addresses,
+                "url_addresses": result.url_addresses,
+                "social_profiles": result.social_profiles
+            },
+            notes=result.notes
+        )

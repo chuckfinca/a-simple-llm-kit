@@ -7,24 +7,31 @@ from pydantic import BaseModel, Field, field_validator
 
 from app.core.types import MediaType, PipelineData
 from app.core.protocols import ModelBackend
+from app.core.model_interfaces import ModelOutput
 
-class DSPyBackend:
-    """DSPy-based model implementation"""
-    def __init__(self, model_manager, model_id: str, signature_class):
+from typing import Any
+from app.core.protocols import ModelBackend
+from app.core.model_interfaces import Signature, ModelOutput
+import dspy
+
+class DSPyModelBackend:
+    """Concrete implementation of ModelBackend protocol"""
+    def __init__(self, model_manager, model_id: str, signature_class: type[Signature]):
         self.model_manager = model_manager
         self.model_id = model_id
-        self.signature_class = signature_class
+        self.signature = signature_class
     
-    async def predict(self, input: Any) -> Any:
+    async def predict(self, input_data: Any) -> ModelOutput:
         with self.model_manager.get_model(self.model_id) as lm:
             dspy.configure(lm=lm)
-            predictor = dspy.Predict(self.signature_class, lm)
-            print(input)
-            if self.signature_class.__name__ == 'BusinessCardExtractor':
-                result = predictor(image=input)
-            else:
-                result = predictor(input=input)
-            return result.output
+            predictor = dspy.Predict(self.signature, lm)
+            
+            # Let each signature determine its input format
+            input_key = "image" if self.signature.__name__ == 'BusinessCardExtractor' else "input"
+            raw_result = predictor(**{input_key: input_data})
+            
+            return self.signature.process_output(raw_result)
+
 
 class ModelProcessor:
     """Standard processor for model-based operations"""
@@ -50,6 +57,16 @@ class ImageType(Enum):
     PNG = "png"
     JPEG = "jpeg"
     NONE = "none"
+    
+    def to_mime_type(self) -> str:
+        """Convert image type to MIME type string"""
+        mime_types = {
+            ImageType.PNG: "image/png",
+            ImageType.JPEG: "image/jpeg",
+            ImageType.BASE64: "image/png",  # Default to PNG for base64
+            ImageType.NONE: "application/octet-stream"
+        }
+        return mime_types[self]
 
 class ImageTypeValidator:
     """Validates and detects image types in the pipeline"""
@@ -138,16 +155,20 @@ class ImageConverterStep:
                 image_bytes = image_input.content
                 
             # Convert to base64
-            base64_content = base64.b64encode(image_bytes).decode('utf-8')
+            base64_data = base64.b64encode(image_bytes).decode('utf-8')
         else:
-            base64_content = image_input.content
-            
+            base64_data = image_input.content
+        
+        mime_type = image_input.type.to_mime_type()
+        data_uri = f"data:{mime_type};base64,{base64_data}"
+
         return PipelineData(
             media_type=MediaType.IMAGE,
-            content=base64_content,
+            content=data_uri,  # Complete data URI
             metadata={
                 **data.metadata,
                 'original_type': image_input.type.value,
-                'converted_to': 'base64'
+                'mime_type': mime_type,  # New field
+                'converted_to': 'data_uri'
             }
         )

@@ -9,6 +9,6 @@ models:
     additional_params: {}
   Qwen2-VL-7B-Instruct:
     model_name: "huggingface/Qwen/Qwen2-VL-7B-Instruct"
-    max_tokens: 3000
+    max_tokens: 2538 # probably need to make this dynamic based on model and image size
     additional_params: {}
     

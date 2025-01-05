@@ -1,3 +1,4 @@
+import dspy
 from fastapi import APIRouter, HTTPException, Request
 from app.api.schemas import PipelineRequest, PipelineResponse, QueryRequest, QueryResponse
 from app.core.pipeline import Pipeline
@@ -69,8 +70,12 @@ async def process_business_card(request: Request, pipeline_req: PipelineRequest)
         metadata=pipeline_req.params
     ))
     
-    return PipelineResponse(
+    response = PipelineResponse(
         content=result.content,
         media_type=result.media_type,
         metadata=result.metadata
     )
+    
+    dspy.inspect_history(n=1)
+    
+    return response
