@@ -1,8 +1,7 @@
-# tests/core/test_factories.py
 import pytest
 from app.core.types import MediaType
 from app.core.factories import create_text_processor
-from app.core.protocols import Processor
+from app.core.protocols import PipelineStep
 
 @pytest.fixture
 def mock_model_manager(monkeypatch):
@@ -28,8 +27,8 @@ def test_create_text_processor(mock_model_manager):
     """Test creation of text processor"""
     processor = create_text_processor(mock_model_manager, "test-model")
     
-    # Verify it implements the Processor protocol
-    assert isinstance(processor, Processor)
+    # Verify it implements the PipelineStep protocol
+    assert isinstance(processor, PipelineStep)
     assert MediaType.TEXT in processor.accepted_media_types
 
 @pytest.mark.asyncio

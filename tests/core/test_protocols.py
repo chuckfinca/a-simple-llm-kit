@@ -1,9 +1,7 @@
-# tests/core/test_protocols.py
 import pytest
-from typing import Protocol
 from app.core.types import MediaType, PipelineData
-from app.core.protocols import Processor, ModelBackend
-from app.core.implementations import ModelProcessor, ImagePreprocessor, DSPyBackend
+from app.core.protocols import ModelBackend
+from app.core.implementations import ModelProcessor
 from app.core.pipeline import Pipeline
 
 # Test Data
@@ -24,7 +22,7 @@ def image_data():
     )
 
 # Mock Implementations
-class MockProcessor:
+class MockPipelineStep:
     """Simple processor that adds a prefix to text content"""
     def __init__(self, prefix: str = "processed_"):
         self.prefix = prefix
@@ -48,9 +46,9 @@ class MockModelBackend:
 
 # Protocol Conformance Tests
 def test_processor_protocol_conformance():
-    """Test that our implementations properly satisfy the Processor protocol"""
-    # This will fail type checking if MockProcessor doesn't implement Protocol
-    processor: Processor = MockProcessor()
+    """Test that our implementations properly satisfy the PipelineStep protocol"""
+    # This will fail type checking if MockPipelineStep doesn't implement Protocol
+    processor: PipelineStep = MockPipelineStep()
     assert hasattr(processor, 'process')
     assert hasattr(processor, 'accepted_media_types')
 
@@ -63,7 +61,7 @@ def test_model_backend_protocol_conformance():
 @pytest.mark.asyncio
 async def test_pipeline_single_processor(text_data):
     """Test pipeline with a single processor"""
-    processor = MockProcessor()
+    processor = MockPipelineStep()
     pipeline = Pipeline([processor])
     
     result = await pipeline.execute(text_data)
@@ -75,8 +73,8 @@ async def test_pipeline_single_processor(text_data):
 async def test_pipeline_multiple_processors(text_data):
     """Test pipeline with multiple processors in sequence"""
     processors = [
-        MockProcessor("first_"),
-        MockProcessor("second_")
+        MockPipelineStep("first_"),
+        MockPipelineStep("second_")
     ]
     pipeline = Pipeline(processors)
     
@@ -87,7 +85,7 @@ async def test_pipeline_multiple_processors(text_data):
 @pytest.mark.asyncio
 async def test_pipeline_validation():
     """Test that pipeline validates media type compatibility"""
-    text_processor = MockProcessor()
+    text_processor = MockPipelineStep()
     image_processor = ImagePreprocessor()
     
     # Should raise ValueError due to incompatible media types

@@ -1,16 +1,13 @@
-from typing import Protocol, Any, TypeVar
+from typing import Protocol, Any, List
 from app.core.types import MediaType, PipelineData
 
-T = TypeVar('T')
-U = TypeVar('U')
-
-class Processor(Protocol):
-    """Protocol defining what a processor must implement"""
+class PipelineStep(Protocol):
+    """Protocol defining what a pipeline step must implement"""
     async def process(self, data: PipelineData) -> PipelineData:
         ...
     
     @property
-    def accepted_media_types(self) -> list[MediaType]:
+    def accepted_media_types(self) -> List[MediaType]:
         ...
 
 class ModelBackend(Protocol):

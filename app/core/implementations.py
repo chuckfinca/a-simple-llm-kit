@@ -3,7 +3,7 @@ import dspy
 from enum import Enum
 from pathlib import Path
 import base64
-from pydantic import BaseModel, Field, field_validator
+from pydantic import BaseModel, Field
 
 from app.core.types import MediaType, PipelineData
 from app.core.protocols import ModelBackend
@@ -76,11 +76,11 @@ class ImageTypeValidator:
     
     @property
     def accepted_media_types(self) -> List[MediaType]:
-        """Implement accepted_media_types as required by Processor protocol"""
+        """Implement accepted_media_types as required by PipelineStep protocol"""
         return self._accepted_types
     
     async def process(self, data: PipelineData) -> PipelineData:
-        """Implement process method as required by Processor protocol"""
+        """Implement process method as required by PipelineStep protocol"""
         # Validate the image type
         image_type = self.detect_type(data.content)
         
