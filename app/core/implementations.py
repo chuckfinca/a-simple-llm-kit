@@ -111,17 +111,25 @@ class ImageTypeValidator:
     
     @staticmethod
     def _detect_from_str(data: str) -> ImageType:
-        path = Path(data)
-        if path.exists():
-            with open(path, 'rb') as f:
-                return ImageTypeValidator._detect_from_bytes(f.read(4))
+        # First check if it's a reasonable length for a file path
+        if len(data) < 1024:
+            try:
+                path = Path(data)
+                if path.exists():
+                    with open(path, 'rb') as f:
+                        return ImageTypeValidator._detect_from_bytes(f.read(4))
+            except (OSError, IOError):
+                pass
                 
+        # If not a file path, treat as base64
         try:
+            # Handle data URI format
+            if ',' in data:
+                data = data.split(',', 1)[1]
             decoded = base64.b64decode(data)
-            if ImageTypeValidator._detect_from_bytes(decoded):
-                return ImageType.BASE64
+            return ImageType.BASE64
         except:
-            raise ValueError("Must be valid file path or base64 string")
+            return ImageType.BASE64  # Default to base64 for long strings
 
 
 class ImageInput(BaseModel):
