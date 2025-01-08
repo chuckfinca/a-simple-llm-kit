@@ -15,21 +15,3 @@ class Signature(Protocol):
     def process_output(cls, result: Any) -> ModelOutput:
         """Process raw model output into standardized format"""
         ...
-
-class TextOutput(pydantic.BaseModel):
-    """Text output from language models"""
-    text: str
-    
-    def to_response(self) -> str:
-        return self.text
-
-class BusinessCardOutput(pydantic.BaseModel):
-    """Structured business card data"""
-    name: dict
-    work: dict
-    contact: dict
-    notes: Optional[str] = None
-    
-    def to_response(self) -> dict:
-        return self.model_dump()
-        

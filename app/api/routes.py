@@ -1,6 +1,7 @@
 import dspy
 from fastapi import APIRouter, HTTPException, Request
 from app.api.schemas import PipelineRequest, PipelineResponse, QueryRequest, QueryResponse
+from app.core.modules import BusinessCardPipelineResponse, BusinessCardResponse
 from app.core.pipeline import Pipeline
 from app.core.types import PipelineData, MediaType
 from app.core.factories import create_business_card_processor, create_text_processor
@@ -55,7 +56,7 @@ async def predict_pipeline(request: Request, pipeline_req: PipelineRequest):
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
     
-@router.post("/pipeline/business-card", response_model=PipelineResponse)
+@router.post("/pipeline/business-card", response_model=BusinessCardPipelineResponse)
 async def process_business_card(request: Request, pipeline_req: PipelineRequest):
     model_manager = request.app.state.model_manager
     pipeline = create_business_card_processor(
@@ -70,8 +71,8 @@ async def process_business_card(request: Request, pipeline_req: PipelineRequest)
         metadata=pipeline_req.params
     ))
     
-    response = PipelineResponse(
-        content=result.content,
+    response = BusinessCardPipelineResponse(
+        content=result.content,  # Already validated by BusinessCardExtractor
         media_type=result.media_type,
         metadata=result.metadata
     )
