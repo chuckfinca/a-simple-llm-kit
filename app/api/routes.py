@@ -1,7 +1,7 @@
 import dspy
 from fastapi import APIRouter, HTTPException, Request
+from fastapi.responses import JSONResponse
 from app.api.schemas import PipelineRequest, PipelineResponse, QueryRequest, QueryResponse
-from app.core.modules import BusinessCardPipelineResponse, BusinessCardResponse
 from app.core.pipeline import Pipeline
 from app.core.types import PipelineData, MediaType
 from app.core.factories import create_business_card_processor, create_text_processor
@@ -56,27 +56,37 @@ async def predict_pipeline(request: Request, pipeline_req: PipelineRequest):
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
     
-@router.post("/pipeline/business-card", response_model=BusinessCardPipelineResponse)
+@router.post("/pipeline/business-card")
 async def process_business_card(request: Request, pipeline_req: PipelineRequest):
-    model_manager = request.app.state.model_manager
-    pipeline = create_business_card_processor(
-        model_manager,
-        pipeline_req.params.get("model_id"),
-    )
-    
-    # Use pipeline directly
-    result = await pipeline.execute(PipelineData(
-        media_type=MediaType.IMAGE,
-        content=pipeline_req.content,
-        metadata=pipeline_req.params
-    ))
-    
-    response = BusinessCardPipelineResponse(
-        content=result.content,  # Already validated by BusinessCardExtractor
-        media_type=result.media_type,
-        metadata=result.metadata
-    )
-    
-    dspy.inspect_history(n=1)
-    
-    return response
+    try:
+        model_manager = request.app.state.model_manager
+        pipeline = create_business_card_processor(
+            model_manager,
+            pipeline_req.params.get("model_id"),
+        )
+        
+        result = await pipeline.execute(PipelineData(
+            media_type=MediaType.IMAGE,
+            content=pipeline_req.content,
+            metadata=pipeline_req.params
+        ))
+        
+        # Create a clean response dictionary
+        response_data = {
+            "content": {
+                "name": result.content.name.model_dump(exclude_none=True),
+                "work": result.content.work.model_dump(exclude_none=True),
+                "contact": result.content.contact.model_dump(exclude_none=True),
+                "notes": result.content.notes
+            },
+            "media_type": result.media_type.value,  # Convert enum to string
+            "metadata": result.metadata
+        }
+        
+        dspy.inspect_history(n=1)
+        
+        # Return a proper JSONResponse
+        return JSONResponse(content=response_data)
+        
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))

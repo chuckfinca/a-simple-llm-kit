@@ -18,7 +18,7 @@ class WorkInformation(pydantic.BaseModel):
     """Structured format for work-related information"""
     job_title: Optional[str] = Field(None, description="Professional title")
     department: Optional[str] = Field(None, description="Department within organization")
-    organization: Optional[str] = Field(None, description="Company or organization name")
+    organization_name: Optional[str] = Field(None, description="Company or organization name")
 
 class PostalAddress(pydantic.BaseModel):
     """Structured format for a postal address"""
@@ -91,7 +91,7 @@ class BusinessCardExtractor(dspy.Signature):
             work=WorkInformation(
                 job_title=result.job_title,
                 department=result.department_name,
-                organization=result.organization_name
+                organization_name=result.organization_name
             ),
             contact=ContactInformation(
                 phone_numbers=result.phone_numbers,
