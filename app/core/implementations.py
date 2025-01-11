@@ -3,7 +3,7 @@ import dspy
 from enum import Enum
 from pathlib import Path
 import base64
-from pydantic import BaseModel, Field
+import pydantic
 
 from app.core.types import MediaType, PipelineData
 from app.core.protocols import ModelBackend
@@ -132,9 +132,9 @@ class ImageTypeValidator:
             return ImageType.BASE64  # Default to base64 for long strings
 
 
-class ImageInput(BaseModel):
+class ImageInput(pydantic.BaseModel):
     content: Union[str, bytes] 
-    type: ImageType = Field(default_factory=lambda: ImageType.NONE)
+    type: ImageType = pydantic.Field(default_factory=lambda: ImageType.NONE)
     
     def __init__(self, **data):
         super().__init__(**data)

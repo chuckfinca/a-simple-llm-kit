@@ -1,6 +1,5 @@
-import code
 from app.models.predictor import Predictor
-from app.api.schemas import QueryRequest
+from app.api.schemas.requests import QueryRequest
 import dspy
 
 class PredictionService:

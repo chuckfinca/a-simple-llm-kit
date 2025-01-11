@@ -1,12 +1,13 @@
 import dspy
 from fastapi import APIRouter, HTTPException, Request
 from fastapi.responses import JSONResponse
-from app.api.schemas import PipelineRequest, PipelineResponse, QueryRequest, QueryResponse
+from app.api.schemas.requests import PipelineRequest, QueryRequest
+from app.api.schemas.responses import BusinessCardResponse, PipelineResponse, QueryResponse
 from app.core.pipeline import Pipeline
 from app.core.types import PipelineData, MediaType
 from app.core.factories import create_business_card_processor, create_text_processor
 from app.services.prediction import PredictionService
-from datetime import datetime
+from datetime import datetime, timezone
 
 router = APIRouter()
 
@@ -20,7 +21,7 @@ async def predict(request: Request, query: QueryRequest):
             response=result,
             model_used=query.model_id,
             metadata={
-                "timestamp": datetime.utcnow().isoformat(),
+                "timestamp": datetime.now(timezone.utc).isoformat(),
                 "temperature": query.temperature,
                 "max_tokens": query.max_tokens
             }
@@ -71,22 +72,13 @@ async def process_business_card(request: Request, pipeline_req: PipelineRequest)
             metadata=pipeline_req.params
         ))
         
-        # Create a clean response dictionary
-        response_data = {
-            "content": {
-                "name": result.content.name.model_dump(exclude_none=True),
-                "work": result.content.work.model_dump(exclude_none=True),
-                "contact": result.content.contact.model_dump(exclude_none=True),
-                "notes": result.content.notes
-            },
-            "media_type": result.media_type.value,  # Convert enum to string
-            "metadata": result.metadata
-        }
-        
         dspy.inspect_history(n=1)
         
-        # Return a proper JSONResponse
-        return JSONResponse(content=response_data)
+        return BusinessCardResponse(
+            success=True,
+            data=result.content,  # This is now a BusinessCard domain model
+            timestamp=datetime.now(timezone.utc)
+        )
         
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
