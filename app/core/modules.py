@@ -1,4 +1,4 @@
-from typing import Any, Optional, List
+from typing import Any, Literal, Optional, List
 import pydantic
 import dspy
 
@@ -35,11 +35,18 @@ class ContactInformation(pydantic.BaseModel):
     url_addresses: List[str] = pydantic.Field(default_factory=list, description="List of websites/URLs")
     social_profiles: List[str] = pydantic.Field(default_factory=list, description="List of social media profiles")
 
+class SocialProfiles(pydantic.BaseModel):
+    """Structured format for social profile information"""
+    service: str = pydantic.Field(default_factory=list, description="Name of social media service")
+    url: Optional[str] = pydantic.Field(default_factory=list, description="URL of service")
+    username: str = pydantic.Field(default_factory=list, description="User handle")
+
 class BusinessCard(pydantic.BaseModel):
     """Domain model for business card data"""
     name: PersonName
     work: WorkInformation
     contact: ContactInformation
+    social: List[SocialProfiles]
     notes: Optional[str] = pydantic.Field(None, description="Additional notes or information")
 
 class BusinessCardExtractor(dspy.Signature):
@@ -63,7 +70,7 @@ class BusinessCardExtractor(dspy.Signature):
     email_addresses: List[str] = dspy.OutputField()
     postal_addresses: List[PostalAddress] = dspy.OutputField()
     url_addresses: List[str] = dspy.OutputField()
-    social_profiles: List[str] = dspy.OutputField()
+    social_profiles: List[SocialProfiles] = dspy.OutputField()
     notes: Optional[str] = dspy.OutputField()
 
     @classmethod
@@ -86,8 +93,8 @@ class BusinessCardExtractor(dspy.Signature):
                 phone_numbers=result.phone_numbers,
                 email_addresses=result.email_addresses,
                 postal_addresses=[PostalAddress(**addr) for addr in result.postal_addresses],
-                url_addresses=result.url_addresses,
-                social_profiles=result.social_profiles
+                url_addresses=result.url_addresses
             ),
+            social=[SocialProfiles(**social) for social in result.social_profiles],
             notes=result.notes
         )
