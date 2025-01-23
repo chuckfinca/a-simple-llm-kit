@@ -8,7 +8,13 @@ class Settings(BaseSettings):
     openai_api_key: str = os.getenv("OPENAI_API_KEY", "")
     anthropic_api_key: str = os.getenv("ANTHROPIC_API_KEY", "")
     huggingface_api_key: str = os.getenv("HUGGINGFACE_API_KEY", "")
+    llm_server_api_key: str = os.getenv("LLM_SERVER_API_KEY", "")
     log_level: str = "INFO"
 
     class Config:
         env_file = ".env"
+        
+    
+@lru_cache()
+def get_settings() -> Settings:
+    return Settings()

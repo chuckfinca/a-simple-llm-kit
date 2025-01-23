@@ -1,18 +1,18 @@
 import dspy
-from fastapi import APIRouter, HTTPException, Request
-from fastapi.responses import JSONResponse
+from fastapi import APIRouter, Depends, HTTPException, Request
 from app.api.schemas.requests import PipelineRequest, QueryRequest
 from app.api.schemas.responses import BusinessCardResponse, PipelineResponse, QueryResponse
 from app.core.pipeline import Pipeline
 from app.core.types import PipelineData, MediaType
 from app.core.factories import create_business_card_processor, create_text_processor
+from app.core.security import get_api_key
 from app.services.prediction import PredictionService
 from datetime import datetime, timezone
 
 router = APIRouter()
 
 @router.post("/predict", response_model=QueryResponse)
-async def predict(request: Request, query: QueryRequest):
+async def predict(request: Request, query: QueryRequest, api_key: str = Depends(get_api_key)):
     try:
         prediction_service = PredictionService(request.app.state.model_manager)
         result = await prediction_service.predict(query)
@@ -30,7 +30,7 @@ async def predict(request: Request, query: QueryRequest):
         raise HTTPException(status_code=500, detail=str(e))
 
 @router.post("/pipeline/predict")
-async def predict_pipeline(request: Request, pipeline_req: PipelineRequest):
+async def predict_pipeline(request: Request, pipeline_req: PipelineRequest, api_key: str = Depends(get_api_key)):
     model_manager = request.app.state.model_manager
     
     # Use factories to create processors based on media type
@@ -58,7 +58,7 @@ async def predict_pipeline(request: Request, pipeline_req: PipelineRequest):
         raise HTTPException(status_code=500, detail=str(e))
     
 @router.post("/pipeline/business-card")
-async def process_business_card(request: Request, pipeline_req: PipelineRequest):
+async def process_business_card(request: Request, pipeline_req: PipelineRequest, api_key: str = Depends(get_api_key)):
     try:
         model_manager = request.app.state.model_manager
         pipeline = create_business_card_processor(
