@@ -73,7 +73,7 @@ print(response.json()["content"])
 
 ## Configuration
 
-Models are configured in `config/model_config.yaml`:
+Models are configured in `config/model_config.yml`:
 
 ```yaml
 models:

@@ -11,6 +11,10 @@ from datetime import datetime, timezone
 
 router = APIRouter()
 
+@router.get("/health")
+async def health_check():
+    return {"status": "healthy"}
+
 @router.post("/predict", response_model=QueryResponse)
 async def predict(request: Request, query: QueryRequest, api_key: str = Depends(get_api_key)):
     try:
