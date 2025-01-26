@@ -72,8 +72,8 @@ def info(msg: str, *args, **kwargs):
 def warning(msg: str, *args, **kwargs):
     logger.warning(msg, *args, **kwargs)
 
-def error(msg: str, *args, **kwargs):
-    logger.error(msg, *args, **kwargs)
+def error(msg: str, *args, exc_info=True, **kwargs):
+    logger.error(msg, *args, exc_info=exc_info, **kwargs)
 
 def critical(msg: str, *args, **kwargs):
     logger.critical(msg, *args, **kwargs)

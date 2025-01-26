@@ -1,7 +1,7 @@
 import dspy
 from fastapi import APIRouter, Depends, HTTPException, Request
 from app.api.schemas.requests import PipelineRequest, QueryRequest
-from app.api.schemas.responses import BusinessCardResponse, PipelineResponse, QueryResponse
+from app.api.schemas.responses import BusinessCardResponse, PipelineResponse, QueryResponse, QueryResponseData
 from app.core.pipeline import Pipeline
 from app.core.rate_limiting import RateLimit, rate_limit
 from app.core.types import PipelineData, MediaType
@@ -30,7 +30,7 @@ async def predict(
         prediction_service = PredictionService(request.app.state.model_manager)
         result = await prediction_service.predict(query)
         
-        return QueryResponse(
+        response_data = QueryResponseData(
             response=result,
             model_used=query.model_id,
             metadata={
@@ -39,6 +39,7 @@ async def predict(
                 "max_tokens": query.max_tokens
             }
         )
+        return QueryResponse(success=True, data=response_data)
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
 
