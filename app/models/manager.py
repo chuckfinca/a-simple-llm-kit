@@ -1,7 +1,7 @@
 import yaml
-import logging
 from contextlib import contextmanager
 import dspy
+from app.core import logging
 from app.core.config import get_settings
 
 class ModelManager:

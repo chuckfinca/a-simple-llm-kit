@@ -4,6 +4,9 @@ from starlette.middleware.cors import CORSMiddleware
 from app.core.config import get_settings
 from app.api.routes import router
 from app.models.manager import ModelManager
+from app.core import logging
+
+logging.setup_logging() 
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
