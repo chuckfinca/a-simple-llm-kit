@@ -1,15 +1,23 @@
 import logging
+import logging.config
 import sys
-from typing import Optional
+from typing import Optional, ClassVar
 import pydantic
+from pathlib import Path
+
+# Create default logger first
+logger = logging.getLogger("llm_server")
+logger.addHandler(logging.NullHandler())
 
 class LogConfig(pydantic.BaseModel):
     """Logging configuration to be set for the server"""
     LOGGER_NAME: str = "llm_server"
-    LOG_FORMAT: str = "%(levelprefix)s | %(asctime)s | %(message)s"
+    LOG_FORMAT: str = "%(asctime)s | %(levelname)s | %(message)s"
     LOG_LEVEL: str = "DEBUG"
 
-    # Logging config
+    PROJECT_ROOT: ClassVar[Path] = Path(__file__).parent.parent.parent
+    LOG_DIR: ClassVar[Path] = PROJECT_ROOT / "logs"
+
     version: int = 1
     disable_existing_loggers: bool = False
     formatters: dict = {
@@ -27,13 +35,13 @@ class LogConfig(pydantic.BaseModel):
         "file": {
             "formatter": "default",
             "class": "logging.handlers.RotatingFileHandler",
-            "filename": "app.log",
+            "filename": str(LOG_DIR / "app.log"),
             "maxBytes": 10000000,  # 10MB
             "backupCount": 5,
         },
     }
     loggers: dict = {
-        LOGGER_NAME: {"handlers": ["default", "file"], "level": LOG_LEVEL},
+        "llm_server": {"handlers": ["default", "file"], "level": LOG_LEVEL},
     }
 
 def setup_logging(config: Optional[LogConfig] = None) -> None:
@@ -41,10 +49,11 @@ def setup_logging(config: Optional[LogConfig] = None) -> None:
     if config is None:
         config = LogConfig()
     
-    logging.config.dictConfig(config.model_dump())
-    logger = logging.getLogger(config.LOGGER_NAME)
+    # Ensure log directory exists
+    config.LOG_DIR.mkdir(exist_ok=True)
     
-    # Add exception handler
+    logging.config.dictConfig(config.model_dump())
+    
     def handle_exception(exc_type, exc_value, exc_traceback):
         if issubclass(exc_type, KeyboardInterrupt):
             sys.__excepthook__(exc_type, exc_value, exc_traceback)
@@ -52,3 +61,19 @@ def setup_logging(config: Optional[LogConfig] = None) -> None:
         logger.error("Uncaught exception", exc_info=(exc_type, exc_value, exc_traceback))
     
     sys.excepthook = handle_exception
+
+# Expose standard logging methods
+def debug(msg: str, *args, **kwargs):
+    logger.debug(msg, *args, **kwargs)
+
+def info(msg: str, *args, **kwargs):
+    logger.info(msg, *args, **kwargs)
+
+def warning(msg: str, *args, **kwargs):
+    logger.warning(msg, *args, **kwargs)
+
+def error(msg: str, *args, exc_info=True, **kwargs):
+    logger.error(msg, *args, exc_info=exc_info, **kwargs)
+
+def critical(msg: str, *args, **kwargs):
+    logger.critical(msg, *args, **kwargs)

@@ -1,13 +1,12 @@
-from typing import Dict
 import yaml
-import logging
 from contextlib import contextmanager
 import dspy
-from app.core.config import Settings
+from app.core import logging
+from app.core.config import get_settings
 
 class ModelManager:
     def __init__(self, config_path: str):
-        self.settings = Settings()
+        self.settings = get_settings()
         with open(config_path) as f:
             self.config = yaml.safe_load(f)
         self.models = {}
