@@ -13,8 +13,14 @@ from app.core.protocols import ModelBackend
 from app.core.model_interfaces import Signature, ModelOutput
 from app.core import logging
 
+from typing import Any
+import dspy
+from app.core.model_interfaces import ModelOutput
+from app.core.protocols import ModelBackend
+from app.core import logging
+
 class DSPyModelBackend(ModelBackend):
-    """DSPy model backend implementation with minimal retry logic"""
+    """DSPy model backend implementation with minimal retry logic and proper async handling"""
     def __init__(
         self,
         model_manager,
@@ -31,18 +37,23 @@ class DSPyModelBackend(ModelBackend):
         
         for attempt in range(max_attempts):
             try:
-                with self.model_manager.get_model(self.model_id) as lm:
-                    dspy.configure(lm=lm)
-                    predictor = dspy.Predict(self.signature, lm)
+                # Get model without context manager
+                lm = self.model_manager.models.get(self.model_id)
+                if not lm:
+                    raise ValueError(f"Model {self.model_id} not found")
                     
-                    # Determine input key based on signature
-                    input_key = "image" if self.signature.__name__ == 'BusinessCardExtractor' else "input"
-                    raw_result = predictor(**{input_key: input_data})
+                dspy.configure(lm=lm)
+                predictor = dspy.Predict(self.signature, lm)
+                
+                # Determine input key based on signature
+                input_key = "image" if self.signature.__name__ == 'ContactExtractor' else "input"
+                raw_result = predictor(**{input_key: input_data})
+                
+                return self.signature.process_output(raw_result)
                     
-                    return self.signature.process_output(raw_result)
-                    
-            except Exception as e:  # Using general Exception instead of specific dspy.errors.APIError
+            except Exception as e:
                 if attempt == max_attempts - 1:  # Last attempt
+                    logging.error(f"Final attempt failed for model {self.model_id}: {str(e)}")
                     raise  # Re-raise the last error
                     
                 delay = base_delay * (2 ** attempt)

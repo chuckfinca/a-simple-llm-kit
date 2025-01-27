@@ -37,5 +37,5 @@ class PipelineResponse(StandardResponse[PipelineResponseData]):
     pass
 
 class ExtractContactResponse(StandardResponse[ExtractContact]):
-    """Standardized response for business card data"""
+    """Standardized response for contact data"""
     pass

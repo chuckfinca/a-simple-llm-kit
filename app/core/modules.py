@@ -42,15 +42,15 @@ class SocialProfiles(pydantic.BaseModel):
     username: str = pydantic.Field(default_factory=list, description="User handle")
 
 class ExtractContact(pydantic.BaseModel):
-    """Domain model for business card data"""
+    """Domain model for contact data"""
     name: PersonName
     work: WorkInformation
     contact: ContactInformation
     social: List[SocialProfiles]
     notes: Optional[str] = pydantic.Field(None, description="Additional notes or information")
 
-class ExtractContactExtractor(dspy.Signature):
-    """Extract business card information from an image."""
+class ContactExtractor(dspy.Signature):
+    """Extract contact information from an image."""
     image: dspy.Image = dspy.InputField()
     
     # Name Information

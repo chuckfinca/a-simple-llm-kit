@@ -1,5 +1,4 @@
 import yaml
-from contextlib import contextmanager
 from app.core.config import get_settings
 from app.core.providers import ProviderManager
 from app.core import logging
@@ -26,12 +25,8 @@ class ModelManager:
                 logging.error(f"Failed to initialize model {model_id}: {str(e)}")
                 raise
 
-    @contextmanager
     def get_model(self, model_id: str):
+        """Get a model instance directly without context manager"""
         if model_id not in self.models:
             raise ValueError(f"Model {model_id} not found")
-        try:
-            yield self.models[model_id]
-        except Exception as e:
-            logging.error(f"Error with model {model_id}: {str(e)}")
-            raise
+        return self.models[model_id]

@@ -6,7 +6,7 @@ A lightweight, extensible server for working with large language models, focused
 
 - **Pipeline Architecture**: Process text and images through customizable steps
 - **Multi-Model Support**: Use models from OpenAI, Anthropic, or Hugging Face
-- **Business Card Processing**: Extract structured data from business card images
+- **Contact Extraction**: Extract structured data from business card images
 - **Type Safety**: Full typing support with Pydantic and runtime protocol checking
 
 ## Quick Start
@@ -48,7 +48,7 @@ response = requests.post("http://localhost:8000/predict",
 print(response.json()["response"])
 ```
 
-### Business Card Processing
+### Contact Extraction
 
 ```python
 import requests
