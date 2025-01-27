@@ -41,18 +41,17 @@ class DSPyModelBackend(ModelBackend):
                     
                     return self.signature.process_output(raw_result)
                     
-            except (dspy.errors.APIError, ConnectionError, TimeoutError) as e:
+            except Exception as e:  # Using general Exception instead of specific dspy.errors.APIError
                 if attempt == max_attempts - 1:  # Last attempt
                     raise  # Re-raise the last error
                     
-                delay = base_delay * (2 ** attempt)  # Simple exponential backoff
+                delay = base_delay * (2 ** attempt)
                 logging.warning(
-                    f"API call failed with {type(e).__name__}, "
+                    f"API call failed: {str(e)}, "
                     f"retrying in {delay} seconds... "
                     f"(attempt {attempt + 1}/{max_attempts})"
                 )
                 await asyncio.sleep(delay)
-
 
 class ModelProcessor:
     """Standard processor for model-based operations"""
