@@ -10,7 +10,7 @@ from app.core.security import get_api_key
 from app.services.prediction import PredictionService
 from datetime import datetime, timezone
 
-router = APIRouter()
+router = APIRouter(prefix="/v1")
 
 @router.get("/health")
 async def health_check(rate_check=None):
