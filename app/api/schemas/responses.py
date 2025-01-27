@@ -6,6 +6,9 @@ from app.core.modules import BusinessCard
 
 T = TypeVar('T')
 
+class HealthResponse(pydantic.BaseModel):
+    status: str
+
 class StandardResponse(pydantic.BaseModel, Generic[T]):
     """Standard envelope for all API responses"""
     success: bool = pydantic.Field(description="Indicates if the request was successful")

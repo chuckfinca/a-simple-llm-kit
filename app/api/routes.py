@@ -1,7 +1,7 @@
 import dspy
 from fastapi import APIRouter, Depends, HTTPException, Request
 from app.api.schemas.requests import PipelineRequest, QueryRequest
-from app.api.schemas.responses import BusinessCardResponse, PipelineResponse, QueryResponse, QueryResponseData
+from app.api.schemas.responses import BusinessCardResponse, HealthResponse, PipelineResponse, QueryResponse, QueryResponseData
 from app.core.pipeline import Pipeline
 from app.core.rate_limiting import RateLimit, rate_limit
 from app.core.types import PipelineData, MediaType
@@ -12,9 +12,9 @@ from datetime import datetime, timezone
 
 router = APIRouter(prefix="/v1")
 
-@router.get("/health")
+@router.get("/health", response_model=HealthResponse)
 async def health_check(rate_check=None):
-    return {"status": "healthy"}
+    return HealthResponse(status="healthy")
 
 @router.post("/predict", response_model=QueryResponse)
 async def predict(
@@ -43,7 +43,7 @@ async def predict(
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
 
-@router.post("/pipeline/predict")
+@router.post("/pipeline/predict", response_model=PipelineResponse)
 async def predict_pipeline(
     request: Request, 
     pipeline_req: PipelineRequest, 
@@ -79,7 +79,7 @@ async def predict_pipeline(
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
     
-@router.post("/pipeline/business-card")
+@router.post("/pipeline/business-card", response_model=BusinessCardResponse)
 async def process_business_card(
     request: Request, 
     pipeline_req: PipelineRequest, 
