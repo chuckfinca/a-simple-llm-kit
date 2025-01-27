@@ -58,7 +58,7 @@ import base64
 with open("business_card.png", "rb") as f:
     image_data = base64.b64encode(f.read()).decode()
 
-response = requests.post("http://localhost:8000/pipeline/extract-contact",
+response = requests.post("http://localhost:8000/extract-contact",
     json={
         "pipeline_id": "extract-contact",
         "content": image_data,

@@ -1,36 +1,57 @@
+import asyncio
 from typing import Any, List, Union
 import dspy
 from enum import Enum
 from pathlib import Path
 import base64
 import pydantic
+from typing import Any
 
 from app.core.types import MediaType, PipelineData
-from app.core.protocols import ModelBackend
 from app.core.model_interfaces import ModelOutput
-
-from typing import Any
 from app.core.protocols import ModelBackend
 from app.core.model_interfaces import Signature, ModelOutput
-import dspy
+from app.core import logging
 
-class DSPyModelBackend:
-    """Concrete implementation of ModelBackend protocol"""
-    def __init__(self, model_manager, model_id: str, signature_class: type[Signature]):
+class DSPyModelBackend(ModelBackend):
+    """DSPy model backend implementation with minimal retry logic"""
+    def __init__(
+        self,
+        model_manager,
+        model_id: str,
+        signature_class: type[Signature],
+    ):
         self.model_manager = model_manager
         self.model_id = model_id
         self.signature = signature_class
     
     async def predict(self, input_data: Any) -> ModelOutput:
-        with self.model_manager.get_model(self.model_id) as lm:
-            dspy.configure(lm=lm)
-            predictor = dspy.Predict(self.signature, lm)
-            
-            # Let each signature determine its input format
-            input_key = "image" if self.signature.__name__ == 'ExtractContactExtractor' else "input"
-            raw_result = predictor(**{input_key: input_data})
-            
-            return self.signature.process_output(raw_result)
+        max_attempts = 3
+        base_delay = 1  # seconds
+        
+        for attempt in range(max_attempts):
+            try:
+                with self.model_manager.get_model(self.model_id) as lm:
+                    dspy.configure(lm=lm)
+                    predictor = dspy.Predict(self.signature, lm)
+                    
+                    # Determine input key based on signature
+                    input_key = "image" if self.signature.__name__ == 'BusinessCardExtractor' else "input"
+                    raw_result = predictor(**{input_key: input_data})
+                    
+                    return self.signature.process_output(raw_result)
+                    
+            except (dspy.errors.APIError, ConnectionError, TimeoutError) as e:
+                if attempt == max_attempts - 1:  # Last attempt
+                    raise  # Re-raise the last error
+                    
+                delay = base_delay * (2 ** attempt)  # Simple exponential backoff
+                logging.warning(
+                    f"API call failed with {type(e).__name__}, "
+                    f"retrying in {delay} seconds... "
+                    f"(attempt {attempt + 1}/{max_attempts})"
+                )
+                await asyncio.sleep(delay)
 
 
 class ModelProcessor:

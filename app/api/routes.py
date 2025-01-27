@@ -79,7 +79,7 @@ async def predict_pipeline(
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
     
-@router.post("/pipeline/extract-contact", response_model=ExtractContactResponse)
+@router.post("/extract-contact", response_model=ExtractContactResponse)
 async def process_extract_contact(
     request: Request, 
     pipeline_req: PipelineRequest, 
