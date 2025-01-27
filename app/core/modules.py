@@ -41,7 +41,7 @@ class SocialProfiles(pydantic.BaseModel):
     url: Optional[str] = pydantic.Field(default_factory=list, description="URL of service")
     username: str = pydantic.Field(default_factory=list, description="User handle")
 
-class BusinessCard(pydantic.BaseModel):
+class ExtractContact(pydantic.BaseModel):
     """Domain model for business card data"""
     name: PersonName
     work: WorkInformation
@@ -49,7 +49,7 @@ class BusinessCard(pydantic.BaseModel):
     social: List[SocialProfiles]
     notes: Optional[str] = pydantic.Field(None, description="Additional notes or information")
 
-class BusinessCardExtractor(dspy.Signature):
+class ExtractContactExtractor(dspy.Signature):
     """Extract business card information from an image."""
     image: dspy.Image = dspy.InputField()
     
@@ -74,9 +74,9 @@ class BusinessCardExtractor(dspy.Signature):
     notes: Optional[str] = dspy.OutputField()
 
     @classmethod
-    def process_output(cls, result: Any) -> BusinessCard:
-        """Process raw output into validated BusinessCard domain model"""
-        return BusinessCard(
+    def process_output(cls, result: Any) -> ExtractContact:
+        """Process raw output into validated ExtractContact domain model"""
+        return ExtractContact(
             name=PersonName(
                 prefix=result.name_prefix,
                 given_name=result.given_name,

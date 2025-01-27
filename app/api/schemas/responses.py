@@ -2,7 +2,7 @@ from datetime import datetime, timezone
 from typing import Dict, Any, Generic, Optional, TypeVar
 import pydantic
 from app.core.types import MediaType
-from app.core.modules import BusinessCard
+from app.core.modules import ExtractContact
 
 T = TypeVar('T')
 
@@ -36,6 +36,6 @@ class PipelineResponse(StandardResponse[PipelineResponseData]):
     """Standardized response for pipeline endpoints"""
     pass
 
-class BusinessCardResponse(StandardResponse[BusinessCard]):
+class ExtractContactResponse(StandardResponse[ExtractContact]):
     """Standardized response for business card data"""
     pass

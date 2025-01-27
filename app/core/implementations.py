@@ -27,7 +27,7 @@ class DSPyModelBackend:
             predictor = dspy.Predict(self.signature, lm)
             
             # Let each signature determine its input format
-            input_key = "image" if self.signature.__name__ == 'BusinessCardExtractor' else "input"
+            input_key = "image" if self.signature.__name__ == 'ExtractContactExtractor' else "input"
             raw_result = predictor(**{input_key: input_data})
             
             return self.signature.process_output(raw_result)

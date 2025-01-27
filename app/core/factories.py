@@ -4,7 +4,7 @@ from app.core.pipeline import Pipeline
 from app.core.protocols import PipelineStep
 from app.core.types import MediaType
 from app.models.predictor import Predictor
-from app.core.modules import BusinessCardExtractor
+from app.core.modules import ExtractContactExtractor
 
 def create_text_processor(model_manager, model_id: str) -> PipelineStep:
     """Create a text completion processor"""
@@ -15,9 +15,9 @@ def create_text_processor(model_manager, model_id: str) -> PipelineStep:
         output_type=MediaType.TEXT
     )
 
-def create_business_card_processor(model_manager, model_id: str) -> PipelineStep:
+def create_extract_contact_processor(model_manager, model_id: str) -> PipelineStep:
     """Create business card processing pipeline"""
-    backend = DSPyModelBackend(model_manager, model_id, BusinessCardExtractor)
+    backend = DSPyModelBackend(model_manager, model_id, ExtractContactExtractor)
     
     pipeline = Pipeline([
         ImageTypeValidator(),

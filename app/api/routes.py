@@ -1,11 +1,11 @@
 import dspy
 from fastapi import APIRouter, Depends, HTTPException, Request
 from app.api.schemas.requests import PipelineRequest, QueryRequest
-from app.api.schemas.responses import BusinessCardResponse, HealthResponse, PipelineResponse, QueryResponse, QueryResponseData
+from app.api.schemas.responses import ExtractContactResponse, HealthResponse, PipelineResponse, QueryResponse, QueryResponseData
 from app.core.pipeline import Pipeline
 from app.core.rate_limiting import RateLimit, rate_limit
 from app.core.types import PipelineData, MediaType
-from app.core.factories import create_business_card_processor, create_text_processor
+from app.core.factories import create_extract_contact_processor, create_text_processor
 from app.core.security import get_api_key
 from app.services.prediction import PredictionService
 from datetime import datetime, timezone
@@ -79,8 +79,8 @@ async def predict_pipeline(
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
     
-@router.post("/pipeline/business-card", response_model=BusinessCardResponse)
-async def process_business_card(
+@router.post("/pipeline/extract-contact", response_model=ExtractContactResponse)
+async def process_extract_contact(
     request: Request, 
     pipeline_req: PipelineRequest, 
     api_key: str = Depends(get_api_key),
@@ -91,7 +91,7 @@ async def process_business_card(
     )))):
     try:
         model_manager = request.app.state.model_manager
-        pipeline = create_business_card_processor(
+        pipeline = create_extract_contact_processor(
             model_manager,
             pipeline_req.params.get("model_id"),
         )
@@ -104,9 +104,9 @@ async def process_business_card(
         
         dspy.inspect_history(n=1)
         
-        return BusinessCardResponse(
+        return ExtractContactResponse(
             success=True,
-            data=result.content,  # This is now a BusinessCard domain model
+            data=result.content,  # This is now a ExtractContact domain model
             timestamp=datetime.now(timezone.utc)
         )
         
