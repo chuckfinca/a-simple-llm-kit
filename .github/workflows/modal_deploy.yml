@@ -1,0 +1,47 @@
+name: Deploy to Modal
+
+on:
+  push:
+    tags: 'v*'
+  workflow_dispatch:
+    inputs:
+      environment:
+        description: 'Environment to deploy to'
+        required: true
+        default: 'staging'
+        type: choice
+        options:
+          - staging
+          - production
+
+jobs:
+  deploy:
+    name: Deploy to ${{ github.event.inputs.environment || 'staging' }}
+    runs-on: ubuntu-latest
+    environment: ${{ github.event.inputs.environment || 'staging' }}
+    
+    steps:
+      - uses: actions/checkout@v3
+      
+      - name: Set up Python
+        uses: actions/setup-python@v4
+        with:
+          python-version: '3.9'
+          
+      - name: Install Modal
+        run: pip install modal-client
+        
+      - name: Login to Modal
+        run: modal token set --token-id ${{ secrets.MODAL_ID }} --token-secret ${{ secrets.MODAL_SECRET }}
+        
+      - name: Create Modal Secrets
+        run: |
+          modal secret create llm-server-${{ github.event.inputs.environment || 'staging' }}-secrets \
+            OPENAI_API_KEY="${{ secrets.OPENAI_DEV }}" \
+            ANTHROPIC_API_KEY="${{ secrets.ANTHROPIC_DEV }}" \
+            HUGGINGFACE_API_KEY="${{ secrets.HF_DEV }}" \
+            LLM_SERVER_API_KEY="${{ secrets.LLM_SERVER }}" \
+            --overwrite
+            
+      - name: Deploy to Modal
+        run: modal deploy modal_deploy.py --name llm-server-${{ github.event.inputs.environment || 'staging' }}
