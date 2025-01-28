@@ -29,7 +29,7 @@ jobs:
           python-version: '3.9'
           
       - name: Install Modal
-        run: pip install modal-client
+        run: pip install modal
         
       - name: Login to Modal
         run: modal token set --token-id ${{ secrets.MODAL_ID }} --token-secret ${{ secrets.MODAL_SECRET }}
