@@ -1,4 +1,4 @@
-from typing import Any, Literal, Optional, List
+from typing import Any, Optional, List
 import pydantic
 import dspy
 
