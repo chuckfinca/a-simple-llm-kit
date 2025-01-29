@@ -32,8 +32,11 @@ jobs:
         run: pip install modal
         
       - name: Login to Modal
-        run: modal token set --token-id ${{ secrets.MODAL_ID }} --token-secret ${{ secrets.MODAL_SECRET }}
-        
+        env:
+          MODAL_TOKEN_ID: ${{ secrets.MODAL_ID }}
+          MODAL_TOKEN_SECRET: ${{ secrets.MODAL_SECRET }}
+        run: |
+          modal token set --token-id $MODAL_TOKEN_ID --token-secret $MODAL_TOKEN_SECRET
       - name: Create Modal Secrets
         run: |
           modal secret create llm-server-${{ github.event.inputs.environment || 'staging' }}-secrets \
