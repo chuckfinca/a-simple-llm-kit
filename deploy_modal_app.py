@@ -1,14 +1,5 @@
-try:
-    import modal
-    from modal import Image, App  # Explicitly try to import the classes we need
-    print("Modal successfully imported")
-except ImportError as e:
-    raise ImportError(
-        f"Error importing Modal or its components: {str(e)}\n"
-        "Please install it using: pip install modal-client"
-    )
+import modal
 import os
-from pathlib import Path
 
 # Get environment from env var, defaulting to staging
 ENVIRONMENT = os.getenv("ENVIRONMENT", "staging")
