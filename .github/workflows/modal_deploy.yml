@@ -47,8 +47,6 @@ jobs:
             HUGGINGFACE_API_KEY="${{ secrets.HF_DEV }}" \
             LLM_SERVER_API_KEY="${{ secrets.LLM_SERVER }}" \
             --force
-      - name: Setup
-        run: modal setup
             
       - name: Deploy to Modal
         run: modal deploy modal.py --name llm-server-${{ github.event.inputs.environment || 'staging' }}
