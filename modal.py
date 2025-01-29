@@ -1,9 +1,11 @@
 try:
     import modal
-    print(f"Modal version: {modal.__version__}")
-except ImportError:
+    from modal import Image, App  # Explicitly try to import the classes we need
+    print("Modal successfully imported")
+except ImportError as e:
     raise ImportError(
-        "Modal is not installed. Please install it using: pip install modal"
+        f"Error importing Modal or its components: {str(e)}\n"
+        "Please install it using: pip install modal-client"
     )
 import os
 from pathlib import Path
