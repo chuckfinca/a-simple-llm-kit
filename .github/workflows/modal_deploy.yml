@@ -41,7 +41,7 @@ jobs:
             ANTHROPIC_API_KEY="${{ secrets.ANTHROPIC_DEV }}" \
             HUGGINGFACE_API_KEY="${{ secrets.HF_DEV }}" \
             LLM_SERVER_API_KEY="${{ secrets.LLM_SERVER }}" \
-            --overwrite
+            --force
             
       - name: Deploy to Modal
         run: modal deploy modal_deploy.py --name llm-server-${{ github.event.inputs.environment || 'staging' }}
