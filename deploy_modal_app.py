@@ -18,7 +18,7 @@ volume = modal.Volume.from_name(f"{APP_NAME}-logs", create_if_missing=True)
 @modal_app.function(
     image=image,
     secrets=[ modal.Secret.from_name(f"llm-server-{ENVIRONMENT}-secrets")],
-    volume=volume,
+    volumes={"/data": volume},
     gpu="T4",
     memory=4096,
     timeout=600
