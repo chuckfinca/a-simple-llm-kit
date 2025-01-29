@@ -17,7 +17,7 @@ volume = modal.Volume.from_name(f"{APP_NAME}-logs", create_if_missing=True)
 # Define the web endpoint function
 @modal_app.function(
     image=image,
-    secret=[ modal.Secret.from_name(f"llm-server-{ENVIRONMENT}-secrets")],
+    secrets=[ modal.Secret.from_name(f"llm-server-{ENVIRONMENT}-secrets")],
     volume=volume,
     gpu="T4",
     memory=4096,
