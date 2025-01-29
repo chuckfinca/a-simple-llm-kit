@@ -9,11 +9,11 @@ APP_NAME = f"llm-server-{ENVIRONMENT}"
 # Create the modal_app
 modal_app = modal.App(APP_NAME)
 
-# Create image from Dockerfile
-image = modal.Image.add_local_dir("Dockerfile")
+# Use existing Dockerfile
+image = modal.Image.from_dockerfile("Dockerfile")
 
 # Create volume for logs
-volume = modal.Volume.from_name(f"{APP_NAME}-logs")
+volume = modal.Volume.from_name(f"{APP_NAME}-logs", create_if_missing=True)
 
 # Define the web endpoint function
 @modal_app.function(
@@ -28,7 +28,6 @@ volume = modal.Volume.from_name(f"{APP_NAME}-logs")
 )
 @modal.asgi_app()
 def fastapi_app():
-    # Import here to ensure imports happen inside container
     from app.main import app
     return app
 
@@ -43,13 +42,5 @@ def healthcheck():
     assert response.status_code == 200
     print("Health check passed!")
 
-# Mount directories for persistent storage
-MOUNT_POINTS = [
-    ("/app/logs", volume),
-]
-
-for path, vol in MOUNT_POINTS:
-    Path(path).mkdir(parents=True, exist_ok=True)
-    
 if __name__ == "__main__":
     modal_app.run()

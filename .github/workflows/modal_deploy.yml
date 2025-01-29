@@ -47,4 +47,4 @@ jobs:
             --force
             
       - name: Deploy to Modal
-        run: modal deploy modal_deploy.py --name llm-server-${{ github.event.inputs.environment || 'staging' }}
+        run: modal deploy modal.py --name llm-server-${{ github.event.inputs.environment || 'staging' }}
