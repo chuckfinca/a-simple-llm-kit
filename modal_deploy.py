@@ -6,20 +6,17 @@ from pathlib import Path
 ENVIRONMENT = os.getenv("ENVIRONMENT", "staging")
 APP_NAME = f"llm-server-{ENVIRONMENT}"
 
-# Create the stub
-stub = modal.Stub(APP_NAME)
+# Create the modal_app
+modal_app = modal.App(APP_NAME)
 
 # Create image from Dockerfile
-image = modal.Image.from_dockerfile(
-    "Dockerfile",
-    context_mount=modal.Mount.from_local_dir(".", remote_path="/app")
-)
+image = modal.Image.add_local_dir("Dockerfile")
 
 # Create volume for logs
-volume = modal.Volume.persisted(f"{APP_NAME}-logs")
+volume = modal.Volume.from_name(f"{APP_NAME}-logs")
 
 # Define the web endpoint function
-@stub.function(
+@modal_app.function(
     image=image,
     secret=[
         modal.Secret.from_name(f"llm-server-{ENVIRONMENT}-secrets")
@@ -36,7 +33,7 @@ def fastapi_app():
     return app
 
 # Create a healthcheck function
-@stub.function(
+@modal_app.function(
     image=image,
     schedule=modal.Period(minutes=30)
 )
@@ -55,4 +52,4 @@ for path, vol in MOUNT_POINTS:
     Path(path).mkdir(parents=True, exist_ok=True)
     
 if __name__ == "__main__":
-    stub.run()
+    modal_app.run()
