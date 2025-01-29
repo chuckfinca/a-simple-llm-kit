@@ -1,4 +1,10 @@
-import modal
+try:
+    import modal
+    print(f"Modal version: {modal.__version__}")
+except ImportError:
+    raise ImportError(
+        "Modal is not installed. Please install it using: pip install modal"
+    )
 import os
 from pathlib import Path
 
