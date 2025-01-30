@@ -50,3 +50,29 @@ jobs:
             
       - name: Deploy to Modal
         run: modal deploy deploy_modal_app.py --name llm-server-${{ github.event.inputs.environment || 'staging' }}
+      
+      - name: Get Modal Deployment URL
+        id: modal-url
+        run: |
+          MODAL_URL=$(modal app show llm-server-${{ github.event.inputs.environment || 'staging' }} --url)
+          echo "MODAL_URL=${MODAL_URL}" >> $GITHUB_ENV
+
+      - name: Update Cloudflare Tunnel
+        env:
+          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API }}
+          TUNNEL_ID: ${{ secrets.CLOUDFLARE_TUNNEL }}
+        run: |
+          # Update tunnel configuration using Cloudflare API
+          curl -X PUT "https://api.cloudflare.com/client/v4/accounts/${{ secrets.CLOUDFLARE_ACCOUNT }}/tunnels/${TUNNEL_ID}/configurations" \
+            -H "Authorization: Bearer ${CLOUDFLARE_API_TOKEN}" \
+            -H "Content-Type: application/json" \
+            --data '{
+              "config": {
+                "ingress": [
+                  {
+                    "hostname": "api.appsimple.io",
+                    "service": "'"${MODAL_URL}"'"
+                  }
+                ]
+              }
+            }'

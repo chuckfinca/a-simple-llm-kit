@@ -1,0 +1,57 @@
+name: Deploy to AWS
+
+# Template outlining how to get the deployment URL and then update/restart the Cloudflare tunnel.
+# That way the deploy_provider.yml will automatically switch the server over to the new provider 
+
+on:
+  push:
+    tags: 'v*'
+  workflow_dispatch:
+    inputs:
+      environment:
+        description: 'Environment to deploy to'
+        required: true
+        default: 'staging'
+        type: choice
+        options:
+          - staging
+          - production
+
+jobs:
+  deploy:
+    name: Deploy to ${{ github.event.inputs.environment || 'staging' }}
+    runs-on: ubuntu-latest
+    environment: ${{ github.event.inputs.environment || 'staging' }}
+    
+    steps:
+      - uses: actions/checkout@v3
+      
+      # Add your AWS deployment steps here
+      
+      - name: Get AWS Deployment URL
+        id: aws-url
+        run: |
+          # Replace this with your AWS CLI command to get the URL
+          AWS_URL=$(aws elasticbeanstalk describe-environments --query "Environments[0].CNAME" --output text)
+          echo "AWS_URL=${AWS_URL}" >> $GITHUB_ENV
+
+      - name: Update Cloudflare Tunnel
+        env:
+          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API }}
+          TUNNEL_ID: ${{ secrets.CLOUDFLARE_TUNNEL }}
+        run: |
+          # Update tunnel configuration using Cloudflare API
+          curl -X PUT "https://api.cloudflare.com/client/v4/accounts/${{ secrets.CLOUDFLARE_ACCOUNT }}/tunnels/${TUNNEL_ID}/configurations" \
+            -H "Authorization: Bearer ${CLOUDFLARE_API_TOKEN}" \
+            -H "Content-Type: application/json" \
+            --data '{
+              "config": {
+                "ingress": [
+                  {
+                    "hostname": "api.appsimple.io",
+                    "hostname": "api.appsimple.io",
+                    "service": "'"${AWS_URL}"'"
+                  }
+                ]
+              }
+            }'
