@@ -6,7 +6,7 @@ ENVIRONMENT = os.getenv("ENVIRONMENT", "staging")
 APP_NAME = f"llm-server-{ENVIRONMENT}"
 
 # Create the modal_app
-modal_app = modal.App(APP_NAME)
+app = modal.App(APP_NAME)
 
 # Use existing Dockerfile
 image = modal.Image.from_dockerfile("Dockerfile")
@@ -15,7 +15,7 @@ image = modal.Image.from_dockerfile("Dockerfile")
 volume = modal.Volume.from_name(f"{APP_NAME}-logs", create_if_missing=True)
 
 # Define the web endpoint function
-@modal_app.function(
+@app.function(
     image=image,
     secrets=[ modal.Secret.from_name(f"llm-server-{ENVIRONMENT}-secrets")],
     volumes={"/data": volume},
@@ -29,7 +29,7 @@ def fastapi_app():
     return app
 
 # Create a healthcheck function
-@modal_app.function(
+@app.function(
     image=image,
     schedule=modal.Period(minutes=30)
 )
@@ -40,4 +40,4 @@ def healthcheck():
     print("Health check passed!")
 
 if __name__ == "__main__":
-    modal_app.run()
+    app.run()
