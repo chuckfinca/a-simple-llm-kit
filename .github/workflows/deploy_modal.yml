@@ -58,8 +58,16 @@ jobs:
           MODAL_TOKEN_ID: ${{ secrets.MODAL_ID }}
           MODAL_TOKEN_SECRET: ${{ secrets.MODAL_SECRET }}
         run: |
-          # Get the app URL from the list command and filter for our app
-          MODAL_URL=$(modal app list --json | jq -r '.[] | select(.name=="llm-server-${{ github.event.inputs.environment || 'staging' }}") | .url')
+          echo "Listing all Modal apps..."
+          modal app list
+          echo "Listing Modal apps in JSON format..."
+          modal app list --json
+          
+          APP_NAME="llm-server-${{ github.event.inputs.environment || 'staging' }}"
+          echo "Looking for app: $APP_NAME"
+          
+          MODAL_URL="https://chuckfinca--${APP_NAME}-fastapi-app.modal.run"
+          echo "Setting MODAL_URL to: $MODAL_URL"
           echo "MODAL_URL=${MODAL_URL}" >> $GITHUB_ENV
       
       - name: Update Cloudflare Tunnel
