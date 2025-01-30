@@ -9,7 +9,6 @@ class Settings(BaseSettings):
     anthropic_api_key: str = os.getenv("ANTHROPIC_API_KEY", "")
     huggingface_api_key: str = os.getenv("HUGGINGFACE_API_KEY", "")
     llm_server_api_key: str = os.getenv("LLM_SERVER_API_KEY", "")
-    cloudflare_tunnel_token: str = os.getenv("CLOUDFLARE_TUNNEL_TOKEN", "")
     log_level: str = "INFO"
 
     class Config:
