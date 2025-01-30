@@ -58,13 +58,7 @@ jobs:
           MODAL_TOKEN_ID: ${{ secrets.MODAL_ID }}
           MODAL_TOKEN_SECRET: ${{ secrets.MODAL_SECRET }}
         run: |
-          echo "Listing all Modal apps..."
-          modal app list
-          echo "Listing Modal apps in JSON format..."
-          modal app list --json
-          
           APP_NAME="llm-server-${{ github.event.inputs.environment || 'staging' }}"
-          echo "Looking for app: $APP_NAME"
           
           MODAL_URL="https://chuckfinca--${APP_NAME}-fastapi-app.modal.run"
           echo "Setting MODAL_URL to: $MODAL_URL"
@@ -76,7 +70,7 @@ jobs:
           TUNNEL_ID: ${{ secrets.CLOUDFLARE_TUNNEL }}
         run: |
           # Update tunnel configuration using Cloudflare API
-          curl -X PUT "https://api.cloudflare.com/client/v4/accounts/${{ secrets.CLOUDFLARE_ACCOUNT }}/tunnels/${TUNNEL_ID}/configurations" \
+          curl -X PATCH "https://api.cloudflare.com/client/v4/accounts/${{ secrets.CLOUDFLARE_ACCOUNT }}/tunnels/${TUNNEL_ID}/configurations" \
             -H "Authorization: Bearer ${CLOUDFLARE_API_TOKEN}" \
             -H "Content-Type: application/json" \
             --data '{
@@ -85,7 +79,11 @@ jobs:
                   {
                     "hostname": "api.appsimple.io",
                     "service": "'"${MODAL_URL}"'"
+                  },
+                  {
+                    "service": "http_status:404"
                   }
                 ]
               }
             }'
+            --verbose
