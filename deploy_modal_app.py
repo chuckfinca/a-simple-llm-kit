@@ -37,6 +37,7 @@ volume = modal.Volume.from_name(f"{APP_NAME}-logs", create_if_missing=True)
     memory=4096,
     timeout=600
 )
+
 @modal.asgi_app()
 def fastapi_app():
     from app.main import app
