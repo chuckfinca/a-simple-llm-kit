@@ -43,7 +43,7 @@ jobs:
         env:
           CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API }}
           CLOUDFLARE_ACCOUNT: ${{ secrets.CLOUDFLARE_ACCOUNT }}
-          TUNNEL_ID: ${{ secrets.CLOUDFLARE_TUNNEL_ID }}
+          TUNNEL_ID: ${{ secrets.CLOUDFLARE_TUNNEL }}
         run: |
           echo "Checking tunnel status..."
           echo "Tunnel ID: ${TUNNEL_ID}"
@@ -76,6 +76,21 @@ jobs:
             exit 1
           fi
 
+      - name: Get Tunnel Info
+        env:
+          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API }}
+          CLOUDFLARE_ACCOUNT: ${{ secrets.CLOUDFLARE_ACCOUNT }}
+          TUNNEL_ID: ${{ secrets.CLOUDFLARE_TUNNEL }}
+        run: |
+          echo "Getting tunnel info..."
+          
+          TUNNEL_RESPONSE=$(curl -v -X GET \
+            "https://api.cloudflare.com/client/v4/accounts/${CLOUDFLARE_ACCOUNT}/tunnels/${TUNNEL_ID}" \
+            -H "Authorization: Bearer ${CLOUDFLARE_API_TOKEN}")
+          
+          echo "Tunnel info response:"
+          echo $TUNNEL_RESPONSE | jq '.'
+
       - name: Get Current Configuration
         env:
           CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API }}
@@ -84,20 +99,58 @@ jobs:
         run: |
           echo "Getting current tunnel configuration..."
           
-          if [[ "$API_ENDPOINT" == "new" ]]; then
-            ENDPOINT="tunnels"
-          else
-            ENDPOINT="cfd_tunnel"
-          fi
-          
-          CONFIG_RESPONSE=$(curl -s -X GET \
-            "https://api.cloudflare.com/client/v4/accounts/${CLOUDFLARE_ACCOUNT}/${ENDPOINT}/${TUNNEL_ID}/configurations" \
+          # Try both singular and plural endpoints
+          echo "Trying configuration endpoint..."
+          CONFIG_RESPONSE=$(curl -v -X GET \
+            "https://api.cloudflare.com/client/v4/accounts/${CLOUDFLARE_ACCOUNT}/tunnels/${TUNNEL_ID}/configuration" \
             -H "Authorization: Bearer ${CLOUDFLARE_API_TOKEN}")
           
-          echo "Current configuration:"
+          echo "Configuration response:"
           echo $CONFIG_RESPONSE | jq '.'
+          
+          echo "Trying configurations endpoint..."
+          CONFIGS_RESPONSE=$(curl -v -X GET \
+            "https://api.cloudflare.com/client/v4/accounts/${CLOUDFLARE_ACCOUNT}/tunnels/${TUNNEL_ID}/configurations" \
+            -H "Authorization: Bearer ${CLOUDFLARE_API_TOKEN}")
+          
+          echo "Configurations response:"
+          echo $CONFIGS_RESPONSE | jq '.'
 
-      - name: Test Configuration Update
+      - name: Update Tunnel Configuration
+        env:
+          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API }}
+          CLOUDFLARE_ACCOUNT: ${{ secrets.CLOUDFLARE_ACCOUNT }}
+          TUNNEL_ID: ${{ secrets.CLOUDFLARE_TUNNEL }}
+          MODAL_URL: "https://test-url.modal.run"
+        run: |
+          echo "Updating tunnel configuration..."
+          
+          # Create configuration based on Cloudflare's documented format
+          TUNNEL_CONFIG='{
+            "config": {
+              "ingress": [
+                {
+                  "hostname": "api.appsimple.io",
+                  "service": "'${MODAL_URL}'"
+                },
+                {
+                  "service": "http_status:404"
+                }
+              ]
+            }
+          }'
+          
+          echo "Using configuration:"
+          echo $TUNNEL_CONFIG | jq '.'
+          
+          UPDATE_RESPONSE=$(curl -v -X PATCH \
+            "https://api.cloudflare.com/client/v4/accounts/${CLOUDFLARE_ACCOUNT}/tunnels/${TUNNEL_ID}/configurations" \
+            -H "Authorization: Bearer ${CLOUDFLARE_API_TOKEN}" \
+            -H "Content-Type: application/json" \
+            --data "$TUNNEL_CONFIG")
+          
+          echo "Update response:"
+          echo $UPDATE_RESPONSE | jq '.'
         env:
           CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API }}
           CLOUDFLARE_ACCOUNT: ${{ secrets.CLOUDFLARE_ACCOUNT }}
