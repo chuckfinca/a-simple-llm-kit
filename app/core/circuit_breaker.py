@@ -11,8 +11,8 @@ class State(Enum):
 
 class CircuitBreaker:
     def __init__(self, 
-                 failure_threshold: int = 5, 
-                 reset_timeout: int = 60):
+                 failure_threshold: int = 10, 
+                 reset_timeout: int = 120):
         self.failure_threshold = failure_threshold
         self.reset_timeout = reset_timeout
         self.state = State.CLOSED

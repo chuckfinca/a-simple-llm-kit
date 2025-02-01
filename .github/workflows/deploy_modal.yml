@@ -95,7 +95,11 @@ jobs:
               "ingress": [
                 {
                   "hostname": "api.appsimple.io",
-                  "service": "'${MODAL_URL}'"
+                  "service": "'${MODAL_URL}'",
+                  "originRequest": {
+                    "connectTimeout": "60s",
+                    "readTimeout": "120s"
+                  }
                 },
                 {
                   "service": "http_status:404"
