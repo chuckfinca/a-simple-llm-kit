@@ -98,7 +98,7 @@ jobs:
           echo "Using configuration:"
           echo $TUNNEL_CONFIG | jq '.'
           
-          UPDATE_RESPONSE=$(curl -v -X PATCH \
+          UPDATE_RESPONSE=$(curl -v -X PUT \
             "https://api.cloudflare.com/client/v4/accounts/${CLOUDFLARE_ACCOUNT}/cfd_tunnel/${TUNNEL_ID}/configurations" \
             -H "Authorization: Bearer ${CLOUDFLARE_API_TOKEN}" \
             -H "Content-Type: application/json" \

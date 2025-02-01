@@ -38,7 +38,7 @@ jobs:
       - name: Update Cloudflare Tunnel
         env:
           CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API }}
-          TUNNEL_ID: ${{ secrets.CLOUDFLARE_TUNNEL }}
+          TUNNEL_ID: ${{ secrets.CLOUDFLARE_TUNNEL_ID }}
         run: |
           # Update tunnel configuration using Cloudflare API
           curl -X PUT "https://api.cloudflare.com/client/v4/accounts/${{ secrets.CLOUDFLARE_ACCOUNT }}/cfd_tunnel/${TUNNEL_ID}/configurations" \
