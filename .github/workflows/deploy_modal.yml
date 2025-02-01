@@ -95,7 +95,7 @@ jobs:
               "ingress": [
                 {
                   "hostname": "api.appsimple.io",
-                  "service": "'${MODAL_URL}'",
+                  "service": "'${MODAL_URL}'"
                 },
                 {
                   "service": "http_status:404"
