@@ -96,10 +96,6 @@ jobs:
                 {
                   "hostname": "api.appsimple.io",
                   "service": "'${MODAL_URL}'",
-                  "originRequest": {
-                    "connectTimeout": "60",
-                    "readTimeout": "120"
-                  }
                 },
                 {
                   "service": "http_status:404"
