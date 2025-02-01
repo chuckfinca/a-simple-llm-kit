@@ -15,8 +15,13 @@ async def handle_exception(request: Request, exc: Exception) -> JSONResponse:
     error_id = str(uuid.uuid4())
     context = _sanitize_request_data(request)
     
+    # Pass through the actual error information
+    error_message = (
+        getattr(exc, 'detail', str(exc))  # Use exc.detail if available (FastAPI), otherwise str(exc)
+    )
+    
     logging.error(
-        f"Error {error_id}: {str(exc)}",
+        f"Error {error_id}: {error_message}",
         extra={
             'error_id': error_id,
             **context,
@@ -29,7 +34,7 @@ async def handle_exception(request: Request, exc: Exception) -> JSONResponse:
         status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
         content={
             'success': False,
-            'error': "An unexpected error occurred",
+            'error': error_message,
             'error_id': error_id
         }
     )
