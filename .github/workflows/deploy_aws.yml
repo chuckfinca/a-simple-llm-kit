@@ -41,7 +41,7 @@ jobs:
           TUNNEL_ID: ${{ secrets.CLOUDFLARE_TUNNEL }}
         run: |
           # Update tunnel configuration using Cloudflare API
-          curl -X PUT "https://api.cloudflare.com/client/v4/accounts/${{ secrets.CLOUDFLARE_ACCOUNT }}/tunnels/${TUNNEL_ID}/configurations" \
+          curl -X PUT "https://api.cloudflare.com/client/v4/accounts/${{ secrets.CLOUDFLARE_ACCOUNT }}/cfd_tunnel/${TUNNEL_ID}/configurations" \
             -H "Authorization: Bearer ${CLOUDFLARE_API_TOKEN}" \
             -H "Content-Type: application/json" \
             --data '{

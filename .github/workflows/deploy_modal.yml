@@ -85,3 +85,11 @@ jobs:
                 ]
               }
             }'
+
+          # Verify the update was successful
+          if [ $? -eq 0 ]; then
+            echo "✅ Tunnel configuration updated successfully"
+          else
+            echo "❌ Failed to update tunnel configuration"
+            exit 1
+          fi

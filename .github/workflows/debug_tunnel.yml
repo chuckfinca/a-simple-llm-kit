@@ -51,7 +51,7 @@ jobs:
           echo "Tunnel ID: ${TUNNEL_ID}"
           
           TUNNEL_RESPONSE=$(curl -s -X GET \
-            "https://api.cloudflare.com/client/v4/accounts/${CLOUDFLARE_ACCOUNT}/tunnels/${TUNNEL_ID}" \
+            "https://api.cloudflare.com/client/v4/accounts/${CLOUDFLARE_ACCOUNT}/cfd_tunnel/${TUNNEL_ID}" \
             -H "Authorization: Bearer ${CLOUDFLARE_API_TOKEN}")
           
           echo "Tunnel status response:"
@@ -66,7 +66,7 @@ jobs:
           echo "Getting current tunnel configuration..."
           
           CONFIG_RESPONSE=$(curl -s -X GET \
-            "https://api.cloudflare.com/client/v4/accounts/${CLOUDFLARE_ACCOUNT}/tunnels/${TUNNEL_ID}/configurations" \
+            "https://api.cloudflare.com/client/v4/accounts/${CLOUDFLARE_ACCOUNT}/cfd_tunnel/${TUNNEL_ID}/configurations" \
             -H "Authorization: Bearer ${CLOUDFLARE_API_TOKEN}")
           
           echo "Current configuration:"
@@ -99,7 +99,7 @@ jobs:
           echo $TUNNEL_CONFIG | jq '.'
           
           UPDATE_RESPONSE=$(curl -v -X PATCH \
-            "https://api.cloudflare.com/client/v4/accounts/${CLOUDFLARE_ACCOUNT}/tunnels/${TUNNEL_ID}/configurations" \
+            "https://api.cloudflare.com/client/v4/accounts/${CLOUDFLARE_ACCOUNT}/cfd_tunnel/${TUNNEL_ID}/configurations" \
             -H "Authorization: Bearer ${CLOUDFLARE_API_TOKEN}" \
             -H "Content-Type: application/json" \
             --data "$TUNNEL_CONFIG")
