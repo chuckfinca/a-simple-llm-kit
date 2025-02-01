@@ -97,8 +97,8 @@ jobs:
                   "hostname": "api.appsimple.io",
                   "service": "'${MODAL_URL}'",
                   "originRequest": {
-                    "connectTimeout": "60s",
-                    "readTimeout": "120s"
+                    "connectTimeout": "60",
+                    "readTimeout": "120"
                   }
                 },
                 {
