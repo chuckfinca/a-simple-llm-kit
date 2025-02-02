@@ -26,21 +26,15 @@ jobs:
         with:
           python-version: '3.9'
           
-      - name: Install Modal and dependencies
+      - name: Install dependencies
         run: |
           python -m pip install --upgrade pip
-          pip install modal
           pip install -r requirements.txt
-      
-      - name: Configure Modal token
-        env:
-          MODAL_TOKEN_ID: ${{ secrets.MODAL_TOKEN_ID }}
-          MODAL_TOKEN_SECRET: ${{ secrets.MODAL_TOKEN_SECRET }}
-        run: |
-          modal token set --token-id $MODAL_TOKEN_ID --token-secret $MODAL_TOKEN_SECRET
       
       - name: Deploy to Modal
         env:
+          MODAL_TOKEN_ID: ${{ secrets.MODAL_TOKEN_ID }}
+          MODAL_TOKEN_SECRET: ${{ secrets.MODAL_TOKEN_SECRET }}
           ENVIRONMENT: ${{ github.event.inputs.environment }}
         run: |
           python modal_deploy.py --name llm-server-$ENVIRONMENT
@@ -52,14 +46,12 @@ jobs:
           CLOUDFLARE_ACCOUNT: ${{ secrets.CLOUDFLARE_ACCOUNT }}
           TUNNEL_ID: ${{ secrets.CLOUDFLARE_TUNNEL_ID }}
         run: |
-          MODAL_URL="https://chuckfinca--llm-server-${{ github.event.inputs.environment }}-fastapi-app.modal.run"
-           
           TUNNEL_CONFIG='{
             "config": {
               "ingress": [
                 {
                   "hostname": "api.appsimple.io",
-                  "service": "'"${MODAL_URL}"'"
+                  "service": "https://chuckfinca--llm-server-${{ github.event.inputs.environment }}-fastapi-app.modal.run"
                 },
                 {
                   "service": "http_status:404"

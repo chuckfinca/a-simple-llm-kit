@@ -1,26 +1,5 @@
 import sys
-import modal
 import argparse
-from typing import Literal
-from modal import volume
-from modal_app import app  # Import the app instance
-
-EnvironmentType = Literal["staging", "production"] 
-
-def configure_for_environment(environment: EnvironmentType):
-    """Configure app for specific environment"""
-    app_name = f"llm-server-{environment}"
-    
-    # Update app name
-    app.name = app_name
-    
-    # Configure volumes
-    volume.name = f"{app_name}-logs"
-    
-    # Update secrets to use environment-specific ones
-    app.fastapi_app.update(
-        secrets=[modal.Secret.from_name(f"llm-server-{environment}-secrets")]
-    )
 
 def main():
     parser = argparse.ArgumentParser(description='Deploy LLM Server to Modal')
@@ -32,17 +11,16 @@ def main():
     args = parser.parse_args()
 
     try:
-        # Extract and validate environment
+        # Validate app name
         if not args.name.startswith('llm-server-'):
             raise ValueError("App name must start with 'llm-server-'")
         environment = args.name.split('llm-server-')[1]
         if environment not in ("staging", "production"):
             raise ValueError("Environment must be either 'staging' or 'production'")
-
-        # Configure app for environment
-        configure_for_environment(environment)
         
-        # Deploy the app
+        # Get and deploy app
+        from modal_app import get_app
+        app = get_app(args.name)
         app.deploy()
         
     except ValueError as e:
