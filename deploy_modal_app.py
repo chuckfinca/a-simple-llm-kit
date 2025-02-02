@@ -1,7 +1,8 @@
 import modal
 
 # Get environment from secret and construct app name
-env = modal.Secret.from_name("environment", required_keys=["APP_ENV"])
+app_secrets = modal.Secret.from_name("app-secrets", required_keys=["APP_ENV"])
+env=app_secrets["APP_ENV"]
 APP_NAME = f"llm-server-{env}"
 
 # Create the modal_app
@@ -16,7 +17,7 @@ volume = modal.Volume.from_name(f"{APP_NAME}-logs", create_if_missing=True)
 # Define the web endpoint function
 @app.function(
     image=image,
-    secrets=[modal.Secret.from_name(f"llm-server-{env}-secrets")],
+    secrets=[app_secrets],
     volumes={"/data": volume},
     gpu="T4",
     memory=4096,
