@@ -1,8 +1,6 @@
 name: Deploy to Modal
 
 on:
-  push:
-    tags: 'v*'
   workflow_dispatch:
     inputs:
       environment:
@@ -16,9 +14,9 @@ on:
 
 jobs:
   deploy:
-    name: Deploy to ${{ github.event.inputs.environment || 'staging' }}
+    name: Deploy to ${{ github.event.inputs.environment }}
     runs-on: ubuntu-latest
-    environment: ${{ github.event.inputs.environment || 'staging' }}
+    environment: ${{ github.event.inputs.environment }}
     
     steps:
       - uses: actions/checkout@v3
@@ -28,76 +26,40 @@ jobs:
         with:
           python-version: '3.9'
           
-      - name: Install Dependencies
+      - name: Install Modal and dependencies
         run: |
           python -m pip install --upgrade pip
-          pip install modal jq
-        
-      - name: Login to Modal
+          pip install modal
+          pip install -r requirements.txt
+      
+      - name: Configure Modal token
         env:
-          MODAL_TOKEN_ID: ${{ secrets.MODAL_ID }}
-          MODAL_TOKEN_SECRET: ${{ secrets.MODAL_SECRET }}
+          MODAL_TOKEN_ID: ${{ secrets.MODAL_TOKEN_ID }}
+          MODAL_TOKEN_SECRET: ${{ secrets.MODAL_TOKEN_SECRET }}
         run: |
           modal token set --token-id $MODAL_TOKEN_ID --token-secret $MODAL_TOKEN_SECRET
       
-      - name: Create Modal Secrets
-        run: |
-          modal secret create llm-server-${{ github.event.inputs.environment || 'staging' }}-secrets \
-            OPENAI_API_KEY="${{ secrets.OPENAI_DEV }}" \
-            ANTHROPIC_API_KEY="${{ secrets.ANTHROPIC_DEV }}" \
-            HUGGINGFACE_API_KEY="${{ secrets.HF_DEV }}" \
-            LLM_SERVER_API_KEY="${{ secrets.LLM_SERVER }}" \
-            --force
-            
       - name: Deploy to Modal
-        run: |
-          echo "Deploying with name: llm-server-${{ github.event.inputs.environment || 'staging' }}"
-          modal deploy deploy_modal_app.py --name llm-server-${{ github.event.inputs.environment || 'staging' }}
-
-      - name: Get Modal Deployment URL
-        id: modal-url
         env:
-          MODAL_TOKEN_ID: ${{ secrets.MODAL_ID }}
-          MODAL_TOKEN_SECRET: ${{ secrets.MODAL_SECRET }}
+          ENVIRONMENT: ${{ github.event.inputs.environment }}
         run: |
-          APP_NAME="llm-server-${{ github.event.inputs.environment || 'staging' }}"
-          
-          MODAL_URL="https://chuckfinca--${APP_NAME}-fastapi-app.modal.run"
-          echo "Setting MODAL_URL to: $MODAL_URL"
-          echo "MODAL_URL=${MODAL_URL}" >> $GITHUB_ENV
+          python modal_deploy.py --name llm-server-$ENVIRONMENT
       
-      - name: Verify Cloudflare API Token
-        env:
-          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API }}
-        run: |
-          echo "Verifying API token permissions..."
-          RESPONSE=$(curl -s -X GET "https://api.cloudflare.com/client/v4/user/tokens/verify" \
-            -H "Authorization: Bearer ${CLOUDFLARE_API_TOKEN}")
-          
-          echo "Token verification response:"
-          echo $RESPONSE | jq '.'
-          
-          if echo $RESPONSE | jq -e '.success == true' > /dev/null; then
-            echo "✅ Token is valid"
-          else
-            echo "❌ Token verification failed"
-            exit 1
-          fi
-
       - name: Update Cloudflare Tunnel
+        if: success()
         env:
           CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API }}
           CLOUDFLARE_ACCOUNT: ${{ secrets.CLOUDFLARE_ACCOUNT }}
           TUNNEL_ID: ${{ secrets.CLOUDFLARE_TUNNEL_ID }}
         run: |
-          echo "Updating tunnel configuration..."
-          
+          MODAL_URL="https://chuckfinca--llm-server-${{ github.event.inputs.environment }}-fastapi-app.modal.run"
+           
           TUNNEL_CONFIG='{
             "config": {
               "ingress": [
                 {
                   "hostname": "api.appsimple.io",
-                  "service": "'${MODAL_URL}'"
+                  "service": "'"${MODAL_URL}"'"
                 },
                 {
                   "service": "http_status:404"
