@@ -51,7 +51,7 @@ jobs:
             --force
       
       - name: Set Environment as a Modal Secret
-          modal secret set APP_ENV ${{ github.event.inputs.environment || 'staging' }}
+        run: modal secret set APP_ENV ${{ github.event.inputs.environment || 'staging' }}
                   
       - name: Deploy to Modal
         run: |
