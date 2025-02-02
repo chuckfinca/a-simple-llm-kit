@@ -49,10 +49,7 @@ jobs:
             LLM_SERVER_API_KEY="${{ secrets.LLM_SERVER }}" \
             APP_ENV="${{ github.event.inputs.environment || 'staging' }}" \
             --force
-      
-      - name: Set Environment as a Modal Secret
-        run: modal secret set APP_ENV ${{ github.event.inputs.environment || 'staging' }}
-                  
+
       - name: Deploy to Modal
         run: |
           echo "Deploying with name: llm-server-${{ github.event.inputs.environment || 'staging' }}"
