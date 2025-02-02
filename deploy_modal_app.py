@@ -1,22 +1,8 @@
 import modal
-import sys
 
-def get_environment_from_name(app_name: str) -> str:
-    """Extract environment from app name (llm-server-{environment})"""
-    if not app_name.startswith('llm-server-'):
-        raise ValueError("App name must start with 'llm-server-'")
-    return app_name.split('llm-server-')[1]
-
-# Get the app name from command line args
-try:
-    name_index = sys.argv.index('--name')
-    APP_NAME = sys.argv[name_index + 1]
-    if not APP_NAME.startswith('llm-server-'):
-        raise ValueError()
-except (ValueError, IndexError):
-    print("Error: Specify --name llm-server-{staging|production}")
-    sys.exit(1)
-ENVIRONMENT = get_environment_from_name(APP_NAME)
+# Get environment from secret and construct app name
+env = modal.Secret.from_name("APP_ENV").get()
+APP_NAME = f"llm-server-{env}"
 
 # Create the modal_app
 app = modal.App(APP_NAME)
@@ -30,13 +16,12 @@ volume = modal.Volume.from_name(f"{APP_NAME}-logs", create_if_missing=True)
 # Define the web endpoint function
 @app.function(
     image=image,
-    secrets=[modal.Secret.from_name(f"llm-server-{ENVIRONMENT}-secrets")],
+    secrets=[modal.Secret.from_name(f"llm-server-{env}-secrets")],
     volumes={"/data": volume},
     gpu="T4",
     memory=4096,
     timeout=600
 )
-
 @modal.asgi_app()
 def fastapi_app():
     from app.main import app

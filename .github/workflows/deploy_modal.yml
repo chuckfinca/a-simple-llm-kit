@@ -47,10 +47,14 @@ jobs:
             ANTHROPIC_API_KEY="${{ secrets.ANTHROPIC_DEV }}" \
             HUGGINGFACE_API_KEY="${{ secrets.HF_DEV }}" \
             LLM_SERVER_API_KEY="${{ secrets.LLM_SERVER }}" \
+            APP_ENV="${{ github.event.inputs.environment || 'staging' }}" \
             --force
-            
+                  
       - name: Deploy to Modal
         run: |
+          - name: Deploy job
+          # First set the environment variable in Modal that will persist
+          modal secret set APP_ENV ${{ github.event.inputs.environment || 'staging' }}
           echo "Deploying with name: llm-server-${{ github.event.inputs.environment || 'staging' }}"
           modal deploy deploy_modal_app.py --name llm-server-${{ github.event.inputs.environment || 'staging' }}
 
