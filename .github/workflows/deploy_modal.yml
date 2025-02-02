@@ -1,6 +1,8 @@
 name: Deploy to Modal
 
 on:
+  push:
+    tags: 'v*'
   workflow_dispatch:
     inputs:
       environment:
@@ -14,9 +16,9 @@ on:
 
 jobs:
   deploy:
-    name: Deploy to ${{ github.event.inputs.environment }}
+    name: Deploy to ${{ github.event.inputs.environment || 'staging' }}
     runs-on: ubuntu-latest
-    environment: ${{ github.event.inputs.environment }}
+    environment: ${{ github.event.inputs.environment || 'staging' }}
     
     steps:
       - uses: actions/checkout@v3
@@ -26,13 +28,10 @@ jobs:
         with:
           python-version: '3.9'
           
-      - name: Install dependencies
+      - name: Install Dependencies
         run: |
           python -m pip install --upgrade pip
-          # Install Modal for deployment
-          pip install modal>=0.55.0
-          # Install application dependencies
-          pip install -r requirements.txt
+          pip install modal jq
 
       - name: Login to Modal
         env:
@@ -51,26 +50,56 @@ jobs:
             --force
             
       - name: Deploy to Modal
+        run: modal deploy deploy_modal_app.py --name llm-server-${{ github.event.inputs.environment || 'staging' }}
+      
+      - name: Get Modal Deployment URL
+        id: modal-url
         env:
-          MODAL_TOKEN_ID: ${{ secrets.MODAL_TOKEN_ID }}
-          MODAL_TOKEN_SECRET: ${{ secrets.MODAL_TOKEN_SECRET }}
-          ENVIRONMENT: ${{ github.event.inputs.environment }}
+          MODAL_TOKEN_ID: ${{ secrets.MODAL_ID }}
+          MODAL_TOKEN_SECRET: ${{ secrets.MODAL_SECRET }}
         run: |
-          python modal_deploy.py --name llm-server-$ENVIRONMENT
+          APP_NAME="llm-server-${{ github.event.inputs.environment || 'staging' }}"
+          
+          MODAL_URL="https://chuckfinca--${APP_NAME}-fastapi-app.modal.run"
+          echo "Setting MODAL_URL to: $MODAL_URL"
+          echo "MODAL_URL=${MODAL_URL}" >> $GITHUB_ENV
+      
+      - name: Verify Cloudflare API Token
+        env:
+          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API }}
+        run: |
+          echo "Verifying API token permissions..."
+          RESPONSE=$(curl -s -X GET "https://api.cloudflare.com/client/v4/user/tokens/verify" \
+            -H "Authorization: Bearer ${CLOUDFLARE_API_TOKEN}")
+          
+          echo "Token verification response:"
+          echo $RESPONSE | jq '.'
+          
+          if echo $RESPONSE | jq -e '.success == true' > /dev/null; then
+            echo "✅ Token is valid"
+          else
+            echo "❌ Token verification failed"
+            exit 1
+          fi
       
       - name: Update Cloudflare Tunnel
-        if: success()
         env:
           CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API }}
           CLOUDFLARE_ACCOUNT: ${{ secrets.CLOUDFLARE_ACCOUNT }}
           TUNNEL_ID: ${{ secrets.CLOUDFLARE_TUNNEL_ID }}
         run: |
+          echo "Updating tunnel configuration..."
+          
           TUNNEL_CONFIG='{
             "config": {
               "ingress": [
                 {
                   "hostname": "api.appsimple.io",
-                  "service": "https://chuckfinca--llm-server-${{ github.event.inputs.environment }}-fastapi-app.modal.run"
+                  "service": "'${MODAL_URL}'",
+                  "originRequest": {
+                    "connectTimeout": "60",
+                    "readTimeout": "120"
+                  }
                 },
                 {
                   "service": "http_status:404"

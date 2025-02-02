@@ -77,18 +77,16 @@ jobs:
           CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API }}
           CLOUDFLARE_ACCOUNT: ${{ secrets.CLOUDFLARE_ACCOUNT }}
           TUNNEL_ID: ${{ secrets.CLOUDFLARE_TUNNEL_ID }}
+          MODAL_URL: "https://test-url.modal.run"
         run: |
-          echo "Getting Modal URL for environment..."
-          MODAL_URL="https://chuckfinca--llm-server-${{ github.event.inputs.environment }}-fastapi-app.modal.run"
-          echo "Using Modal URL: ${MODAL_URL}"
-          
           echo "Updating tunnel configuration..."
+          
           TUNNEL_CONFIG='{
             "config": {
               "ingress": [
                 {
                   "hostname": "api.appsimple.io",
-                  "service": "'"${MODAL_URL}"'"
+                  "service": "'${MODAL_URL}'"
                 },
                 {
                   "service": "http_status:404"
