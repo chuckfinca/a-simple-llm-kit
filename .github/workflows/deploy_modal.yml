@@ -42,19 +42,14 @@ jobs:
       
       - name: Pass Secrets to Modal
         run: |
-          modal secret create llm-server-${{ github.event.inputs.environment || 'staging' }}-secrets \
+          modal secret create app-secrets \
             OPENAI_API_KEY="${{ secrets.OPENAI_DEV }}" \
             ANTHROPIC_API_KEY="${{ secrets.ANTHROPIC_DEV }}" \
             HUGGINGFACE_API_KEY="${{ secrets.HF_DEV }}" \
             LLM_SERVER_API_KEY="${{ secrets.LLM_SERVER }}" \
             APP_ENV="${{ github.event.inputs.environment || 'staging' }}" \
             --force
-      
-      - name: Set Environment as a Modal Secret
-        run: |
-          modal secret create environment \
-            APP_ENV="${{ github.event.inputs.environment || 'staging' }}" \
-                  
+                   
       - name: Deploy to Modal
         run: |
           echo "Deploying with name: llm-server-${{ github.event.inputs.environment || 'staging' }}"
