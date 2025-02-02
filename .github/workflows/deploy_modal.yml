@@ -34,6 +34,22 @@ jobs:
           # Install application dependencies
           pip install -r requirements.txt
 
+      - name: Login to Modal
+        env:
+          MODAL_TOKEN_ID: ${{ secrets.MODAL_ID }}
+          MODAL_TOKEN_SECRET: ${{ secrets.MODAL_SECRET }}
+        run: |
+          modal token set --token-id $MODAL_TOKEN_ID --token-secret $MODAL_TOKEN_SECRET
+      
+      - name: Create Modal Secrets
+        run: |
+          modal secret create llm-server-${{ github.event.inputs.environment || 'staging' }}-secrets \
+            OPENAI_API_KEY="${{ secrets.OPENAI_DEV }}" \
+            ANTHROPIC_API_KEY="${{ secrets.ANTHROPIC_DEV }}" \
+            HUGGINGFACE_API_KEY="${{ secrets.HF_DEV }}" \
+            LLM_SERVER_API_KEY="${{ secrets.LLM_SERVER }}" \
+            --force
+            
       - name: Deploy to Modal
         env:
           MODAL_TOKEN_ID: ${{ secrets.MODAL_TOKEN_ID }}
