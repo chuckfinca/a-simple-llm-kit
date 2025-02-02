@@ -1,7 +1,7 @@
 import modal
 
 # Get environment from secret and construct app name
-env = modal.Secret.from_name("APP_ENV")
+env = modal.Secret.from_name("environment", required_keys=["APP_ENV"])
 APP_NAME = f"llm-server-{env}"
 
 # Create the modal_app
