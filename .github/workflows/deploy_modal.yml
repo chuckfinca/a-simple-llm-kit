@@ -97,18 +97,12 @@ jobs:
               "ingress": [
                 {
                   "hostname": "api.appsimple.io",
-                  "service": "'${MODAL_URL}'",
+                  "service": "${MODAL_URL}",
                   "originRequest": {
-                    "connectTimeout": "5s"
-                  }
-                },
-                {
-                  "service": "http_status:503",
-                  "originResponse": {
-                    "headers": {
-                      "Retry-After": ["10"],
-                      "X-Error-Message": ["Service starting, please retry shortly"]
-                    }
+                    "connectTimeout": 10,
+                    "noHappyEyeballs": false,
+                    "keepAliveTimeout": 30,
+                    "keepAliveConnections": 10
                   }
                 }
               ]
