@@ -1,5 +1,4 @@
 import modal
-import os
 import sys
 
 def get_environment_from_name(app_name: str) -> str:

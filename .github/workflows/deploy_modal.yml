@@ -50,8 +50,10 @@ jobs:
             --force
             
       - name: Deploy to Modal
-        run: modal deploy deploy_modal_app.py --name llm-server-${{ github.event.inputs.environment || 'staging' }}
-      
+        run: |
+          echo "Deploying with name: llm-server-${{ github.event.inputs.environment || 'staging' }}"
+          modal deploy deploy_modal_app.py --name llm-server-${{ github.event.inputs.environment || 'staging' }}
+
       - name: Get Modal Deployment URL
         id: modal-url
         env:
@@ -95,11 +97,7 @@ jobs:
               "ingress": [
                 {
                   "hostname": "api.appsimple.io",
-                  "service": "'${MODAL_URL}'",
-                  "originRequest": {
-                    "connectTimeout": "60",
-                    "readTimeout": "120"
-                  }
+                  "service": "'${MODAL_URL}'"
                 },
                 {
                   "service": "http_status:404"
