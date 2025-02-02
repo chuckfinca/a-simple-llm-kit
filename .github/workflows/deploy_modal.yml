@@ -40,7 +40,7 @@ jobs:
         run: |
           modal token set --token-id $MODAL_TOKEN_ID --token-secret $MODAL_TOKEN_SECRET
       
-      - name: Create Modal Secrets
+      - name: Pass Secrets to Modal
         run: |
           modal secret create llm-server-${{ github.event.inputs.environment || 'staging' }}-secrets \
             OPENAI_API_KEY="${{ secrets.OPENAI_DEV }}" \
@@ -49,6 +49,9 @@ jobs:
             LLM_SERVER_API_KEY="${{ secrets.LLM_SERVER }}" \
             APP_ENV="${{ github.event.inputs.environment || 'staging' }}" \
             --force
+      
+      - name: Set Environment as a Modal Secret
+          modal secret set APP_ENV ${{ github.event.inputs.environment || 'staging' }}
                   
       - name: Deploy to Modal
         run: |
