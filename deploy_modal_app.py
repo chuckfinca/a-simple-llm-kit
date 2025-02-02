@@ -74,13 +74,15 @@ class ModalConfig:
             
         return healthcheck
 
-def create_app():
-    """Factory function to create and configure the Modal app"""
-    config = ModalConfig()
-    config.create_web_endpoint()
-    config.create_healthcheck()
-    return config.app
+# Create a global instance of ModalConfig
+config = ModalConfig()
+
+# Create and expose the app globally
+app = config.app
+
+# Initialize the endpoints
+config.create_web_endpoint()
+config.create_healthcheck()
 
 if __name__ == "__main__":
-    app = create_app()
     app.run()
