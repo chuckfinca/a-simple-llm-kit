@@ -104,6 +104,9 @@ jobs:
                     "keepAliveTimeout": 30,
                     "keepAliveConnections": 10
                   }
+                },
+                {
+                  "service": "http_status:404"
                 }
               ]
             }
