@@ -1,43 +1,86 @@
 import modal
+import os
+from typing import Optional
 
-# Get environment from secret and construct app name
-app_secrets = modal.Secret.from_name("app-secrets", required_keys=["APP_ENV"])
-env=app_secrets["APP_ENV"]
-APP_NAME = f"llm-server-{env}"
+class ModalConfig:
+    def __init__(self, base_name: str = "llm-server"):
+        self.base_name = base_name
+        self.app = modal.App(self.base_name)
+        self.app_secrets = modal.Secret.from_name("app-secrets")
+        self._volume = None
+        self._image = None
+    
+    @property
+    def env_name(self) -> str:
+        """Get environment name from env vars or default to development"""
+        return os.getenv("APP_ENV", "development")
+    
+    @property
+    def app_name(self) -> str:
+        """Get full application name including environment"""
+        return f"{self.base_name}-{self.env_name}"
+    
+    @property
+    def volume_name(self) -> str:
+        """Get volume name for current environment"""
+        return f"{self.base_name}-{self.env_name}-logs"
+    
+    @property
+    def image(self) -> modal.Image:
+        """Lazy load the Docker image"""
+        if self._image is None:
+            self._image = modal.Image.from_dockerfile("Dockerfile")
+        return self._image
+    
+    @property
+    def volume(self) -> modal.Volume:
+        """Lazy load the volume"""
+        if self._volume is None:
+            self._volume = modal.Volume.from_name(
+                self.volume_name, 
+                create_if_missing=True
+            )
+        return self._volume
+    
+    def create_web_endpoint(self):
+        """Create the FastAPI web endpoint"""
+        @self.app.function(
+            image=self.image,
+            secrets=[self.app_secrets],
+            volumes={"/data": self.volume},
+            gpu="T4",
+            memory=4096,
+            timeout=600
+        )
+        @modal.asgi_app()
+        def fastapi_app():
+            from app.main import app
+            return app
+        
+        return fastapi_app
 
-# Create the modal_app
-app = modal.App(APP_NAME)
+    def create_healthcheck(self):
+        """Create the healthcheck endpoint"""
+        @self.app.function(
+            image=self.image,
+            secrets=[self.app_secrets],
+            schedule=modal.Period(minutes=30)
+        )
+        def healthcheck():
+            import requests
+            response = requests.get("http://localhost:8000/health")
+            assert response.status_code == 200
+            print("Health check passed!")
+            
+        return healthcheck
 
-# Use existing Dockerfile
-image = modal.Image.from_dockerfile("Dockerfile")
-
-# Create volume for logs
-volume = modal.Volume.from_name(f"{APP_NAME}-logs", create_if_missing=True)
-
-# Define the web endpoint function
-@app.function(
-    image=image,
-    secrets=[app_secrets],
-    volumes={"/data": volume},
-    gpu="T4",
-    memory=4096,
-    timeout=600
-)
-@modal.asgi_app()
-def fastapi_app():
-    from app.main import app
-    return app
-
-# Create a healthcheck function
-@app.function(
-    image=image,
-    schedule=modal.Period(minutes=30)
-)
-def healthcheck():
-    import requests
-    response = requests.get("http://localhost:8000/health")
-    assert response.status_code == 200
-    print("Health check passed!")
+def create_app():
+    """Factory function to create and configure the Modal app"""
+    config = ModalConfig()
+    config.create_web_endpoint()
+    config.create_healthcheck()
+    return config.app
 
 if __name__ == "__main__":
+    app = create_app()
     app.run()
