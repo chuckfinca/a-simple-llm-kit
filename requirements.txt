@@ -13,10 +13,6 @@ pyyaml>=6.0.0
 # LLM integration
 dspy-ai>=2.0.0
 
-# File handling
-python-multipart>=0.0.5
-pillow>=10.0.0
-
 # Monitoring
 prometheus-client>=0.17.0
 

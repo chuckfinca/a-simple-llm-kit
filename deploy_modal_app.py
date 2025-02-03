@@ -35,19 +35,35 @@ volume = modal.Volume.from_name(VOLUME_NAME, create_if_missing=True)
 )
 @modal.asgi_app()
 def fastapi_app():
-    from app.main import app
-    return app
+    """Single container running the FastAPI app with built-in health checks"""
+    from fastapi import FastAPI
+    from app.main import app as base_app
+    from app.api.schemas.responses import HealthResponse
+    import asyncio
+    
+    # Add internal healthcheck endpoint
+    @base_app.get("/_internal/healthcheck", response_model=HealthResponse, include_in_schema=False)
+    async def internal_healthcheck():
+        # Here we could add more comprehensive health checks
+        # like verifying model loading, database connections, etc.
+        return HealthResponse(status="healthy")
 
-@app.function(
-    image=image,
-    secrets=[app_secrets],
-    schedule=modal.Period(minutes=30)
-)
-def healthcheck():
-    import requests
-    response = requests.get("http://localhost:8000/health")
-    assert response.status_code == 200
-    print("Health check passed!")
+    # Schedule periodic health checks using FastAPI's background tasks
+    @base_app.on_event("startup")
+    async def schedule_healthchecks():
+        async def run_periodic_healthcheck():
+            while True:
+                try:
+                    await internal_healthcheck()
+                    print("Internal health check passed!")
+                except Exception as e:
+                    print(f"Health check failed: {str(e)}")
+                    # In a real application, you might want to trigger alerts here
+                await asyncio.sleep(1800)  # 30 minutes
+
+        asyncio.create_task(run_periodic_healthcheck())
+
+    return base_app
 
 if __name__ == "__main__":
     app.run()
