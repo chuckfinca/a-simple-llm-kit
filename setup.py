@@ -25,7 +25,7 @@ STANDARD_REQUIREMENTS = [
 MODAL_REQUIREMENTS = [
     "fastapi==0.88.0",
     "pydantic>=1.10.0,<2.0.0",
-    "pydantic-settings<2.0.0",  # Must be compatible with pydantic v1
+    "pydantic-settings==0.2.4",  # Last version that works with pydantic v1
     "rich==12.3.0",
     "importlib-metadata==4.8.1",
     "typer>=0.9",
@@ -37,6 +37,7 @@ MODAL_REQUIREMENTS = [
     "tblib==1.7.0",
     "ddtrace==1.5.2",
     "fastprogress==1.0.0",
+    "pyyaml==5.4.1",  # Pin to a version that works with pydantic-settings 0.2.4
 ]
 
 setup(
