@@ -19,8 +19,11 @@ def get_environment_name():
 ENV_NAME = get_environment_name()
 VOLUME_NAME = f"llm-server-{ENV_NAME}-logs"
 
-# Use existing Dockerfile
-image = modal.Image.from_dockerfile("Dockerfile.modal")
+# Create docker image with our package installed
+image = modal.Image.from_dockerfile(
+    "Dockerfile.modal",
+    context_mount=modal.Mount.from_local_dir(".", remote_path="/app")
+)
 
 # Create volume for logs
 volume = modal.Volume.from_name(VOLUME_NAME, create_if_missing=True)
@@ -31,7 +34,10 @@ volume = modal.Volume.from_name(VOLUME_NAME, create_if_missing=True)
     volumes={"/data": volume},
     gpu="T4",
     memory=4096,
-    timeout=600
+    timeout=600image = modal.Image.from_dockerfile(
+    "Dockerfile.modal",
+    context_mount=modal.Mount.from_local_dir(".", remote_path="/app")
+)
 )
 @modal.asgi_app()
 def fastapi_app():
