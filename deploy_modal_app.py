@@ -21,25 +21,23 @@ VOLUME_NAME = f"llm-server-{ENV_NAME}-logs"
 
 # Create docker image with our package installed
 image = modal.Image.from_dockerfile(
-    "Dockerfile.modal",
-    context_mount=modal.Mount.from_local_dir(".", remote_path="/app")
+    "Dockerfile.modal"
+).add_local_dir(
+    local_path=".",
+    remote_path="/app"
 )
 
 # Create volume for logs
 volume = modal.Volume.from_name(VOLUME_NAME, create_if_missing=True)
 
 @app.function(
+    image=image,
     secrets=[app_secrets],
     volumes={"/data": volume},
     gpu="T4",
     memory=4096,
-    timeout=600,
-    image = modal.Image.from_dockerfile(
-        "Dockerfile.modal",
-        context_mount=modal.Mount.from_local_dir(".", remote_path="/app")
-    )
+    timeout=600
 )
-
 @modal.asgi_app()
 def fastapi_app():
     from app.main import app
