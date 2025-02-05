@@ -10,7 +10,7 @@ BASE_REQUIREMENTS = [
     "typing-extensions>=4.0.0",
 ]
 
-# Requirements that need different versions for Modal
+# Main app requirements that might conflict with Modal
 STANDARD_REQUIREMENTS = [
     "fastapi>=0.115.8",
     "pydantic>=2.0.0,<3.0.0",
@@ -21,6 +21,23 @@ STANDARD_REQUIREMENTS = [
     "cloudpickle>=3.1.1",
 ]
 
+# Modal's requirements (carefully versioned to match Modal's needs)
+MODAL_REQUIREMENTS = [
+    "fastapi==0.88.0",
+    "pydantic>=1.10.0,<2.0.0",
+    "rich==12.3.0",
+    "importlib-metadata==4.8.1",
+    "typer>=0.9",
+    "cloudpickle==2.0.0",
+    "aiohttp==3.8.3",
+    "aiostream==0.4.4",
+    "asgiref==3.5.2",
+    "grpclib==0.4.7",
+    "tblib==1.7.0",
+    "ddtrace==1.5.2",
+    "fastprogress==1.0.0",
+]
+
 setup(
     name="llm-server",
     version="0.1.0",
@@ -28,27 +45,7 @@ setup(
     install_requires=BASE_REQUIREMENTS,
     extras_require={
         'standard': STANDARD_REQUIREMENTS,
-        'modal': [
-            # Modal's specific version requirements
-            "fastapi==0.88.0",
-            "pydantic>=1.10.0,<2.0.0",
-            "rich==12.3.0",
-            "importlib-metadata==4.8.1",
-            "typer==0.6.1",
-            "cloudpickle==2.0.0",
-            # Modal-specific packages
-            "aiohttp==3.8.3",
-            "aiostream==0.4.4",
-            "asgiref==3.5.2",
-            "grpclib==0.4.3",
-            "tblib==1.7.0",
-            "ddtrace==1.5.2",
-            "fastprogress==1.0.0",
-            "toml==0.10.2",
-            "types-toml==0.10.4",
-            "types-certifi==2021.10.8.3",
-            "typeguard>=3.0.0",
-        ],
+        'modal': MODAL_REQUIREMENTS,
         'dev': [
             'pytest>=7.0.0',
             'python-multipart>=0.0.5',
