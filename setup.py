@@ -25,6 +25,7 @@ STANDARD_REQUIREMENTS = [
 MODAL_REQUIREMENTS = [
     "fastapi==0.88.0",
     "pydantic>=1.10.0,<2.0.0",
+    "pydantic-settings<2.0.0",  # Must be compatible with pydantic v1
     "rich==12.3.0",
     "importlib-metadata==4.8.1",
     "typer>=0.9",
