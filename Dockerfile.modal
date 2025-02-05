@@ -9,4 +9,4 @@ COPY . .
 RUN apt-get update && \
     apt-get install -y curl && \
     rm -rf /var/lib/apt/lists/* && \
-    pip install --no-cache-dir '.[modal]'
+    pip install --no-cache-dir -e ".[modal]"

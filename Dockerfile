@@ -9,7 +9,7 @@ COPY . .
 RUN apt-get update && \
     apt-get install -y curl && \
     rm -rf /var/lib/apt/lists/* && \
-    pip install --no-cache-dir '.[dev]'
+    pip install --no-cache-dir -e ".[dev]"
 
 # Expose port
 EXPOSE 8000
