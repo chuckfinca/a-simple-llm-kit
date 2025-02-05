@@ -29,7 +29,6 @@ image = modal.Image.from_dockerfile(
 volume = modal.Volume.from_name(VOLUME_NAME, create_if_missing=True)
 
 @app.function(
-    image=image,
     secrets=[app_secrets],
     volumes={"/data": volume},
     gpu="T4",
