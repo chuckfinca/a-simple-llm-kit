@@ -21,10 +21,16 @@ VOLUME_NAME = f"llm-server-{ENV_NAME}-logs"
 
 # Create docker image with our package installed
 image = modal.Image.from_dockerfile(
-    "Dockerfile.modal"
-).add_local_dir(
-    local_path=".",
-    remote_path="/app"
+    "Dockerfile.modal",
+    context_mount=modal.Mount.from_local_dir(".", remote_path="/app")
+).pip_install(
+    "fastapi==0.88.0",
+    "pydantic>=1.10.0,<2.0.0",
+    "pydantic-settings<2.0.0",
+    "rich==12.3.0",
+    "importlib-metadata==4.8.1",
+    "grpclib==0.4.7",
+    "typer>=0.9",
 )
 
 # Create volume for logs
