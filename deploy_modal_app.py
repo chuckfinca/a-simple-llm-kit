@@ -34,11 +34,13 @@ volume = modal.Volume.from_name(VOLUME_NAME, create_if_missing=True)
     volumes={"/data": volume},
     gpu="T4",
     memory=4096,
-    timeout=600image = modal.Image.from_dockerfile(
-    "Dockerfile.modal",
-    context_mount=modal.Mount.from_local_dir(".", remote_path="/app")
+    timeout=600,
+    image = modal.Image.from_dockerfile(
+        "Dockerfile.modal",
+        context_mount=modal.Mount.from_local_dir(".", remote_path="/app")
+    )
 )
-)
+
 @modal.asgi_app()
 def fastapi_app():
     from app.main import app
