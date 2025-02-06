@@ -31,7 +31,7 @@ jobs:
       - name: Install Dependencies
         run: |
           python -m pip install --upgrade pip
-          pip install modal jq
+          pip install modal-client jq
 
       - name: Login to Modal
         env:
@@ -53,7 +53,6 @@ jobs:
       - name: Deploy to Modal
         run: |
           echo "Deploying with name: llm-server-${{ github.event.inputs.environment || 'staging' }}"
-          pip install '.[modal]'  # Install package with Modal extras
           modal deploy deploy_modal_app.py --name llm-server-${{ github.event.inputs.environment || 'staging' }}
           
       - name: Get Modal Deployment URL
