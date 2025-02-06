@@ -44,19 +44,22 @@ volume = modal.Volume.from_name(VOLUME_NAME, create_if_missing=True)
 )
 @modal.asgi_app()
 def fastapi_app():
-    print("Starting fastapi_app function")
+    modal.logger.info("Starting fastapi_app function")
     try:
-        print("Attempting to import app.main...")
+        modal.logger.info("Attempting to import app.main...")
         from app.main import app
-        print("Successfully imported app")
+        modal.logger.info("Successfully imported app")
         return app
     except ImportError as e:
-        print(f"Import error: {str(e)}")
-        print("Python path:", sys.path)
+        modal.logger.error(f"Import error: {str(e)}")
+        import sys
+        modal.logger.error(f"Python path: {sys.path}")
         raise
     except Exception as e:
-        print(f"Unexpected error: {str(e)}")
+        modal.logger.error(f"Unexpected error: {str(e)}")
         raise
+
+
 
 if __name__ == "__main__":
     modal_app.serve()
