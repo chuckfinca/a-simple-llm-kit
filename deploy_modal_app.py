@@ -8,13 +8,10 @@ app_secrets = modal.Secret.from_name("app-secrets")
 # Base app name
 APP_NAME = "llm-server"
 
-# Helper function to get environment name
-def get_environment_name():
-    """Get environment name from environment variable or default to development"""
-    return os.getenv('APP_ENV', 'development')
+# Create the modal_app
+app = modal.App(APP_NAME)
 
-# Create environment-specific configs
-ENV_NAME = get_environment_name()
+ENV_NAME = os.getenv('APP_ENV', 'development')
 VOLUME_NAME = f"llm-server-{ENV_NAME}-logs"
 
 # Create image with requirements file and install packages
@@ -25,6 +22,9 @@ image = (
     .run_commands("pip install -r /root/requirements.txt")
     .copy_local_dir(".", remote_path="/app")
 )
+
+# Create volume for logs
+volume = modal.Volume.from_name(VOLUME_NAME, create_if_missing=True)
 
 @app.function(
     image=image,
