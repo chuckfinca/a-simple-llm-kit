@@ -4,21 +4,6 @@ setup(
     name="llm-server",
     version="0.1.0",
     packages=find_packages(),
-    install_requires=[
-        "fastapi>=0.115.8",
-        "uvicorn>=0.15.0",
-        "pydantic>=2.0.0,<3.0.0",
-        "pydantic-settings>=2.0.0",
-        "python-dotenv>=0.19.0",
-        "pyyaml>=6.0.0",
-        "dspy-ai>=2.0.0",
-        "prometheus-client>=0.17.0",
-        "typing-extensions>=4.0.0",
-        "rich>=13.7.1",
-        "importlib-metadata>=6.8.0",
-        "typer>=0.12.3",
-        "cloudpickle>=3.1.1",
-    ],
     extras_require={
         'dev': [
             'pytest>=7.0.0',
