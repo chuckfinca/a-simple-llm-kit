@@ -31,7 +31,7 @@ jobs:
       - name: Install Dependencies
         run: |
           python -m pip install --upgrade pip
-          pip install modal-client jq
+          pip install modal jq
 
       - name: Login to Modal
         env:
