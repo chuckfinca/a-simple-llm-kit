@@ -21,8 +21,8 @@ requirements_path = project_root / "requirements.txt"
 
 image = (
     modal.Image.debian_slim(python_version="3.9")
-    .pip_install(requirements_path)
     .pip_install(".")
+    .pip_install(requirements_path)
 )
 
 # Create volume for logs
