@@ -21,17 +21,8 @@ requirements_path = project_root / "requirements.txt"
 
 image = (
     modal.Image.debian_slim(python_version="3.9")
-    .add_local_file(requirements_path, remote_path="/root/requirements.txt")
-    .add_local_dir(".", remote_path="/root/llm-server")
-    .run_commands(
-        "cd /root/llm-server",
-        "pip install -r /root/requirements.txt",
-        "pip install -e .",
-        # Debug commands
-        "echo '=== Directory Structure ===' && ls -la /root/llm-server",
-        "echo '=== Python Path ===' && python -c 'import sys; print(\"\n\".join(sys.path))'",
-        "echo '=== Installed Packages ===' && pip list"
-    )
+    .pip_install(requirements_path)
+    .pip_install(".")
 )
 
 # Create volume for logs
