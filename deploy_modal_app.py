@@ -11,6 +11,10 @@ app_secrets = modal.Secret.from_name("app-secrets")
 
 # Base app name
 APP_NAME = "llm-server"
+
+# Create the modal_app
+app = modal.App(APP_NAME)
+
 ENV_NAME = os.getenv('APP_ENV', 'development')
 VOLUME_NAME = f"llm-server-{ENV_NAME}-logs"
 
