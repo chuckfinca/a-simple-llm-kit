@@ -15,18 +15,33 @@ ENV_NAME = os.getenv('APP_ENV', 'development')
 VOLUME_NAME = f"llm-server-{ENV_NAME}-logs"
 
 # Create image with requirements file and install packages
-stub_dir = Path(__file__).parent
+root = Path(__file__).parent
+requirements_path = root / "requirements.txt"
+
 image = (
     modal.Image.debian_slim(python_version="3.9")
-    .add_local_file(stub_dir / "requirements.txt", "/root/requirements.txt")
-    .run_commands(
-        "pip install -r /root/requirements.txt",
-        "pip install ."  # This will install the current directory as a package
-    )
     .add_local_dir(
-        stub_dir,
-        "/root/app",
-        exclude=[".*", "__pycache__", "*.pyc", "*.pyo", "*.pyd", "build", "dist"]
+        root,
+        "/root/llm-server",  # Using more specific path
+        exclude=[
+            ".*",
+            "__pycache__",
+            "*.pyc",
+            "*.pyo", 
+            "*.pyd",
+            "build",
+            "dist",
+            "*.egg-info",
+            "logs",
+            ".git",
+            ".github",
+            "tests"
+        ]
+    )
+    .run_commands(
+        "cd /root/llm-server",  # Change to project directory
+        "pip install -r requirements.txt",
+        "pip install ."
     )
 )
 
