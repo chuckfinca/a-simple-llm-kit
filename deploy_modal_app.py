@@ -23,7 +23,7 @@ image = (
     .add_local_dir(
         root,
         "/root/llm-server",  # Using more specific path
-        exclude=[
+        ignore=[
             ".*",
             "__pycache__",
             "*.pyc",
