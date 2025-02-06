@@ -1,6 +1,5 @@
 import modal
 import os
-import sys
 from pathlib import Path
 
 # Create secrets
@@ -16,13 +15,12 @@ ENV_NAME = os.getenv('APP_ENV', 'development')
 VOLUME_NAME = f"llm-server-{ENV_NAME}-logs"
 
 # Create image with requirements file and install packages
-project_root = Path(__file__).parent
-requirements_path = project_root / "requirements.txt"
-
+requirements_path = Path(__file__).parent / "requirements.txt"
 image = (
     modal.Image.debian_slim(python_version="3.9")
-    .pip_install(".")
-    .pip_install(requirements_path)
+    .copy_local_file(requirements_path, remote_path="/root/requirements.txt")
+    .run_commands("pip install -r /root/requirements.txt")
+    .copy_local_dir(".", remote_path="/app")
 )
 
 # Create volume for logs
@@ -38,10 +36,6 @@ volume = modal.Volume.from_name(VOLUME_NAME, create_if_missing=True)
 )
 @modal.asgi_app()
 def fastapi_app():
-    # Add the project root to Python path
-    sys.path.append("/root/llm-server")
-    
-    # Import and return the FastAPI app
     from app.main import app
     return app
 
