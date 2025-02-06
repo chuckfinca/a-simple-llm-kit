@@ -28,6 +28,11 @@ image = (
         "pip install -r /root/requirements.txt",
         "pip install -e .",
         "echo '=== Installed Packages ===' && pip list"
+        # Add the llm-server directory to PYTHONPATH
+        "export PYTHONPATH=/root/llm-server:$PYTHONPATH",
+        # Print debug information
+        "echo 'Current directory contents:' && ls -la",
+        "echo 'Python path:' && python -c 'import sys; print(sys.path)'"
     )
 )
 
@@ -36,7 +41,7 @@ volume = modal.Volume.from_name(VOLUME_NAME, create_if_missing=True)
 
 @modal_app.function(
     image=image,
-    secrets=[app_secrets],
+    secrets=[app_secrets, modal.Secret.from_dict({"MODAL_LOGLEVEL": "DEBUG"})],
     volumes={"/data": volume},
     gpu="T4",
     memory=4096,
