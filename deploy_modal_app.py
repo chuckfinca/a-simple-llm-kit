@@ -44,6 +44,7 @@ volume = modal.Volume.from_name(VOLUME_NAME, create_if_missing=True)
 )
 @modal.asgi_app()
 def fastapi_app():
+    return None
     from app.main import app
     return app
 
