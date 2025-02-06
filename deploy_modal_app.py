@@ -9,38 +9,32 @@ app_secrets = modal.Secret.from_name("app-secrets")
 APP_NAME = "llm-server"
 
 # Create the modal_app
-app = modal.App(APP_NAME)
+modal_app = modal.App(APP_NAME)
 
 ENV_NAME = os.getenv('APP_ENV', 'development')
 VOLUME_NAME = f"llm-server-{ENV_NAME}-logs"
 
-# Create image with local Python package
+# Create image with requirements file and install packages
+requirements_path = Path(__file__).parent / "requirements.txt"
 image = (
     modal.Image.debian_slim(python_version="3.9")
-    .add_local_python_source(
-        "llm_server",  # root folder name
-        ignore=[
-            ".*",
-            "__pycache__",
-            "*.pyc",
-            "*.pyo", 
-            "*.pyd",
-            "build",
-            "dist",
-            "*.egg-info",
-            "logs",
-            ".git",
-            ".github",
-            "tests"
-        ]
+    .copy_local_file(requirements_path, remote_path="/root/requirements.txt")
+    .copy_local_dir(".", remote_path="/root/llm-server")
+    .run_commands(
+        "echo '=== Directory Structure ===' && ls -la /root/llm-server",
+        "echo '=== Python Path ===' && python -c 'import sys; print(\"\n\".join(sys.path))'",
+        "echo '=== Current Directory ===' && pwd",
+        "cd /root/llm-server",
+        "pip install -r /root/requirements.txt",
+        "pip install -e .",
+        "echo '=== Installed Packages ===' && pip list"
     )
-    .pip_install_from_requirements("requirements.txt")
 )
 
 # Create volume for logs
 volume = modal.Volume.from_name(VOLUME_NAME, create_if_missing=True)
 
-@app.function(
+@modal_app.function(
     image=image,
     secrets=[app_secrets],
     volumes={"/data": volume},
@@ -54,4 +48,4 @@ def fastapi_app():
     return app
 
 if __name__ == "__main__":
-    app.serve()
+    modal_app.serve()
