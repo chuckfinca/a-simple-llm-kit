@@ -34,10 +34,10 @@ volume = modal.Volume.from_name(VOLUME_NAME, create_if_missing=True)
     memory=4096,
     timeout=600
 )
-@modal.asgi_app()
-def fastapi_app():
-    from app.main import app
-    return app
+# @modal.asgi_app()
+# def fastapi_app():
+#     from app.main import app
+#     return app
 
 if __name__ == "__main__":
     modal_app.serve()
