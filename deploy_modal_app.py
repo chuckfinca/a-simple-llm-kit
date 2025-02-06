@@ -28,6 +28,9 @@ image = (
     .copy_local_dir(".", remote_path="/app")
 )
 
+# Create volume for logs
+volume = modal.Volume.from_name(VOLUME_NAME, create_if_missing=True)
+
 @app.function(
     image=image,
     secrets=[app_secrets],
