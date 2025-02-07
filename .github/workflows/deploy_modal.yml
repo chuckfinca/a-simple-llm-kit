@@ -56,14 +56,14 @@ jobs:
           modal deploy deploy_modal_app.py --name llm-server-${{ github.event.inputs.environment || 'staging' }}
       
       - name: Get Modal Deployment URL
-      id: modal-url
-      env:
-        MODAL_TOKEN_ID: ${{ secrets.MODAL_ID }}
-        MODAL_TOKEN_SECRET: ${{ secrets.MODAL_SECRET }}
-      run: |
-        APP_NAME="llm-server-${{ github.event.inputs.environment || 'staging' }}"
-        MODAL_URL="https://chuckfinca--${APP_NAME}-fastapi-app.modal.run"
-        echo "modal_url=${MODAL_URL}" >> $GITHUB_OUTPUT
+        id: modal-url
+        env:
+          MODAL_TOKEN_ID: ${{ secrets.MODAL_ID }}
+          MODAL_TOKEN_SECRET: ${{ secrets.MODAL_SECRET }}
+        run: |
+          APP_NAME="llm-server-${{ github.event.inputs.environment || 'staging' }}"
+          MODAL_URL="https://chuckfinca--${APP_NAME}-fastapi-app.modal.run"
+          echo "modal_url=${MODAL_URL}" >> $GITHUB_OUTPUT
 
       - name: Update Cloudflare Tunnel
         uses: ./.github/workflows/update-tunnel.yml
