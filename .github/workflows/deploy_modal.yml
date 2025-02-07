@@ -54,80 +54,22 @@ jobs:
         run: |
           echo "Deploying with name: llm-server-${{ github.event.inputs.environment || 'staging' }}"
           modal deploy deploy_modal_app.py --name llm-server-${{ github.event.inputs.environment || 'staging' }}
-          
+      
       - name: Get Modal Deployment URL
-        id: modal-url
-        env:
-          MODAL_TOKEN_ID: ${{ secrets.MODAL_ID }}
-          MODAL_TOKEN_SECRET: ${{ secrets.MODAL_SECRET }}
-        run: |
-          APP_NAME="llm-server-${{ github.event.inputs.environment || 'staging' }}"
-          
-          MODAL_URL="https://chuckfinca--${APP_NAME}-fastapi-app.modal.run"
-          echo "Setting MODAL_URL to: $MODAL_URL"
-          echo "MODAL_URL=${MODAL_URL}" >> $GITHUB_ENV
-      
-      - name: Verify Cloudflare API Token
-        env:
-          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API }}
-        run: |
-          echo "Verifying API token permissions..."
-          RESPONSE=$(curl -s -X GET "https://api.cloudflare.com/client/v4/user/tokens/verify" \
-            -H "Authorization: Bearer ${CLOUDFLARE_API_TOKEN}")
-          
-          echo "Token verification response:"
-          echo $RESPONSE | jq '.'
-          
-          if echo $RESPONSE | jq -e '.success == true' > /dev/null; then
-            echo "✅ Token is valid"
-          else
-            echo "❌ Token verification failed"
-            exit 1
-          fi
-      
-      - name: Update Cloudflare Tunnel
-        env:
-          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API }}
-          CLOUDFLARE_ACCOUNT: ${{ secrets.CLOUDFLARE_ACCOUNT }}
-          TUNNEL_ID: ${{ secrets.CLOUDFLARE_TUNNEL_ID }}
-        run: |
-          echo "Updating tunnel configuration..."
-          
-          TUNNEL_CONFIG='{
-            "config": {
-              "ingress": [
-                {
-                  "hostname": "api.appsimple.io",
-                  "service": "'${MODAL_URL}'",
-                  "originRequest": {
-                    "connectTimeout": 10,
-                    "noHappyEyeballs": false,
-                    "keepAliveTimeout": 30,
-                    "keepAliveConnections": 10
-                  }
-                },
-                {
-                  "service": "http_status:404"
-                }
-              ]
-            }
-          }'
-          
-          echo "Using configuration:"
-          echo $TUNNEL_CONFIG | jq '.'
-          
-          UPDATE_RESPONSE=$(curl -v -X PUT \
-            "https://api.cloudflare.com/client/v4/accounts/${CLOUDFLARE_ACCOUNT}/cfd_tunnel/${TUNNEL_ID}/configurations" \
-            -H "Authorization: Bearer ${CLOUDFLARE_API_TOKEN}" \
-            -H "Content-Type: application/json" \
-            --data "$TUNNEL_CONFIG")
-          
-          echo "Update response:"
-          echo $UPDATE_RESPONSE | jq '.'
-          
-          if echo $UPDATE_RESPONSE | jq -e '.success == true' > /dev/null; then
-            echo "✅ Configuration update successful"
-          else
-            echo "❌ Configuration update failed"
-            exit 1
-          fi
+      id: modal-url
+      env:
+        MODAL_TOKEN_ID: ${{ secrets.MODAL_ID }}
+        MODAL_TOKEN_SECRET: ${{ secrets.MODAL_SECRET }}
+      run: |
+        APP_NAME="llm-server-${{ github.event.inputs.environment || 'staging' }}"
+        MODAL_URL="https://chuckfinca--${APP_NAME}-fastapi-app.modal.run"
+        echo "modal_url=${MODAL_URL}" >> $GITHUB_OUTPUT
+
+    - name: Update Cloudflare Tunnel
+      uses: ./.github/workflows/update-tunnel.yml
+      with:
+        service_url: ${{ steps.modal-url.outputs.modal_url }}
+      secrets:
+        CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API }}
+        CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT }}
+        CLOUDFLARE_TUNNEL_ID: ${{ secrets.CLOUDFLARE_TUNNEL_ID }}
