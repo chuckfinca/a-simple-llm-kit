@@ -1,4 +1,3 @@
-from fastapi import FastAPI
 import modal
 import os
 from pathlib import Path
@@ -10,7 +9,7 @@ app_secrets = modal.Secret.from_name("app-secrets")
 APP_NAME = "llm-server"
 
 # Create the modal_app
-modal_app = modal.App(APP_NAME)
+app = modal.App(APP_NAME)
 
 ENV_NAME = os.getenv('APP_ENV', 'development')
 VOLUME_NAME = f"llm-server-{ENV_NAME}-logs"
@@ -27,7 +26,7 @@ image = (
 # Create volume for logs
 volume = modal.Volume.from_name(VOLUME_NAME, create_if_missing=True)
 
-@modal_app.function(
+@app.function(
     image=image,
     secrets=[app_secrets],
     volumes={"/data": volume},
@@ -37,8 +36,8 @@ volume = modal.Volume.from_name(VOLUME_NAME, create_if_missing=True)
 )
 @modal.asgi_app()
 def fastapi_app():
-    # from app.main import app
-    return FastAPI()
+    from app.main import app
+    return app
 
 if __name__ == "__main__":
-    modal_app.serve()
+    app.serve()
