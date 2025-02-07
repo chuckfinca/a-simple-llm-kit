@@ -66,6 +66,6 @@ jobs:
           echo "modal_url=${MODAL_URL}" >> $GITHUB_OUTPUT
 
       - name: Update Cloudflare Tunnel
-        uses: ./.github/workflows/update-tunnel.yml
+        uses: ./.github/actions/update-tunnel
         with:
           service_url: ${{ steps.modal-url.outputs.modal_url }}
