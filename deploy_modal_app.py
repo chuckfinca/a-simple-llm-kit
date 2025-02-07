@@ -15,14 +15,12 @@ ENV_NAME = os.getenv('APP_ENV', 'development')
 VOLUME_NAME = f"llm-server-{ENV_NAME}-logs"
 
 # Create image with requirements file and install packages
-requirements_path = Path(__file__).parent / "requirements.txt"
 image = (
     modal.Image.debian_slim(python_version="3.9")
-    .copy_local_file(requirements_path, remote_path="/root/requirements.txt")
     .copy_local_dir(".", remote_path="/app")
     .run_commands([
-        "pip install -r /root/requirements.txt",
-        "pip install -e /app"  # Not "pip install -e . /app"
+        "cd /app && pip install -r requirements.txt",
+        "cd /app && pip install -e ."
     ])
 )
 
@@ -39,6 +37,9 @@ volume = modal.Volume.from_name(VOLUME_NAME, create_if_missing=True)
 )
 @modal.asgi_app()
 def fastapi_app():
+    import os
+    # Set the working directory to /app
+    os.chdir('/app')
     from app.main import app
     return app
 
