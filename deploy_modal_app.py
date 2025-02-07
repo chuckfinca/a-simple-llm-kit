@@ -19,8 +19,11 @@ requirements_path = Path(__file__).parent / "requirements.txt"
 image = (
     modal.Image.debian_slim(python_version="3.9")
     .copy_local_file(requirements_path, remote_path="/root/requirements.txt")
-    .run_commands("pip install -r /root/requirements.txt")
     .copy_local_dir(".", remote_path="/app")
+    .run_commands([
+        "pip install -r /root/requirements.txt",
+        "pip install -e /app"  # Not "pip install -e . /app"
+    ])
 )
 
 # Create volume for logs
