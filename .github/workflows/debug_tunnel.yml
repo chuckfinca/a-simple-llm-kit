@@ -22,24 +22,6 @@ jobs:
       - name: Install jq
         run: sudo apt-get install jq
       
-      - name: Verify API Token
-        env:
-          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API }}
-        run: |
-          echo "Verifying API token permissions..."
-          RESPONSE=$(curl -s -X GET "https://api.cloudflare.com/client/v4/user/tokens/verify" \
-            -H "Authorization: Bearer ${CLOUDFLARE_API_TOKEN}")
-          
-          echo "Token verification response:"
-          echo $RESPONSE | jq '.'
-          
-          if echo $RESPONSE | jq -e '.success == true' > /dev/null; then
-            echo "✅ Token is valid"
-          else
-            echo "❌ Token verification failed"
-            exit 1
-          fi
-
       - name: Check Tunnel Status
         env:
           CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API }}
