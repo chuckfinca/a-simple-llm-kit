@@ -34,13 +34,16 @@ runs:
           "config": {
             "ingress": [
               {
-                "hostname": "'$HOSTNAME'",
-                "service": "'$SERVICE_URL'",
+                "service": "https://chuckfinca--llm-server-production-fastapi-app.modal.run",
+                "hostname": "api.appsimple.io",
                 "originRequest": {
-                  "connectTimeout": 10,
+                  "connectTimeout": 30,
                   "noHappyEyeballs": false,
-                  "keepAliveTimeout": 30,
-                  "keepAliveConnections": 10
+                  "keepAliveTimeout": 60,
+                  "keepAliveConnections": 10,
+                  "http2Origin": true,
+                  "tcpKeepAlive": 30,
+                  "timeout": 60
                 }
               },
               {
