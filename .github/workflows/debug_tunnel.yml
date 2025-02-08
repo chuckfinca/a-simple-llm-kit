@@ -78,6 +78,7 @@ jobs:
           CLOUDFLARE_ACCOUNT: ${{ secrets.CLOUDFLARE_ACCOUNT }}
           TUNNEL_ID: ${{ secrets.CLOUDFLARE_TUNNEL_ID }}
           MODAL_URL: "https://test-url.modal.run"
+          API_DOMAIN: ${{ secrets.API_DOMAIN }}
         run: |
           echo "Updating tunnel configuration..."
           
@@ -85,7 +86,7 @@ jobs:
             "config": {
               "ingress": [
                 {
-                  "hostname": "api.appsimple.io",
+                  "hostname": "'${API_DOMAIN}'",
                   "service": "'${MODAL_URL}'"
                 },
                 {

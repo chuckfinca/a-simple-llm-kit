@@ -35,3 +35,8 @@ htmlcov/
 # Project specific
 tree
 logs/
+
+# Keys
+*.key
+*.pem
+id_rsa
