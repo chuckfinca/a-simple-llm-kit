@@ -12,6 +12,7 @@ pyyaml>=6.0.0
 
 # LLM integration
 dspy-ai==2.5.43
+pillow>=10.0.0
 
 # Monitoring
 prometheus-client>=0.17.0
