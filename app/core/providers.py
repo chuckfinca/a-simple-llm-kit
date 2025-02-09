@@ -29,6 +29,10 @@ class ProviderManager:
             'huggingface': ProviderConfig(
                 api_key=settings.huggingface_api_key,
                 default_params={'max_retries': 3}
+            ),
+            'gemini': ProviderConfig(
+                api_key=settings.gemini_api_key,
+                default_params={'max_retries': 3}
             )
         }
     

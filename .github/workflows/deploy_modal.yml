@@ -46,6 +46,7 @@ jobs:
             OPENAI_API_KEY="${{ secrets.OPENAI_DEV }}" \
             ANTHROPIC_API_KEY="${{ secrets.ANTHROPIC_DEV }}" \
             HUGGINGFACE_API_KEY="${{ secrets.HF_DEV }}" \
+            GEMINI_API_KEY="${{ secrets.GEMINI_API_KEY }}" \
             LLM_SERVER_API_KEY="${{ secrets.LLM_SERVER }}" \
             APP_ENV="${{ github.event.inputs.environment || 'staging' }}" \
             --force

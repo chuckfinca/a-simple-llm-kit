@@ -9,6 +9,7 @@ class Settings(BaseSettings):
     anthropic_api_key: str = os.getenv("ANTHROPIC_API_KEY", "")
     huggingface_api_key: str = os.getenv("HUGGINGFACE_API_KEY", "")
     llm_server_api_key: str = os.getenv("LLM_SERVER_API_KEY", "")
+    gemini_api_key: str = os.getenv("GEMINI_API_KEY", "")
     log_level: str = "INFO"
 
     class Config:
