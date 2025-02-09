@@ -64,6 +64,9 @@ jobs:
           APP_NAME="llm-server-${{ github.event.inputs.environment || 'staging' }}"
           MODAL_URL="https://chuckfinca--${APP_NAME}-fastapi-app.modal.run"
           echo "MODAL_URL=${MODAL_URL}" >> $GITHUB_OUTPUT
+          # Set the required Modal host header
+          MODAL_HOST="chuckfinca--${APP_NAME}-fastapi-app.modal.run"
+          echo "MODAL_HOST=${MODAL_HOST}" >> $GITHUB_OUTPUT
 
       - name: Update Cloudflare Tunnel
         uses: ./.github/actions/update_tunnel
@@ -73,3 +76,5 @@ jobs:
           CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT }}
           CLOUDFLARE_TUNNEL_ID: ${{ secrets.CLOUDFLARE_TUNNEL_ID }}
           HOSTNAME: ${{ secrets.API_DOMAIN }}
+          # Modal requires specific host header
+          HOST_HEADER_OVERRIDE: ${{ steps.modal-url.outputs.MODAL_HOST }}
