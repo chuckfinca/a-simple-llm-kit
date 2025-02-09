@@ -2,6 +2,7 @@ import dspy
 from fastapi import APIRouter, Depends, HTTPException, Request
 from app.api.schemas.requests import PipelineRequest, QueryRequest
 from app.api.schemas.responses import ExtractContactResponse, HealthResponse, PipelineResponse, QueryResponse, QueryResponseData
+from app.core import logging
 from app.core.pipeline import Pipeline
 from app.core.rate_limiting import RateLimit, rate_limit
 from app.core.types import PipelineData, MediaType
@@ -90,25 +91,31 @@ async def process_extract_contact(
         window=30
     )))):
     try:
+        logging.info(f"Starting contact extraction with model {pipeline_req.params.get('model_id')}")
         model_manager = request.app.state.model_manager
+        
+        logging.debug("Creating contact extraction pipeline")
         pipeline = create_extract_contact_processor(
             model_manager,
             pipeline_req.params.get("model_id"),
         )
         
+        logging.info("Executing pipeline")
         result = await pipeline.execute(PipelineData(
             media_type=MediaType.IMAGE,
             content=pipeline_req.content,
             metadata=pipeline_req.params
         ))
         
+        logging.debug("Pipeline execution complete, inspecting history")
         dspy.inspect_history(n=1)
         
         return ExtractContactResponse(
             success=True,
-            data=result.content,  # This is now a ExtractContact domain model
+            data=result.content,
             timestamp=datetime.now(timezone.utc)
         )
         
     except Exception as e:
+        logging.error("Contact extraction failed", exc_info=True)
         raise HTTPException(status_code=500, detail=str(e))
