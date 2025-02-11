@@ -1,5 +1,5 @@
 
-from app.core.implementations import DSPyModelBackend, ImageConverterStep, ImageTypeValidator, ModelProcessor
+from app.core.implementations import DSPyModelBackend, ImageConverterStep, ImagePreprocessor, ImageTypeValidator, ModelProcessor
 from app.core.pipeline import Pipeline
 from app.core.protocols import PipelineStep
 from app.core.types import MediaType
@@ -21,6 +21,7 @@ def create_extract_contact_processor(model_manager, model_id: str) -> PipelineSt
     
     pipeline = Pipeline([
         ImageTypeValidator(),
+        ImagePreprocessor(max_size=(800, 800)), 
         ImageConverterStep(),
         ModelProcessor(
             backend=backend,

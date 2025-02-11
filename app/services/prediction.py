@@ -9,6 +9,6 @@ class PredictionService:
     async def predict(self, request: QueryRequest) -> str:
         async with self.model_manager.get_model(request.model_id) as lm:
             dspy.configure(lm=lm)
-            predictor = dspy.Predict(Predictor, lm)
+            predictor = dspy.Predict(Predictor)
             result = predictor(input=request.prompt)
             return result.output

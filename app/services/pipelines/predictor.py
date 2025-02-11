@@ -17,7 +17,7 @@ class PredictorStep(PipelineStep):
     async def process(self, data: PipelineData) -> PipelineData:
         with self.model_manager.get_model(self.model_id) as lm:
             dspy.configure(lm=lm)
-            predictor = dspy.Predict(Predictor, lm)
+            predictor = dspy.Predict(Predictor)
             # Remove await since dspy.Predict is synchronous
             result = predictor(input=data.content)
             

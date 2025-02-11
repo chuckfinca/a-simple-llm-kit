@@ -20,19 +20,19 @@ class ProviderManager:
         self.providers = {
             'openai': ProviderConfig(
                 api_key=settings.openai_api_key,
-                default_params={'max_retries': 3}
+                default_params={}
             ),
             'anthropic': ProviderConfig(
                 api_key=settings.anthropic_api_key,
-                default_params={'max_retries': 2}
+                default_params={}
             ),
             'huggingface': ProviderConfig(
                 api_key=settings.huggingface_api_key,
-                default_params={'max_retries': 3}
+                default_params={}
             ),
             'gemini': ProviderConfig(
                 api_key=settings.gemini_api_key,
-                default_params={'max_retries': 3}
+                default_params={}
             )
         }
     
@@ -47,8 +47,12 @@ class ProviderManager:
         """Initialize a model with provider-specific configuration"""
         provider_config = self.get_provider_config(model_name)
         
-        # Merge provider default params with model-specific params
-        params = {**provider_config.default_params, **model_config.get('additional_params', {})}
+        # Start with provider default params
+        params = provider_config.default_params.copy()
+        
+        # Update with model-specific params, letting them override provider defaults
+        model_params = model_config.get('additional_params', {})
+        params.update(model_params)
         
         return dspy.LM(
             model_name,

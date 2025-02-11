@@ -1,22 +1,16 @@
 import asyncio
-from typing import Any, List, Union
+from typing import Any, List, Union, Tuple
 import dspy
 from enum import Enum
 from pathlib import Path
 import base64
 import pydantic
-from typing import Any
+from PIL import Image
+import io
 
+from app.core.protocols import PipelineStep, ModelBackend
 from app.core.types import MediaType, PipelineData
-from app.core.model_interfaces import ModelOutput
-from app.core.protocols import ModelBackend
 from app.core.model_interfaces import Signature, ModelOutput
-from app.core import logging
-
-from typing import Any
-import dspy
-from app.core.model_interfaces import ModelOutput
-from app.core.protocols import ModelBackend
 from app.core import logging
 
 class DSPyModelBackend(ModelBackend):
@@ -43,7 +37,7 @@ class DSPyModelBackend(ModelBackend):
                     raise ValueError(f"Model {self.model_id} not found")
                     
                 dspy.configure(lm=lm)
-                predictor = dspy.Predict(self.signature, lm)
+                predictor = dspy.Predict(self.signature)
                 
                 # Determine input key based on signature
                 input_key = "image" if self.signature.__name__ == 'ContactExtractor' else "input"
@@ -180,6 +174,19 @@ class ImageConverterStep:
         return [MediaType.IMAGE]
     
     async def process(self, data: PipelineData) -> PipelineData:
+        # If content is already a data URI, pass it through unchanged
+        if isinstance(data.content, str) and data.content.startswith('data:'):
+            return PipelineData(
+                media_type=MediaType.IMAGE,
+                content=data.content,
+                metadata={
+                    **data.metadata,
+                    'original_type': 'data_uri',
+                    'mime_type': data.content.split(';')[0].split(':')[1],
+                    'converted_to': 'data_uri'
+                }
+            )
+        
         # Validate and determine image type
         image_input = ImageInput(content=data.content)
         
@@ -200,7 +207,7 @@ class ImageConverterStep:
         
         mime_type = image_input.type.to_mime_type()
         data_uri = f"data:{mime_type};base64,{base64_data}"
-
+        
         return PipelineData(
             media_type=MediaType.IMAGE,
             content=data_uri,  # Complete data URI
@@ -209,5 +216,60 @@ class ImageConverterStep:
                 'original_type': image_input.type.value,
                 'mime_type': mime_type,  # New field
                 'converted_to': 'data_uri'
+            }
+        )
+
+class ImagePreprocessor(PipelineStep):
+    """Pipeline step that resizes images to a target size"""
+    
+    def __init__(self, max_size: Tuple[int, int] = (800, 800)):
+        self.max_size = max_size
+        self._accepted_types = [MediaType.IMAGE]
+    
+    @property
+    def accepted_media_types(self) -> List[MediaType]:
+        return self._accepted_types
+    
+    async def process(self, data: PipelineData) -> PipelineData:
+        # If the content is a data URI, extract the base64 data
+        if isinstance(data.content, str) and data.content.startswith('data:'):
+            # Split the header from the base64 data
+            header, base64_data = data.content.split(',', 1)
+            image_bytes = base64.b64decode(base64_data)
+        else:
+            image_bytes = data.content if isinstance(data.content, bytes) else base64.b64decode(data.content)
+        
+        # Open and resize the image
+        with Image.open(io.BytesIO(image_bytes)) as img:
+            # Convert to RGB if necessary
+            if img.mode != 'RGB':
+                img = img.convert('RGB')
+            
+            # Calculate new size maintaining aspect ratio
+            ratio = min(self.max_size[0] / img.size[0], self.max_size[1] / img.size[1])
+            if ratio < 1:  # Only resize if image is larger than max_size
+                new_size = (int(img.size[0] * ratio), int(img.size[1] * ratio))
+                img = img.resize(new_size, Image.Resampling.LANCZOS)
+            
+            # Save the processed image
+            buffer = io.BytesIO()
+            img.save(buffer, format='JPEG', quality=85)
+            processed_bytes = buffer.getvalue()
+            
+            # Convert back to base64
+            base64_processed = base64.b64encode(processed_bytes).decode('utf-8')
+            
+            # Create data URI
+            data_uri = f"data:image/jpeg;base64,{base64_processed}"
+        
+        return PipelineData(
+            media_type=MediaType.IMAGE,
+            content=data_uri,
+            metadata={
+                **data.metadata,
+                'preprocessed': True,
+                'original_size': img.size,
+                'processed_size': new_size if ratio < 1 else img.size,
+                'compression_ratio': ratio if ratio < 1 else 1.0
             }
         )
