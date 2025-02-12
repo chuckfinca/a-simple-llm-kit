@@ -1,12 +1,10 @@
 import asyncio
-from typing import Any, List, Union, Tuple
+from typing import Any, List, Union, Tuple, Optional
 import dspy
-from enum import Enum
-from pathlib import Path
-import base64
-import pydantic
 from PIL import Image
 import io
+import base64
+from pathlib import Path
 
 from app.core.protocols import PipelineStep, ModelBackend
 from app.core.types import MediaType, PipelineData
@@ -31,7 +29,6 @@ class DSPyModelBackend(ModelBackend):
         
         for attempt in range(max_attempts):
             try:
-                # Get model without context manager
                 lm = self.model_manager.models.get(self.model_id)
                 if not lm:
                     raise ValueError(f"Model {self.model_id} not found")
@@ -39,17 +36,16 @@ class DSPyModelBackend(ModelBackend):
                 dspy.configure(lm=lm)
                 predictor = dspy.Predict(self.signature)
                 
-                # Determine input key based on signature
+                # Use appropriate input key
                 input_key = "image" if self.signature.__name__ == 'ContactExtractor' else "input"
                 raw_result = predictor(**{input_key: input_data})
                 
                 return self.signature.process_output(raw_result)
                     
             except Exception as e:
-                if attempt == max_attempts - 1:  # Last attempt
+                if attempt == max_attempts - 1:
                     logging.error(f"Final attempt failed for model {self.model_id}: {str(e)}")
-                    raise  # Re-raise the last error
-                    
+                    raise
                 delay = base_delay * (2 ** attempt)
                 logging.warning(
                     f"API call failed: {str(e)}, "
@@ -77,182 +73,109 @@ class ModelProcessor:
     def accepted_media_types(self) -> list[MediaType]:
         return self._accepted_types
 
-class ImageType(Enum):
-    BASE64 = "base64"
-    PNG = "png"
-    JPEG = "jpeg"
-    NONE = "none"
-    
-    def to_mime_type(self) -> str:
-        """Convert image type to MIME type string"""
-        mime_types = {
-            ImageType.PNG: "image/png",
-            ImageType.JPEG: "image/jpeg",
-            ImageType.BASE64: "image/png",  # Default to PNG for base64
-            ImageType.NONE: "application/octet-stream"
-        }
-        return mime_types[self]
+class ImageContent:
+    """Wrapper class to handle different image formats and conversions"""
+    def __init__(self, content: Union[str, bytes]):
+        self._content = content
+        self._bytes: Optional[bytes] = None
+        self._pil_image: Optional[Image.Image] = None
+        self._data_uri: Optional[str] = None
 
-class ImageTypeValidator:
-    """Validates and detects image types in the pipeline"""
-    
-    def __init__(self):
-        self._accepted_types = [MediaType.IMAGE]
-    
     @property
-    def accepted_media_types(self) -> List[MediaType]:
-        """Implement accepted_media_types as required by PipelineStep protocol"""
-        return self._accepted_types
-    
-    async def process(self, data: PipelineData) -> PipelineData:
-        """Implement process method as required by PipelineStep protocol"""
-        # Validate the image type
-        image_type = self.detect_type(data.content)
-        
-        # Return data with updated metadata
-        return PipelineData(
-            media_type=MediaType.IMAGE,
-            content=data.content,
-            metadata={
-                **data.metadata,
-                'detected_image_type': image_type.value,
-                'validated': True
-            }
-        )
-    
-    @staticmethod
-    def detect_type(content: Union[str, bytes]) -> ImageType:
-        if isinstance(content, bytes):
-            return ImageTypeValidator._detect_from_bytes(content)
-        return ImageTypeValidator._detect_from_str(content)
-            
-    @staticmethod
-    def _detect_from_bytes(data: bytes) -> ImageType:
-        if data.startswith(b'\x89PNG\r\n'):
-            return ImageType.PNG
-        if data.startswith(b'\xff\xd8\xff'):
-            return ImageType.JPEG
-        raise ValueError("Invalid image bytes")
-    
-    @staticmethod
-    def _detect_from_str(data: str) -> ImageType:
-        # First check if it's a reasonable length for a file path
-        if len(data) < 1024:
-            try:
-                path = Path(data)
-                if path.exists():
-                    with open(path, 'rb') as f:
-                        return ImageTypeValidator._detect_from_bytes(f.read(4))
-            except (OSError, IOError):
-                pass
-                
-        # If not a file path, treat as base64
-        try:
-            # Handle data URI format
-            if ',' in data:
-                data = data.split(',', 1)[1]
-            decoded = base64.b64decode(data)
-            return ImageType.BASE64
-        except:
-            return ImageType.BASE64  # Default to base64 for long strings
+    def bytes(self) -> bytes:
+        """Get image as bytes, converting if necessary"""
+        if self._bytes is None:
+            if isinstance(self._content, bytes):
+                self._bytes = self._content
+            elif isinstance(self._content, str):
+                if self._content.startswith('data:'):
+                    # Handle data URI
+                    _, base64_data = self._content.split(',', 1)
+                    self._bytes = base64.b64decode(base64_data)
+                else:
+                    # Handle file path or base64 string
+                    try:
+                        with open(self._content, 'rb') as f:
+                            self._bytes = f.read()
+                    except:
+                        # Try as base64
+                        self._bytes = base64.b64decode(self._content)
+        return self._bytes
 
-
-class ImageInput(pydantic.BaseModel):
-    content: Union[str, bytes] 
-    type: ImageType = pydantic.Field(default_factory=lambda: ImageType.NONE)
-    
-    def __init__(self, **data):
-        super().__init__(**data)
-        self.type = ImageTypeValidator.detect_type(self.content)
-        
-
-class ImageConverterStep:
-    """Pipeline step that standardizes image format to bytes"""
-    
     @property
-    def accepted_media_types(self) -> List[MediaType]:
-        return [MediaType.IMAGE]
-    
-    async def process(self, data: PipelineData) -> PipelineData:
-        # Handle different input types and convert to bytes
-        if isinstance(data.content, str):
-            if data.content.startswith('data:'):
-                # Extract bytes from data URI
-                _, base64_data = data.content.split(',', 1)
-                image_bytes = base64.b64decode(base64_data)
-            else:
-                # Assume it's a file path
-                with open(data.content, 'rb') as f:
-                    image_bytes = f.read()
-        elif isinstance(data.content, bytes):
-            image_bytes = data.content
-        else:
-            raise ValueError(
-                f"ImageConverterStep received unsupported content type: {type(data.content)}. "
-                f"Only strings (file paths or data URIs) or bytes are supported."
-            )
+    def pil_image(self) -> Image.Image:
+        """Get as PIL Image, converting if necessary"""
+        if self._pil_image is None:
+            self._pil_image = Image.open(io.BytesIO(self.bytes))
+            if self._pil_image.mode != 'RGB':
+                self._pil_image = self._pil_image.convert('RGB')
+        return self._pil_image
 
-        # Detect original format
-        image_type = ImageTypeValidator.detect_type(image_bytes)
-        
-        return PipelineData(
-            media_type=MediaType.IMAGE,
-            content=image_bytes,  # Always output raw bytes
-            metadata={
-                **data.metadata,
-                'original_type': image_type.value,
-                'mime_type': image_type.to_mime_type()
-            }
-        )
+    @property
+    def data_uri(self) -> str:
+        """Get as data URI, converting if necessary"""
+        if self._data_uri is None:
+            mime_type = self.detect_mime_type()
+            base64_data = base64.b64encode(self.bytes).decode('utf-8')
+            self._data_uri = f"data:{mime_type};base64,{base64_data}"
+        return self._data_uri
 
-class ImagePreprocessor(PipelineStep):
-    """Pipeline step that handles image resizing and optimization.
-    Expects image bytes as input."""
-    
+    def detect_mime_type(self) -> str:
+        """Detect MIME type from image bytes"""
+        if self.bytes.startswith(b'\x89PNG\r\n'):
+            return 'image/png'
+        if self.bytes.startswith(b'\xff\xd8\xff'):
+            return 'image/jpeg'
+        return 'image/png'  # Default to PNG
+
+class ImageProcessor:
+    """Combined image processing step that handles validation, conversion, and preprocessing"""
     def __init__(self, max_size: Tuple[int, int] = (800, 800)):
         self.max_size = max_size
         self._accepted_types = [MediaType.IMAGE]
-    
+
     @property
     def accepted_media_types(self) -> List[MediaType]:
         return self._accepted_types
-    
+
     async def process(self, data: PipelineData) -> PipelineData:
-        if not isinstance(data.content, bytes):
-            raise ValueError(
-                "ImagePreprocessor expects bytes input, but received "
-                f"{type(data.content)}. Make sure ImageConverterStep is run before "
-                "ImagePreprocessor in your pipeline."
-            )
-            
-        # Process the image
-        with Image.open(io.BytesIO(data.content)) as img:
-            # Convert to RGB if needed
-            if img.mode != 'RGB':
-                img = img.convert('RGB')
-            
-            # Calculate new size maintaining aspect ratio
-            ratio = min(self.max_size[0] / img.size[0], self.max_size[1] / img.size[1])
-            new_size = img.size
-            if ratio < 1:  # Only resize if image is larger than max_size
-                new_size = (int(img.size[0] * ratio), int(img.size[1] * ratio))
-                img = img.resize(new_size, Image.Resampling.LANCZOS)
-            
-            # Save processed image as data URI
-            buffer = io.BytesIO()
-            img.save(buffer, format='JPEG', quality=85)
-            processed_bytes = buffer.getvalue()
-            base64_processed = base64.b64encode(processed_bytes).decode('utf-8')
-            data_uri = f"data:image/jpeg;base64,{base64_processed}"
+        # Wrap content in ImageContent for unified handling
+        image = ImageContent(data.content)
         
+        # Get original size before any processing
+        original_size = image.pil_image.size
+        
+        # Calculate resize ratio if needed
+        ratio = min(self.max_size[0] / original_size[0], 
+                    self.max_size[1] / original_size[1])
+        
+        processed_size = original_size
+        if ratio < 1:  # Only resize if image is larger than max_size
+            processed_size = (
+                int(original_size[0] * ratio),
+                int(original_size[1] * ratio)
+            )
+            # Resize the image
+            processed_pil = image.pil_image.resize(
+                processed_size, 
+                Image.Resampling.LANCZOS
+            )
+        else:
+            # If no resize needed, use original
+            processed_pil = image.pil_image
+
+        # Convert to dspy.Image before returning
+        processed_dspy = dspy.Image.from_PIL(processed_pil)
+
         return PipelineData(
             media_type=MediaType.IMAGE,
-            content=data_uri,  # Output as data URI for model consumption
+            content=processed_dspy,  # Now returning dspy.Image instead of PIL Image
             metadata={
                 **data.metadata,
-                'preprocessed': True,
-                'original_size': img.size,
-                'processed_size': new_size,
+                'processed': True,
+                'mime_type': image.detect_mime_type(),
+                'original_size': original_size,
+                'processed_size': processed_size,
                 'compression_ratio': ratio if ratio < 1 else 1.0
             }
         )
