@@ -187,7 +187,10 @@ class ImageConverterStep:
         elif isinstance(data.content, bytes):
             image_bytes = data.content
         else:
-            raise ValueError(f"Unsupported content type: {type(data.content)}")
+            raise ValueError(
+                f"ImageConverterStep received unsupported content type: {type(data.content)}. "
+                f"Only strings (file paths or data URIs) or bytes are supported."
+            )
 
         # Detect original format
         image_type = ImageTypeValidator.detect_type(image_bytes)
@@ -216,7 +219,11 @@ class ImagePreprocessor(PipelineStep):
     
     async def process(self, data: PipelineData) -> PipelineData:
         if not isinstance(data.content, bytes):
-            raise ValueError("ImagePreprocessor expects bytes input")
+            raise ValueError(
+                "ImagePreprocessor expects bytes input, but received "
+                f"{type(data.content)}. Make sure ImageConverterStep is run before "
+                "ImagePreprocessor in your pipeline."
+            )
             
         # Process the image
         with Image.open(io.BytesIO(data.content)) as img:
