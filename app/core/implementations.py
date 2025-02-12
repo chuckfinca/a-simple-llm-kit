@@ -167,60 +167,44 @@ class ImageInput(pydantic.BaseModel):
         
 
 class ImageConverterStep:
-    """Pipeline step that validates and converts images to the required format"""
+    """Pipeline step that standardizes image format to bytes"""
     
     @property
     def accepted_media_types(self) -> List[MediaType]:
         return [MediaType.IMAGE]
     
     async def process(self, data: PipelineData) -> PipelineData:
-        # If content is already a data URI, pass it through unchanged
-        if isinstance(data.content, str) and data.content.startswith('data:'):
-            return PipelineData(
-                media_type=MediaType.IMAGE,
-                content=data.content,
-                metadata={
-                    **data.metadata,
-                    'original_type': 'data_uri',
-                    'mime_type': data.content.split(';')[0].split(':')[1],
-                    'converted_to': 'data_uri'
-                }
-            )
-        
-        # Validate and determine image type
-        image_input = ImageInput(content=data.content)
-        
-        # Convert to base64 if not already
-        if image_input.type != ImageType.BASE64:
-            if isinstance(image_input.content, str):
-                # Read file content if path provided
-                with open(image_input.content, 'rb') as f:
-                    image_bytes = f.read()
+        # Handle different input types and convert to bytes
+        if isinstance(data.content, str):
+            if data.content.startswith('data:'):
+                # Extract bytes from data URI
+                _, base64_data = data.content.split(',', 1)
+                image_bytes = base64.b64decode(base64_data)
             else:
-                # Use bytes directly
-                image_bytes = image_input.content
-                
-            # Convert to base64
-            base64_data = base64.b64encode(image_bytes).decode('utf-8')
+                # Assume it's a file path
+                with open(data.content, 'rb') as f:
+                    image_bytes = f.read()
+        elif isinstance(data.content, bytes):
+            image_bytes = data.content
         else:
-            base64_data = image_input.content
-        
-        mime_type = image_input.type.to_mime_type()
-        data_uri = f"data:{mime_type};base64,{base64_data}"
+            raise ValueError(f"Unsupported content type: {type(data.content)}")
+
+        # Detect original format
+        image_type = ImageTypeValidator.detect_type(image_bytes)
         
         return PipelineData(
             media_type=MediaType.IMAGE,
-            content=data_uri,  # Complete data URI
+            content=image_bytes,  # Always output raw bytes
             metadata={
                 **data.metadata,
-                'original_type': image_input.type.value,
-                'mime_type': mime_type,  # New field
-                'converted_to': 'data_uri'
+                'original_type': image_type.value,
+                'mime_type': image_type.to_mime_type()
             }
         )
 
 class ImagePreprocessor(PipelineStep):
-    """Pipeline step that resizes images to a target size"""
+    """Pipeline step that handles image resizing and optimization.
+    Expects image bytes as input."""
     
     def __init__(self, max_size: Tuple[int, int] = (800, 800)):
         self.max_size = max_size
@@ -231,45 +215,37 @@ class ImagePreprocessor(PipelineStep):
         return self._accepted_types
     
     async def process(self, data: PipelineData) -> PipelineData:
-        # If the content is a data URI, extract the base64 data
-        if isinstance(data.content, str) and data.content.startswith('data:'):
-            # Split the header from the base64 data
-            header, base64_data = data.content.split(',', 1)
-            image_bytes = base64.b64decode(base64_data)
-        else:
-            image_bytes = data.content if isinstance(data.content, bytes) else base64.b64decode(data.content)
-        
-        # Open and resize the image
-        with Image.open(io.BytesIO(image_bytes)) as img:
-            # Convert to RGB if necessary
+        if not isinstance(data.content, bytes):
+            raise ValueError("ImagePreprocessor expects bytes input")
+            
+        # Process the image
+        with Image.open(io.BytesIO(data.content)) as img:
+            # Convert to RGB if needed
             if img.mode != 'RGB':
                 img = img.convert('RGB')
             
             # Calculate new size maintaining aspect ratio
             ratio = min(self.max_size[0] / img.size[0], self.max_size[1] / img.size[1])
+            new_size = img.size
             if ratio < 1:  # Only resize if image is larger than max_size
                 new_size = (int(img.size[0] * ratio), int(img.size[1] * ratio))
                 img = img.resize(new_size, Image.Resampling.LANCZOS)
             
-            # Save the processed image
+            # Save processed image as data URI
             buffer = io.BytesIO()
             img.save(buffer, format='JPEG', quality=85)
             processed_bytes = buffer.getvalue()
-            
-            # Convert back to base64
             base64_processed = base64.b64encode(processed_bytes).decode('utf-8')
-            
-            # Create data URI
             data_uri = f"data:image/jpeg;base64,{base64_processed}"
         
         return PipelineData(
             media_type=MediaType.IMAGE,
-            content=data_uri,
+            content=data_uri,  # Output as data URI for model consumption
             metadata={
                 **data.metadata,
                 'preprocessed': True,
                 'original_size': img.size,
-                'processed_size': new_size if ratio < 1 else img.size,
+                'processed_size': new_size,
                 'compression_ratio': ratio if ratio < 1 else 1.0
             }
         )
