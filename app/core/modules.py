@@ -76,6 +76,16 @@ class ContactExtractor(dspy.Signature):
     @classmethod
     def process_output(cls, result: Any) -> ExtractContact:
         """Process raw output into validated ExtractContact domain model"""
+        
+        # Handle the case where addresses might already be PostalAddress objects
+        postal_addresses = []
+        for addr in result.postal_addresses:
+            if isinstance(addr, PostalAddress):
+                postal_addresses.append(addr)
+            else:
+                # It's a dictionary, so unpack it
+                postal_addresses.append(PostalAddress(**addr))
+                
         return ExtractContact(
             name=PersonName(
                 prefix=result.name_prefix,
@@ -92,7 +102,7 @@ class ContactExtractor(dspy.Signature):
             contact=ContactInformation(
                 phone_numbers=result.phone_numbers,
                 email_addresses=result.email_addresses,
-                postal_addresses=[PostalAddress(**addr) for addr in result.postal_addresses],
+                postal_addresses=postal_addresses,
                 url_addresses=result.url_addresses
             ),
             social=[SocialProfiles(**social) for social in result.social_profiles],
