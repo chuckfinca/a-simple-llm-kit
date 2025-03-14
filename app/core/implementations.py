@@ -1,5 +1,5 @@
 import asyncio
-from typing import Any, List, Union, Tuple, Optional
+from typing import Any, List, Union, Tuple, Optional, Dict
 import dspy
 from PIL import Image
 import io
