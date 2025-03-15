@@ -10,12 +10,13 @@ A lightweight, extensible server for working with large language models, focused
 - **Contact Extraction**: Extract structured data from business card images
 - **Type Safety**: Full typing support with Pydantic and runtime protocol checking
 - **Monitoring**: Prometheus integration for metrics
+- **Flexible Parameters**: Supports additional model parameters for fine-tuned control
 
 ## Quick Start with Docker Compose
 
 The recommended way to run the server locally is using Docker Compose:
 
-```bash|
+```bash
 # Clone the repository
 git clone https://github.com/chuckfinca/llm-server.git
 cd llm-server
@@ -39,53 +40,114 @@ The server will be available at `http://localhost:8000` with Prometheus metrics 
 
 ### Health Check
 
-```bash|
+```bash
 curl -X GET http://localhost:8000/v1/health
 ```
 
 ### Text Completion
 
-```bash|
+Basic usage:
+
+```bash
 curl -X POST http://localhost:8000/v1/predict \
   -H "Content-Type: application/json" \
   -H "X-API-Key: your_server_key_here" \
   -d '{
-    "prompt": "Explain quantum computing in simple terms",
-    "model_id": "gpt-4o-mini",
-    "temperature": 0.7
+    "request": {
+      "prompt": "Explain quantum computing in simple terms",
+      "model_id": "gpt-4o-mini",
+      "temperature": 0.7
+    }
+  }'
+```
+
+With additional parameters:
+
+```bash
+curl -X POST http://localhost:8000/v1/predict \
+  -H "Content-Type: application/json" \
+  -H "X-API-Key: your_server_key_here" \
+  -d '{
+    "request": {
+      "prompt": "Explain quantum computing in simple terms",
+      "model_id": "gpt-4o-mini",
+      "temperature": 0.7,
+      "top_p": 0.95,
+      "frequency_penalty": 0.2,
+      "presence_penalty": 0.1,
+      "stop": [".", "\n"]
+    }
   }'
 ```
 
 ### Contact Extraction from Image
 
-```bash|
+```bash
+# Cross-platform compatible way to encode an image as base64
+IMAGE_B64=$(base64 < path/to/business_card.png | tr -d '\n')
+
 curl -X POST http://localhost:8000/v1/extract-contact \
   -H "Content-Type: application/json" \
   -H "X-API-Key: your_server_key_here" \
   -d '{
-    "pipeline_id": "extract-contact",
-    "content": "'$(base64 -w 0 path/to/business_card.png)'",
-    "media_type": "image",
-    "params": {
-      "model_id": "Qwen2-VL-7B-Instruct"
+    "request": {
+      "pipeline_id": "extract-contact",
+      "content": "'$IMAGE_B64'",
+      "media_type": "image",
+      "params": {
+        "model_id": "gpt-4o-mini"
+      }
     }
   }'
 ```
 
 ### Pipeline Processing
 
-```bash|
+```bash
 curl -X POST http://localhost:8000/v1/pipeline/predict \
   -H "Content-Type: application/json" \
   -H "X-API-Key: your_server_key_here" \
   -d '{
-    "pipeline_id": "text-processing",
-    "content": "Analyze the sentiment of this text.",
-    "media_type": "text",
-    "params": {
-      "model_id": "gpt-4o-mini"
+    "request": {
+      "pipeline_id": "text-processing",
+      "content": "Analyze the sentiment of this text.",
+      "media_type": "text",
+      "params": {
+        "model_id": "gpt-4o-mini"
+      }
     }
   }'
+```
+
+## API Response Format
+
+All API responses follow a consistent format:
+
+```json
+{
+  "success": true,
+  "data": {
+    // Response data specific to the endpoint
+  },
+  "metadata": {
+    "program_id": "text_completion",
+    "program_version": "1.0.0",
+    "program_name": "Predictor",
+    "model_id": "gpt-4o-mini", 
+    "model_info": {
+      "provider": "openai",
+      "base_model": "gpt-4o-mini",
+      "model_name": "openai/gpt-4o-mini"
+    },
+    "request_id": "3a7e9f12-d8e2-4b01-9861-4f3a8e72c5a3",
+    "timestamp": "2025-03-13T15:42:33.123456Z",
+    // Any additional parameters provided will appear here
+    "temperature": 0.7,
+    "top_p": 0.95,
+    "frequency_penalty": 0.2
+  },
+  "timestamp": "2025-03-13T15:42:33.123456Z"
+}
 ```
 
 ## Manual Setup
@@ -93,14 +155,14 @@ curl -X POST http://localhost:8000/v1/pipeline/predict \
 If you prefer to run without Docker:
 
 1. Install dependencies:
-```bash|
+```bash
 pip install -r requirements.txt
 ```
 
 2. Set up environment variables (create a `.env` file or export directly)
 
 3. Run the server:
-```bash|
+```bash
 python run.py
 ```
 
@@ -108,7 +170,7 @@ python run.py
 
 Models are configured in `config/model_config.yml`:
 
-```yaml|
+```yaml
 models:
   gpt-4o-mini:
     model_name: "openai/gpt-4o-mini"
@@ -116,9 +178,6 @@ models:
   Meta-Llama-3.1-8B-Instruct:
     model_name: "huggingface/meta-llama/Meta-Llama-3.1-8B-Instruct"
     max_tokens: 3000
-  Qwen2-VL-7B-Instruct:
-    model_name: "huggingface/Qwen/Qwen2-VL-7B-Instruct"
-    max_tokens: 2538
   gemini-2.0-flash:
     model_name: "gemini/gemini-2.0-flash"
     max_tokens: 2048
@@ -137,7 +196,7 @@ Refer to `INFRASTRUCTURE.md` for more details on deployment and infrastructure s
 
 The server uses a composable pipeline architecture:
 
-```python|
+```python
 from app.core.types import MediaType, PipelineData
 from app.core.protocols import PipelineStep
 
@@ -159,7 +218,7 @@ class MyCustomStep(PipelineStep):
 
 Then use it in your pipeline:
 
-```python|
+```python
 from app.core.pipeline import Pipeline
 
 pipeline = Pipeline([
@@ -173,13 +232,13 @@ result = await pipeline.execute(initial_data)
 ## Testing
 
 Run tests with:
-```bash|
+```bash
 pytest tests/
 ```
 
 ## Project Structure
 
-```|
+```
 .
 ├── app/
 │   ├── api/            # FastAPI routes and schemas
