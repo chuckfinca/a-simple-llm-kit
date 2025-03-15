@@ -30,21 +30,84 @@ class DSPyModelBackend(ModelBackend):
         self.program_metadata = None
         if program_manager:
             # Register program if not already registered
-            # First, check if it's already registered by looking for matching signature class name
-            registered_programs = program_manager.registry.list_programs()
-            for prog in registered_programs:
-                prog_class = program_manager.registry.get_program(prog.id)
-                if prog_class and prog_class.__name__ == signature_class.__name__:
-                    self.program_metadata = prog
-                    break
-            
-            # If not found, register it
-            if not self.program_metadata:
-                self.program_metadata = program_manager.register_program(
-                    program_class=signature_class,
-                    name=signature_class.__name__,
-                    description=signature_class.__doc__ or ""
+            program_id = self._ensure_program_registration(signature_class)
+            if not program_id:
+                raise ValueError(
+                    f"Failed to register {signature_class.__name__} with program manager. "
+                    "This is required for versioning."
                 )
+    
+    def _ensure_program_registration(self, signature_class: type[Signature]) -> Optional[str]:
+        """
+        Ensure the signature class is registered with the program manager.
+        Returns the program ID if successful, None otherwise.
+        """
+        if not self.program_manager:
+            logging.warning("No program manager available for program registration")
+            return None
+            
+        # First, check if it's already registered by looking for matching signature class name
+        registered_programs = self.program_manager.registry.list_programs()
+        for prog in registered_programs:
+            prog_class = self.program_manager.registry.get_program(prog.id)
+            if prog_class and prog_class.__name__ == signature_class.__name__:
+                self.program_metadata = prog
+                logging.info(f"Found existing program registration for {signature_class.__name__} with ID {prog.id}")
+                return prog.id
+        
+        # If not found, register it
+        try:
+            # Try to get a more descriptive name
+            program_name = signature_class.__name__
+            
+            # Generate a more user-friendly name if possible (CamelCase -> Spaced Words)
+            import re
+            if re.match(r'[A-Z][a-z]+(?:[A-Z][a-z]+)+', program_name):
+                program_name = re.sub(r'([A-Z])', r' \1', program_name).strip()
+            
+            self.program_metadata = self.program_manager.register_program(
+                program_class=signature_class,
+                name=program_name,
+                description=signature_class.__doc__ or f"DSPy signature for {signature_class.__name__}"
+            )
+            logging.info(f"Successfully registered {signature_class.__name__} with ID {self.program_metadata.id}")
+            return self.program_metadata.id
+        except Exception as e:
+            logging.error(f"Failed to register program {signature_class.__name__}: {str(e)}", exc_info=True)
+            return None
+    
+    def _determine_input_key(self, signature_class: type[Signature], input_data: Any) -> Dict[str, Any]:
+        """
+        Determine the appropriate input key based on the signature class and input data.
+        This handles different input formats for different program types.
+        """
+        # Get signature fields to determine proper input key
+        import inspect
+        input_fields = {}
+        
+        # Analyze input fields from the signature class
+        for name, field in inspect.get_annotations(signature_class).items():
+            # Look for fields marked as dspy.InputField
+            if hasattr(field, "__origin__") and field.__origin__ == dspy.InputField:
+                input_fields[name] = field
+        
+        # If no input fields found or only one input field, use generic approach
+        if len(input_fields) <= 1:
+            # Common input types
+            if signature_class.__name__ == 'ContactExtractor':
+                return {"image": input_data}
+            else:
+                return {"input": input_data}
+        
+        # For complex inputs with multiple fields, we need content to be a dict already
+        if isinstance(input_data, dict):
+            return input_data
+        else:
+            logging.warning(
+                f"Complex signature {signature_class.__name__} with multiple inputs "
+                f"but received non-dict input. Using 'input' as default key."
+            )
+            return {"input": input_data}
     
     async def predict(self, input_data: Any) -> ModelOutput:
         max_attempts = 3
@@ -54,9 +117,7 @@ class DSPyModelBackend(ModelBackend):
         trace_id = str(uuid.uuid4())
         
         # Convert input to the right format for program tracking
-        input_dict = {}
-        input_key = "image" if self.signature.__name__ == 'ContactExtractor' else "input"
-        input_dict[input_key] = input_data
+        input_dict = self._determine_input_key(self.signature, input_data)
         
         for attempt in range(max_attempts):
             try:
@@ -74,11 +135,26 @@ class DSPyModelBackend(ModelBackend):
                     )
                     
                     # Add execution info to the result metadata
-                    if hasattr(result, 'metadata') and isinstance(result.metadata, dict):
-                        result.metadata['execution_info'] = execution_info.model_dump()
+                    result_metadata = getattr(result, 'metadata', {})
+                    if not isinstance(result_metadata, dict):
+                        result_metadata = {}
+                    
+                    result_metadata['execution_info'] = execution_info.model_dump()
+                    
+                    # Ensure the result has a metadata attribute
+                    if not hasattr(result, 'metadata'):
+                        setattr(result, 'metadata', result_metadata)
+                    else:
+                        result.metadata = result_metadata
                     
                     return self.signature.process_output(result)
                 else:
+                    # Direct execution should not happen if versioning is required
+                    logging.warning(
+                        f"Executing {self.signature.__name__} without program tracking. "
+                        "This will cause versioning metadata to be missing."
+                    )
+                    
                     # Standard execution without tracking
                     dspy.configure(lm=lm)
                     predictor = dspy.Predict(self.signature)
