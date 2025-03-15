@@ -86,7 +86,9 @@ class DSPyModelBackend(ModelBackend):
         input_fields = {}
         
         # Analyze input fields from the signature class
-        for name, field in inspect.get_annotations(signature_class).items():
+        annotations = getattr(signature_class, '__annotations__', {})
+        for name, field in annotations.items():
+
             # Look for fields marked as dspy.InputField
             if hasattr(field, "__origin__") and field.__origin__ == dspy.InputField:
                 input_fields[name] = field

@@ -45,22 +45,13 @@ def create_versioned_route_handler(endpoint_name, processor_factory, request_mod
         )))
     ):
         try:
-            # Support both old and new formats during transition
-            req_data = None
-            
-            # Check for new format with "request" field
-            if "request" in body:
-                req_data = body["request"]
-            # Backward compatibility with old {"query": {"req": {...}}} format
-            elif "query" in body and "req" in body["query"]:
-                req_data = body["query"]["req"]
-                logging.warning(f"{endpoint_name}: Deprecated request format detected. Please update to use {'request': {...}} format")
-            
-            if not req_data:
+            if "request" not in body:
                 raise HTTPException(
                     status_code=400,
                     detail=f"Invalid request format. Expected 'request' field in request body."
                 )
+                
+            req_data = body["request"]
                 
             # Create a proper request object
             try:
@@ -260,11 +251,11 @@ async def predict_pipeline(request: Request, body: Dict[str, Any] = Body(...), *
     return await handler(request, body, **kwargs)
 
 @router.post("/extract-contact", response_model=ExtractContactResponse)
-async def process_extract_contact(request: Request, body: Dict[str, Any] = Body(...), **kwargs):
+async def process_extract_contact(request: Request, body: Dict[str, Any] = Body(...)):
     handler = create_versioned_route_handler(
         endpoint_name="extract-contact",
         processor_factory=create_extract_contact_processor,
         request_model=PipelineRequest,
         response_model=ExtractContactResponse
     )
-    return await handler(request, body, **kwargs)
+    return await handler(request, body)
