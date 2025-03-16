@@ -14,6 +14,7 @@ from app.core.versioning import get_versioning_info
 from app.services.prediction import PredictionService
 from datetime import datetime, timezone
 from pydantic import ValidationError, BaseModel
+from app.core.modules import ExtractContact
 
 # Create main router with dependencies for all /v1 routes
 main_router = APIRouter(
@@ -218,6 +219,31 @@ def create_versioned_route_handler(endpoint_name, processor_factory, request_mod
                         media_type=result.media_type,
                         metadata=result.metadata
                     ),
+                    metadata=response_metadata,
+                    timestamp=datetime.now(timezone.utc)
+                )
+            elif response_model == ExtractContactResponse:
+                # Handle the special case for ExtractContact
+                # Convert StandardModelOutput to ExtractContact if needed
+                contact_data = result.content
+                if hasattr(result.content, 'output'):
+                    contact_data = result.content.output
+                
+                # Make sure we have an ExtractContact instance
+                if not isinstance(contact_data, ExtractContact):
+                    # Try to convert from dict if needed
+                    if isinstance(contact_data, dict):
+                        contact_data = ExtractContact(**contact_data)
+                    else:
+                        logging.error(f"{endpoint_name}: Cannot convert result to ExtractContact: {type(contact_data)}")
+                        raise HTTPException(
+                            status_code=500,
+                            detail="Invalid contact data format returned from processor"
+                        )
+                
+                return ExtractContactResponse(
+                    success=True,
+                    data=contact_data,
                     metadata=response_metadata,
                     timestamp=datetime.now(timezone.utc)
                 )

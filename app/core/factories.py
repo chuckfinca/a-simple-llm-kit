@@ -6,6 +6,7 @@ from app.core.protocols import PipelineStep
 from app.core.types import MediaType
 from app.models.predictor import Predictor
 from app.core.modules import ContactExtractor
+from app.core.output_processors import DefaultOutputProcessor, ContactExtractorProcessor
 
 def create_text_processor(
     model_manager, 
@@ -19,7 +20,7 @@ def create_text_processor(
         model_manager, 
         model_id, 
         Predictor, 
-        output_processor=output_processor,
+        output_processor=output_processor or DefaultOutputProcessor(),
         program_manager=program_manager
     )
     return ModelProcessor(
@@ -37,11 +38,14 @@ def create_extract_contact_processor(
     output_processor=None  # New parameter
 ) -> PipelineStep:
     """Create extract contact processing pipeline"""
+    # Use the specialized ContactExtractorProcessor by default
+    contact_processor = output_processor or ContactExtractorProcessor()
+    
     backend = create_dspy_backend(
         model_manager, 
         model_id, 
         ContactExtractor, 
-        output_processor=output_processor,
+        output_processor=contact_processor,
         program_manager=program_manager
     )
     
