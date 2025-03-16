@@ -15,8 +15,8 @@ from app.services.prediction import PredictionService
 from datetime import datetime, timezone
 from pydantic import ValidationError, BaseModel
 
-# Create router with dependencies for all routes
-router = APIRouter(
+# Create main router with dependencies for all /v1 routes
+main_router = APIRouter(
     prefix="/v1",
     dependencies=[
         Depends(get_api_key),  # Apply API key authentication to all routes
@@ -194,10 +194,16 @@ def create_versioned_route_handler(endpoint_name, processor_factory, request_mod
             
             # Create response with the appropriate model
             if response_model == QueryResponse:
+                # Extract the actual response text from the content
+                # The content may be a StandardModelOutput object with an 'output' attribute
+                response_text = result.content
+                if hasattr(result.content, 'output'):
+                    response_text = result.content.output
+                
                 return QueryResponse(
                     success=True,
                     data=QueryResponseData(
-                        response=result.content,
+                        response=response_text,
                         model_used=model_id,
                         metadata=response_metadata
                     ),
@@ -233,7 +239,7 @@ def create_versioned_route_handler(endpoint_name, processor_factory, request_mod
     return route_handler
 
 # Route handlers using the factory
-@router.post("/predict", response_model=QueryResponse)
+@main_router.post("/predict", response_model=QueryResponse)
 async def predict(request: Request, body: Dict[str, Any] = Body(...)):
     handler = create_versioned_route_handler(
         endpoint_name="predict",
@@ -243,7 +249,7 @@ async def predict(request: Request, body: Dict[str, Any] = Body(...)):
     )
     return await handler(request, body)
 
-@router.post("/pipeline/predict", response_model=PipelineResponse)
+@main_router.post("/pipeline/predict", response_model=PipelineResponse)
 async def predict_pipeline(request: Request, body: Dict[str, Any] = Body(...)):
     handler = create_versioned_route_handler(
         endpoint_name="pipeline/predict",
@@ -253,7 +259,7 @@ async def predict_pipeline(request: Request, body: Dict[str, Any] = Body(...)):
     )
     return await handler(request, body)
 
-@router.post("/extract-contact", response_model=ExtractContactResponse)
+@main_router.post("/extract-contact", response_model=ExtractContactResponse)
 async def process_extract_contact(request: Request, body: Dict[str, Any] = Body(...)):
     handler = create_versioned_route_handler(
         endpoint_name="extract-contact",

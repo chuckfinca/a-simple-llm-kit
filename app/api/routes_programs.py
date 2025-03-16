@@ -3,8 +3,6 @@ from typing import List, Dict, Any, Optional
 from datetime import datetime, timezone
 from pydantic import BaseModel
 
-from app.core.security import get_api_key
-from app.core.rate_limiting import RateLimit, rate_limit
 from app.core.types import ProgramMetadata, ProgramExecutionInfo
 
 # Response schemas
@@ -33,16 +31,12 @@ class EvaluationResponse(BaseModel):
     data: List[Dict[str, Any]]
     timestamp: datetime = datetime.now(timezone.utc)
 
-# Define router with dependencies applied at router level
-router = APIRouter(
-    prefix="/v1/programs",
-    dependencies=[
-        Depends(get_api_key),  # Apply API key authentication to all routes
-        Depends(rate_limit())  # Apply rate limiting to all routes
-    ]
+# Define router with relative prefix (no dependencies needed as they come from parent)
+programs_router = APIRouter(
+    prefix="/programs"  # Changed from /v1/programs to just /programs
 )
 
-@router.get("", response_model=ProgramListResponse)
+@programs_router.get("", response_model=ProgramListResponse)
 async def list_programs(
     request: Request,
     tags: Optional[str] = None
@@ -58,7 +52,7 @@ async def list_programs(
     programs = program_manager.registry.list_programs(tags=tag_list)
     return ProgramListResponse(data=programs)
 
-@router.get("/{program_id}", response_model=ProgramDetailResponse)
+@programs_router.get("/{program_id}", response_model=ProgramDetailResponse)
 async def get_program_details(
     program_id: str,
     request: Request
@@ -74,7 +68,7 @@ async def get_program_details(
     
     return ProgramDetailResponse(data=program_tree)
 
-@router.get("/{program_id}/versions", response_model=ProgramListResponse)
+@programs_router.get("/{program_id}/versions", response_model=ProgramListResponse)
 async def list_program_versions(
     program_id: str,
     request: Request
@@ -90,7 +84,7 @@ async def list_program_versions(
     
     return ProgramListResponse(data=versions)
 
-@router.get("/executions", response_model=ExecutionHistoryResponse)
+@programs_router.get("/executions", response_model=ExecutionHistoryResponse)
 async def get_execution_history(
     request: Request,
     program_id: Optional[str] = None,
@@ -110,7 +104,7 @@ async def get_execution_history(
     
     return ExecutionHistoryResponse(data=executions)
 
-@router.get("/models", response_model=ModelInfoResponse)
+@programs_router.get("/models", response_model=ModelInfoResponse)
 async def list_models(
     request: Request
 ):
@@ -122,7 +116,7 @@ async def list_models(
     model_info = program_manager.get_available_models()
     return ModelInfoResponse(data=model_info)
 
-@router.get("/{program_id}/evaluations", response_model=EvaluationResponse)
+@programs_router.get("/{program_id}/evaluations", response_model=EvaluationResponse)
 async def get_program_evaluations(
     program_id: str,
     request: Request,

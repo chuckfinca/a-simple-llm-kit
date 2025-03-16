@@ -2,8 +2,8 @@ from fastapi import FastAPI
 from contextlib import asynccontextmanager
 from starlette.middleware.cors import CORSMiddleware
 from app.core.config import get_settings
-from app.api.routes import router, health_router
-from app.api.routes_programs import router as programs_router
+from app.api.routes import main_router, health_router
+from app.api.routes_programs import programs_router
 from app.core.error_handling import handle_exception, validation_exception_handler
 from app.models.manager import ModelManager
 from app.models.program_manager import ProgramManager
@@ -49,7 +49,7 @@ add_versioning_middleware(app)
 app.include_router(health_router)
 
 # Include main API routes (with authentication)
-app.include_router(router)
+app.include_router(main_router)
 
-# Include program management routes
-app.include_router(programs_router)
+# Nest the programs router under the main router
+main_router.include_router(programs_router)
