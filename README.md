@@ -54,7 +54,7 @@ curl -X POST http://localhost:8000/v1/predict \
   -H "X-API-Key: your_server_key_here" \
   -d '{
     "request": {
-      "prompt": "Explain quantum computing in simple terms",
+      "prompt": "How many 'r's in 'strawberry'?",
       "model_id": "gpt-4o-mini",
       "temperature": 0.7
     }
@@ -69,7 +69,7 @@ curl -X POST http://localhost:8000/v1/predict \
   -H "X-API-Key: your_server_key_here" \
   -d '{
     "request": {
-      "prompt": "Explain quantum computing in simple terms",
+      "prompt": "How many 'r's in 'strawberry'?",
       "model_id": "gpt-4o-mini",
       "temperature": 0.7,
       "top_p": 0.95,

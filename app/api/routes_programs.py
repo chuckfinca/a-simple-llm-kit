@@ -33,15 +33,19 @@ class EvaluationResponse(BaseModel):
     data: List[Dict[str, Any]]
     timestamp: datetime = datetime.now(timezone.utc)
 
-# Define router
-router = APIRouter(prefix="/v1/programs")
+# Define router with dependencies applied at router level
+router = APIRouter(
+    prefix="/v1/programs",
+    dependencies=[
+        Depends(get_api_key),  # Apply API key authentication to all routes
+        Depends(rate_limit())  # Apply rate limiting to all routes
+    ]
+)
 
 @router.get("", response_model=ProgramListResponse)
 async def list_programs(
     request: Request,
-    tags: Optional[str] = None,
-    api_key: str = Depends(get_api_key),
-    rate_check: None = Depends(rate_limit())
+    tags: Optional[str] = None
 ):
     """List all registered DSPy programs."""
     program_manager = request.app.state.program_manager
@@ -57,9 +61,7 @@ async def list_programs(
 @router.get("/{program_id}", response_model=ProgramDetailResponse)
 async def get_program_details(
     program_id: str,
-    request: Request,
-    api_key: str = Depends(get_api_key),
-    rate_check: None = Depends(rate_limit())
+    request: Request
 ):
     """Get details for a specific DSPy program including version history."""
     program_manager = request.app.state.program_manager
@@ -75,9 +77,7 @@ async def get_program_details(
 @router.get("/{program_id}/versions", response_model=ProgramListResponse)
 async def list_program_versions(
     program_id: str,
-    request: Request,
-    api_key: str = Depends(get_api_key),
-    rate_check: None = Depends(rate_limit())
+    request: Request
 ):
     """List all versions of a specific program."""
     program_manager = request.app.state.program_manager
@@ -95,9 +95,7 @@ async def get_execution_history(
     request: Request,
     program_id: Optional[str] = None,
     model_id: Optional[str] = None,
-    limit: int = 100,
-    api_key: str = Depends(get_api_key),
-    rate_check: None = Depends(rate_limit())
+    limit: int = 100
 ):
     """Get execution history of programs."""
     program_manager = request.app.state.program_manager
@@ -114,9 +112,7 @@ async def get_execution_history(
 
 @router.get("/models", response_model=ModelInfoResponse)
 async def list_models(
-    request: Request,
-    api_key: str = Depends(get_api_key),
-    rate_check: None = Depends(rate_limit())
+    request: Request
 ):
     """List all available models from the model config."""
     program_manager = request.app.state.program_manager
@@ -131,9 +127,7 @@ async def get_program_evaluations(
     program_id: str,
     request: Request,
     version: Optional[str] = None,
-    model_id: Optional[str] = None,
-    api_key: str = Depends(get_api_key),
-    rate_check: None = Depends(rate_limit())
+    model_id: Optional[str] = None
 ):
     """Get evaluation results for a program."""
     program_manager = request.app.state.program_manager

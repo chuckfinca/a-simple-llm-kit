@@ -100,7 +100,7 @@ def add_versioning_middleware(app):
             "/docs", 
             "/openapi.json", 
             "/redoc",
-            "/v1/programs",  # Bypass the program management endpoints
-            "/metrics"      # Bypass Prometheus metrics
+            "/v1/programs",
+            "/metrics",     
         ]
     )

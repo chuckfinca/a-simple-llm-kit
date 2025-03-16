@@ -15,10 +15,20 @@ from app.services.prediction import PredictionService
 from datetime import datetime, timezone
 from pydantic import ValidationError, BaseModel
 
-router = APIRouter(prefix="/v1")
+# Create router with dependencies for all routes
+router = APIRouter(
+    prefix="/v1",
+    dependencies=[
+        Depends(get_api_key),  # Apply API key authentication to all routes
+        Depends(rate_limit())  # Apply rate limiting to all routes
+    ]
+)
 
-@router.get("/health", response_model=HealthResponse)
-async def health_check(rate_check=None):
+# Special case for health check - no auth required
+health_router = APIRouter(prefix="/v1")
+
+@health_router.get("/health", response_model=HealthResponse)
+async def health_check():
     return HealthResponse(status="healthy")
 
 def create_versioned_route_handler(endpoint_name, processor_factory, request_model, response_model):
@@ -36,13 +46,7 @@ def create_versioned_route_handler(endpoint_name, processor_factory, request_mod
     """
     async def route_handler(
         request: Request, 
-        body: Dict[str, Any] = Body(...),
-        api_key: str = Depends(get_api_key),
-        rate_check: None = Depends(rate_limit(RateLimit(
-            unauthenticated=5,
-            authenticated=100,
-            window=30
-        )))
+        body: Dict[str, Any] = Body(...)
     ):
         try:
             if "request" not in body:
@@ -228,27 +232,26 @@ def create_versioned_route_handler(endpoint_name, processor_factory, request_mod
     
     return route_handler
 
-# Updated route handlers using the factory
-
+# Route handlers using the factory
 @router.post("/predict", response_model=QueryResponse)
-async def predict(request: Request, body: Dict[str, Any] = Body(...), **kwargs):
+async def predict(request: Request, body: Dict[str, Any] = Body(...)):
     handler = create_versioned_route_handler(
         endpoint_name="predict",
         processor_factory=create_text_processor,
         request_model=QueryRequest,
         response_model=QueryResponse
     )
-    return await handler(request, body, **kwargs)
+    return await handler(request, body)
 
 @router.post("/pipeline/predict", response_model=PipelineResponse)
-async def predict_pipeline(request: Request, body: Dict[str, Any] = Body(...), **kwargs):
+async def predict_pipeline(request: Request, body: Dict[str, Any] = Body(...)):
     handler = create_versioned_route_handler(
         endpoint_name="pipeline/predict",
         processor_factory=create_text_processor,  # You might need to create a different factory
         request_model=PipelineRequest,
         response_model=PipelineResponse
     )
-    return await handler(request, body, **kwargs)
+    return await handler(request, body)
 
 @router.post("/extract-contact", response_model=ExtractContactResponse)
 async def process_extract_contact(request: Request, body: Dict[str, Any] = Body(...)):
