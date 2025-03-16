@@ -15,6 +15,7 @@ class StandardResponse(pydantic.BaseModel, Generic[T]):
     data: Optional[T] = pydantic.Field(default=None, description="The response payload")
     error: Optional[str] = pydantic.Field(default=None, description="Error message if success is false")
     timestamp: datetime = pydantic.Field(default_factory=lambda: datetime.now(timezone.utc))
+    metadata: Dict[str, Any] = pydantic.Field(default_factory=dict, description="Response metadata including program/model info")
 
 class QueryResponseData(pydantic.BaseModel):
     """Data structure for query responses"""

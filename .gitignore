@@ -35,8 +35,12 @@ htmlcov/
 # Project specific
 tree
 logs/
+images/
 
 # Keys
 *.key
 *.pem
 id_rsa
+
+# Local dev tools
+.extractrc

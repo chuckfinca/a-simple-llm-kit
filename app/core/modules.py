@@ -1,4 +1,4 @@
-from typing import Any, Optional, List
+from typing import Any, Dict, Optional, List
 import pydantic
 import dspy
 
@@ -48,6 +48,8 @@ class ExtractContact(pydantic.BaseModel):
     contact: ContactInformation
     social: List[SocialProfiles]
     notes: Optional[str] = pydantic.Field(None, description="Additional notes or information")
+    metadata: Dict[str, Any] = pydantic.Field(default_factory=dict, description="Metadata for tracking")
+
 
 class ContactExtractor(dspy.Signature):
     """Extract contact information from an image."""
@@ -86,7 +88,7 @@ class ContactExtractor(dspy.Signature):
                 # It's a dictionary, so unpack it
                 postal_addresses.append(PostalAddress(**addr))
                 
-        return ExtractContact(
+        contact = ExtractContact(
             name=PersonName(
                 prefix=result.name_prefix,
                 given_name=result.given_name,
@@ -108,3 +110,10 @@ class ContactExtractor(dspy.Signature):
             social=[SocialProfiles(**social) for social in result.social_profiles],
             notes=result.notes
         )
+        
+        # Preserve metadata if it exists on the result
+        if hasattr(result, 'metadata'):
+            setattr(contact, 'metadata', result.metadata)
+        
+        return contact
+    
