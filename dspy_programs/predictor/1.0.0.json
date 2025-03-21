@@ -1,0 +1,14 @@
+{
+  "id": "predictor",
+  "name": "Predictor",
+  "description": "Basic text prediction",
+  "tags": [],
+  "version": "1.0.0",
+  "code_hash": "680b9758",
+  "parent_id": null,
+  "parent_version": null,
+  "class_name": "Predictor",
+  "module_path": "app.models.predictor",
+  "created_at": "2025-03-21T22:19:20.623998",
+  "source_code": "class Predictor(dspy.Signature):\n    \"\"\"Basic text prediction\"\"\"\n    input: str = dspy.InputField()\n    output: str = dspy.OutputField()\n"
+}
