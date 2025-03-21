@@ -10,6 +10,7 @@ from app.models.program_manager import ProgramManager
 from app.core import logging
 from app.core.middleware import add_versioning_middleware
 from fastapi.exceptions import RequestValidationError
+from app.core.metrics_middleware import add_metrics_middleware
 
 logging.setup_logging() 
 
@@ -44,6 +45,9 @@ app.add_middleware(
 
 # Add versioning middleware to enforce program/model versioning
 add_versioning_middleware(app)
+
+# Add after other middleware
+add_metrics_middleware(app)
 
 # Include health check routes (no authentication)
 app.include_router(health_router)

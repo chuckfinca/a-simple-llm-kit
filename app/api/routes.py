@@ -15,6 +15,9 @@ from app.services.prediction import PredictionService
 from datetime import datetime, timezone
 from pydantic import ValidationError, BaseModel
 from app.core.modules import ExtractContact
+from app.core.metrics_factory import create_metrics_enabled_extract_contact_processor, create_metrics_enabled_text_processor
+
+
 
 # Create main router with dependencies for all /v1 routes
 main_router = APIRouter(
@@ -279,7 +282,7 @@ async def predict(request: Request, body: Dict[str, Any] = Body(...)):
 async def predict_pipeline(request: Request, body: Dict[str, Any] = Body(...)):
     handler = create_versioned_route_handler(
         endpoint_name="pipeline/predict",
-        processor_factory=create_text_processor,  # You might need to create a different factory
+        processor_factory=create_metrics_enabled_text_processor,  # You might need to create a different factory
         request_model=PipelineRequest,
         response_model=PipelineResponse
     )
@@ -289,7 +292,7 @@ async def predict_pipeline(request: Request, body: Dict[str, Any] = Body(...)):
 async def process_extract_contact(request: Request, body: Dict[str, Any] = Body(...)):
     handler = create_versioned_route_handler(
         endpoint_name="extract-contact",
-        processor_factory=create_extract_contact_processor,
+        processor_factory=create_metrics_enabled_extract_contact_processor,
         request_model=PipelineRequest,
         response_model=ExtractContactResponse
     )
