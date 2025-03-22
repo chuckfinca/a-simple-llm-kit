@@ -1,5 +1,6 @@
 from typing import Any, Dict, Optional, Union
 import uuid
+from app.core.implementations import ModelProcessor
 import dspy
 from fastapi import APIRouter, Depends, HTTPException, Request, Body
 from app.api.schemas.requests import QueryRequest, PipelineRequest
@@ -153,56 +154,76 @@ def create_versioned_route_handler(endpoint_name, processor_factory, request_mod
                 raise HTTPException(
                     status_code=500,
                     detail=f"Execution failed: {str(e)}"
-                )
+    )
+
             
-            # Extract execution info
-            execution_info = {}
-            if isinstance(result.metadata, dict) and "execution_info" in result.metadata:
-                execution_info = result.metadata["execution_info"]
-            else:
-                logging.error(f"{endpoint_name}: Execution info missing from result metadata")
-                raise HTTPException(
-                    status_code=500,
-                    detail="Execution info missing from result. This is required for versioning."
-                )
-            
-            # Extract required information from execution_info
-            program_id = execution_info.get("program_id")
-            program_version = execution_info.get("program_version")
-            program_name = execution_info.get("program_name")
-            execution_id = execution_info.get("execution_id")
-            model_info = execution_info.get("model_info", {})
-            
-            # Verify versioning info is present
-            if not program_id or not program_version or not model_id:
-                missing_fields = []
-                if not program_id:
-                    missing_fields.append("program_id")
-                if not program_version:
-                    missing_fields.append("program_version")
-                if not model_id:
-                    missing_fields.append("model_id")
+            # After executing the processor, add this execution info handling:
+            execution_info = None
+
+            # Try to get execution info from processor if it has a backend
+            if hasattr(processor, "backend") and hasattr(processor.backend, "program_metadata"):
+                # Get program metadata directly
+                program_metadata = processor.backend.program_metadata
+                current_model_id = getattr(processor.backend, "model_id", model_id)
                 
-                missing_str = ", ".join(missing_fields)
-                logging.error(f"{endpoint_name}: Missing required versioning fields: {missing_str}")
+                # Construct execution info directly
+                execution_info = {
+                    "program_id": program_metadata.id,
+                    "program_version": program_metadata.version,
+                    "program_name": program_metadata.name,
+                    "model_id": current_model_id,
+                    "execution_id": str(uuid.uuid4()),
+                    "timestamp": datetime.now(timezone.utc).isoformat()
+                }
+                
+                # Try to get model info
+                if hasattr(processor.backend, "model_manager") and hasattr(processor.backend.model_manager, "model_info"):
+                    model_info = processor.backend.model_manager.model_info.get(current_model_id, {})
+                    execution_info["model_info"] = model_info
+
+            # For pipelines, look for ModelProcessor in the steps
+            elif hasattr(processor, "pipeline") and hasattr(processor.pipeline, "steps"):
+                for step in processor.pipeline.steps:
+                    if isinstance(step, ModelProcessor) and hasattr(step, "backend"):
+                        if hasattr(step.backend, "program_metadata"):
+                            program_metadata = step.backend.program_metadata
+                            current_model_id = getattr(step.backend, "model_id", model_id)
+                            
+                            execution_info = {
+                                "program_id": program_metadata.id,
+                                "program_version": program_metadata.version,
+                                "program_name": program_metadata.name,
+                                "model_id": current_model_id,
+                                "execution_id": str(uuid.uuid4()),
+                                "timestamp": datetime.now(timezone.utc).isoformat()
+                            }
+                            
+                            if hasattr(step.backend, "model_manager") and hasattr(step.backend.model_manager, "model_info"):
+                                model_info = step.backend.model_manager.model_info.get(current_model_id, {})
+                                execution_info["model_info"] = model_info
+                            break
+
+            # If we couldn't get execution info, throw an error
+            if execution_info is None:
+                logging.error(f"{endpoint_name}: Failed to obtain execution info from processor")
                 raise HTTPException(
                     status_code=500,
-                    detail=f"Missing required versioning fields: {missing_str}. Check program registration."
+                    detail="Failed to obtain execution info from processor. System not configured correctly."
                 )
-            
+
             # Build response metadata in a structured way
             response_metadata = {
                 "model": {
-                    "id": model_id,
-                    **(model_info or {})
+                    "id": execution_info["model_id"],
+                    **(execution_info.get("model_info", {}))
                 },
                 "program": {
-                    "id": program_id,
-                    "version": program_version,
-                    "name": program_name or "Unknown"
+                    "id": execution_info["program_id"],
+                    "version": execution_info["program_version"],
+                    "name": execution_info["program_name"]
                 },
-                "execution_id": execution_id,
-                "timestamp": datetime.now(timezone.utc).isoformat()
+                "execution_id": execution_info["execution_id"],
+                "timestamp": execution_info["timestamp"]
             }
             
             # Add any additional parameters to metadata
@@ -254,28 +275,16 @@ def create_versioned_route_handler(endpoint_name, processor_factory, request_mod
                             status_code=500,
                             detail="Invalid contact data format returned from processor"
                         )
-                
-                return ExtractContactResponse(
-                    success=True,
-                    data=contact_data,
-                    metadata=response_metadata,
-                    timestamp=datetime.now(timezone.utc)
-                )
-            else:
-                return response_model(
-                    success=True,
-                    data=response_content,
-                    metadata=response_metadata,
-                    timestamp=datetime.now(timezone.utc)
-                )
-            
-        except HTTPException:
-            # Re-raise HTTP exceptions without logging (they're already handled)
-            raise
+                        
         except Exception as e:
             logging.error(f"{endpoint_name} failed", exc_info=True)
             raise HTTPException(status_code=500, detail=str(e))
-    
+    return ExtractContactResponse(
+        success=True,
+        data=contact_data,
+        metadata=response_metadata,
+        timestamp=datetime.now(timezone.utc)
+    )
     return route_handler
 
 # Route handlers using the factory

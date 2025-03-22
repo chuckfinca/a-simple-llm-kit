@@ -125,8 +125,4 @@ class ContactExtractorProcessor:
             notes=getattr(result, 'notes', None)
         )
         
-        # Add metadata
-        if metadata:
-            contact.metadata = metadata
-        
         return contact

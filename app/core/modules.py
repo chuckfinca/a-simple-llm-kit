@@ -48,7 +48,6 @@ class ExtractContact(pydantic.BaseModel):
     contact: ContactInformation
     social: List[SocialProfiles]
     notes: Optional[str] = pydantic.Field(None, description="Additional notes or information")
-    metadata: Dict[str, Any] = pydantic.Field(default_factory=dict, description="Metadata for tracking")
 
 
 class ContactExtractor(dspy.Signature):
