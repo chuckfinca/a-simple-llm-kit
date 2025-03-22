@@ -1,22 +1,20 @@
 from fastapi import Request, Response
 from fastapi.responses import JSONResponse
-from typing import Callable, Dict, Any
+from typing import Callable, Dict, Any, List
 import json
 from app.core import logging
 
 class VersioningMiddleware:
     """
     Middleware that ensures all API responses include program and model versioning information.
-    It will throw an error if versioning info is missing from JSON responses.
-    
-    Updated to support both flat and nested metadata structures.
+    Updated to support a consistent metadata structure.
     """
     
     def __init__(
         self, 
         app,
         required_fields: Dict[str, str] = None,
-        bypass_paths: list = None
+        bypass_paths: List[str] = None
     ):
         self.app = app
         self.bypass_paths = bypass_paths or ["/v1/health", "/docs", "/openapi.json", "/redoc"]
@@ -58,16 +56,20 @@ class VersioningMiddleware:
                     # Check for required fields
                     missing_fields = []
                     for field, error_message in self.required_fields.items():
-                        # Check for field directly in metadata (flat structure)
-                        if field in metadata:
-                            continue
-                            
-                        # Check for nested fields (new structure)
+                        # Check for standardized nested structure (new approach)
                         if field == "program_id" and "program" in metadata and "id" in metadata["program"]:
                             continue
                         elif field == "program_version" and "program" in metadata and "version" in metadata["program"]:
                             continue
                         elif field == "model_id" and "model" in metadata and "id" in metadata["model"]:
+                            continue
+                        # Legacy flat structure support (transitional)
+                        elif field in metadata:
+                            # Found in flat structure, but log a warning to encourage migration
+                            logging.warning(
+                                f"Legacy metadata format detected in {path}. "
+                                f"Field '{field}' should be in nested structure."
+                            )
                             continue
                             
                         # Field not found in either structure
@@ -100,10 +102,10 @@ class VersioningMiddleware:
 def add_versioning_middleware(app):
     """
     Add the versioning middleware to the FastAPI application.
-    This will ensure all JSON responses include program and model versioning information.
     """
     app.add_middleware(
         VersioningMiddleware,
+        # Updated field names to match the new nested structure
         required_fields={
             "program_id": "Program ID must be included in response metadata",
             "program_version": "Program version must be included in response metadata",

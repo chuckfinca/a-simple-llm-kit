@@ -3,6 +3,7 @@ from app.core.output_processors import DefaultOutputProcessor
 from app.core.protocols import ModelBackend
 from app.core.model_interfaces import Signature, ModelOutput
 from app.core import logging
+from app.core.utils import ensure_program_metadata_object
 
 class DSPyModelBackendWithProcessor(ModelBackend):
     """Enhanced DSPy model backend that uses output processors"""
@@ -32,6 +33,7 @@ class DSPyModelBackendWithProcessor(ModelBackend):
                     f"Failed to register {signature_class.__name__} with program manager. "
                     "This is required for versioning."
                 )
+
     
     def _ensure_program_registration(self, signature_class):
         """Ensure the signature class is registered with the program manager"""
@@ -127,7 +129,7 @@ class DSPyModelBackendWithProcessor(ModelBackend):
                 if not lm:
                     raise ValueError(f"Model {self.model_id} not found")
                 
-                # If we have a program manager, use it for execution with tracking
+                # When adding execution info to the result metadata
                 if self.program_manager and self.program_metadata:
                     result, execution_info = await self.program_manager.execute_program(
                         program_id=self.program_metadata.id,
@@ -141,7 +143,12 @@ class DSPyModelBackendWithProcessor(ModelBackend):
                     if not isinstance(result_metadata, dict):
                         result_metadata = {}
                     
+                    # Ensure program_metadata is a proper object, not just a dict
+                    program_metadata = ensure_program_metadata_object(self.program_metadata)
+                    
+                    # Add metadata with consistent object format
                     result_metadata['execution_info'] = execution_info.model_dump()
+                    result_metadata['program_metadata'] = program_metadata
                     
                     # Ensure the result has a metadata attribute
                     if not hasattr(result, 'metadata'):

@@ -1,6 +1,7 @@
 from typing import Any, Dict, Optional, Union
 import uuid
 from app.core.implementations import ModelProcessor
+from app.core.utils import MetadataCollector
 import dspy
 from fastapi import APIRouter, Depends, HTTPException, Request, Body
 from app.api.schemas.requests import QueryRequest, PipelineRequest
@@ -105,7 +106,6 @@ def create_versioned_route_handler(endpoint_name, processor_factory, request_mod
                     metadata={"request_id": str(uuid.uuid4())}
                 )
             except ValueError as e:
-                # Specific error for program registration issues
                 logging.error(f"{endpoint_name}: Failed to create processor: {str(e)}", exc_info=True)
                 raise HTTPException(
                     status_code=500,
@@ -121,7 +121,7 @@ def create_versioned_route_handler(endpoint_name, processor_factory, request_mod
             # Prepare pipeline data
             media_type = getattr(validated_request, "media_type", MediaType.TEXT)
             content = getattr(validated_request, "content", 
-                             getattr(validated_request, "prompt", ""))
+                            getattr(validated_request, "prompt", ""))
             metadata = getattr(validated_request, "params", {})
             
             # For non-pipeline requests, add standard fields to metadata
@@ -154,89 +154,60 @@ def create_versioned_route_handler(endpoint_name, processor_factory, request_mod
                 raise HTTPException(
                     status_code=500,
                     detail=f"Execution failed: {str(e)}"
-    )
-
-            
-            # After executing the processor, add this execution info handling:
-            execution_info = None
-
-            # Try to get execution info from processor if it has a backend
-            if hasattr(processor, "backend") and hasattr(processor.backend, "program_metadata"):
-                # Get program metadata directly
-                program_metadata = processor.backend.program_metadata
-                current_model_id = getattr(processor.backend, "model_id", model_id)
-                
-                # Construct execution info directly
-                execution_info = {
-                    "program_id": program_metadata.id,
-                    "program_version": program_metadata.version,
-                    "program_name": program_metadata.name,
-                    "model_id": current_model_id,
-                    "execution_id": str(uuid.uuid4()),
-                    "timestamp": datetime.now(timezone.utc).isoformat()
-                }
-                
-                # Try to get model info
-                if hasattr(processor.backend, "model_manager") and hasattr(processor.backend.model_manager, "model_info"):
-                    model_info = processor.backend.model_manager.model_info.get(current_model_id, {})
-                    execution_info["model_info"] = model_info
-
-            # For pipelines, look for ModelProcessor in the steps
-            elif hasattr(processor, "pipeline") and hasattr(processor.pipeline, "steps"):
-                for step in processor.pipeline.steps:
-                    if isinstance(step, ModelProcessor) and hasattr(step, "backend"):
-                        if hasattr(step.backend, "program_metadata"):
-                            program_metadata = step.backend.program_metadata
-                            current_model_id = getattr(step.backend, "model_id", model_id)
-                            
-                            execution_info = {
-                                "program_id": program_metadata.id,
-                                "program_version": program_metadata.version,
-                                "program_name": program_metadata.name,
-                                "model_id": current_model_id,
-                                "execution_id": str(uuid.uuid4()),
-                                "timestamp": datetime.now(timezone.utc).isoformat()
-                            }
-                            
-                            if hasattr(step.backend, "model_manager") and hasattr(step.backend.model_manager, "model_info"):
-                                model_info = step.backend.model_manager.model_info.get(current_model_id, {})
-                                execution_info["model_info"] = model_info
-                            break
-
-            # If we couldn't get execution info, throw an error
-            if execution_info is None:
-                logging.error(f"{endpoint_name}: Failed to obtain execution info from processor")
-                raise HTTPException(
-                    status_code=500,
-                    detail="Failed to obtain execution info from processor. System not configured correctly."
                 )
-
-            # Build response metadata in a structured way
-            response_metadata = {
-                "model": {
-                    "id": execution_info["model_id"],
-                    **(execution_info.get("model_info", {}))
-                },
-                "program": {
-                    "id": execution_info["program_id"],
-                    "version": execution_info["program_version"],
-                    "name": execution_info["program_name"]
-                },
-                "execution_id": execution_info["execution_id"],
-                "timestamp": execution_info["timestamp"]
-            }
+            
+            # Extract program metadata - we need this for versioning
+            program_metadata = None
+            performance_metrics = None
+            
+            # Look for program metadata directly in result
+            if hasattr(result, "metadata"):
+                # Check for program_metadata in result
+                if "program_metadata" in result.metadata:
+                    program_metadata = result.metadata["program_metadata"]
+                
+                # Check for performance_metrics
+                if "performance_metrics" in result.metadata:
+                    performance_metrics = result.metadata["performance_metrics"]
+            
+            # If no program metadata found, search common locations
+            if program_metadata is None:
+                # First try looking for it in the processor's backend if available
+                if hasattr(processor, "backend") and hasattr(processor.backend, "program_metadata"):
+                    program_metadata = processor.backend.program_metadata
+                
+                # For metrics-enabled processors, check the pipeline object
+                elif hasattr(processor, "pipeline") and hasattr(processor.pipeline, "steps"):
+                    for step in processor.pipeline.steps:
+                        if hasattr(step, "backend") and hasattr(step.backend, "program_metadata"):
+                            program_metadata = step.backend.program_metadata
+                            break
+                        
+            # Import at this point to avoid circular imports
+            from app.core.utils import MetadataCollector, ensure_program_metadata_object
+            
+            # Ensure program_metadata is a proper object before passing to collector
+            program_metadata = ensure_program_metadata_object(program_metadata)
+            
+            # Collect all metadata in a clean, structured format
+            response_metadata = MetadataCollector.collect_response_metadata(
+                result=result,
+                model_id=model_id,
+                program_metadata=program_metadata,
+                performance_metrics=performance_metrics
+            )
             
             # Add any additional parameters to metadata
             if hasattr(validated_request, "model_extra") and validated_request.model_extra:
                 for key, value in validated_request.model_extra.items():
-                    # Add these at the top level, not in nested structures
+                    # Add these at the top level of metadata
                     response_metadata[key] = value
             
             # Extract the actual response content
             response_content = result.content
             if hasattr(result.content, 'output'):
                 response_content = result.content.output
-                
+            
             # Create response based on the model type
             if response_model == QueryResponse:
                 return QueryResponse(
@@ -275,16 +246,19 @@ def create_versioned_route_handler(endpoint_name, processor_factory, request_mod
                             status_code=500,
                             detail="Invalid contact data format returned from processor"
                         )
-                        
+                
+                return ExtractContactResponse(
+                    success=True,
+                    data=contact_data,
+                    metadata=response_metadata,
+                    timestamp=datetime.now(timezone.utc)
+                )
+                
         except Exception as e:
             logging.error(f"{endpoint_name} failed", exc_info=True)
             raise HTTPException(status_code=500, detail=str(e))
-    return ExtractContactResponse(
-        success=True,
-        data=contact_data,
-        metadata=response_metadata,
-        timestamp=datetime.now(timezone.utc)
-    )
+    
+    # Return the route handler function
     return route_handler
 
 # Route handlers using the factory

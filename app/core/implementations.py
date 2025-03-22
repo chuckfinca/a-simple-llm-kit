@@ -211,10 +211,14 @@ class ModelProcessor:
         if hasattr(result, 'metadata') and isinstance(result.metadata, dict):
             result_metadata = result.metadata
         
-        # If the backend has program metadata, include it
-        if hasattr(self.backend, 'program_metadata') and self.backend.program_metadata:
-            combined_metadata["program_metadata"] = self.backend.program_metadata.model_dump()
-            
+        # Get program_metadata from backend in a consistent format
+        if hasattr(self.backend, 'program_metadata'):
+            from app.core.utils import ensure_program_metadata_object
+            program_metadata = ensure_program_metadata_object(self.backend.program_metadata)
+            if program_metadata:
+                combined_metadata["program_metadata"] = program_metadata
+        
+        # Update with result metadata
         combined_metadata.update(result_metadata)
         combined_metadata["processed"] = True
         
@@ -223,7 +227,7 @@ class ModelProcessor:
             content=result,
             metadata=combined_metadata
         )
-    
+
     @property
     def accepted_media_types(self) -> list[MediaType]:
         return self._accepted_types

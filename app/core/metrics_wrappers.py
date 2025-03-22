@@ -170,6 +170,10 @@ class ModelBackendTracker:
         if hasattr(backend, 'model_id'):
             self.model_id = backend.model_id
             self.metrics.set_model_info(backend.model_id)
+        
+        # Directly expose program_metadata from backend for versioning middleware
+        if hasattr(backend, 'program_metadata'):
+            self.program_metadata = backend.program_metadata
     
     async def predict(self, input_data: Any) -> Any:
         """
@@ -198,6 +202,7 @@ class ModelBackendTracker:
             # Mark model complete
             self.metrics.mark_checkpoint("model_complete")
             
+            # Try to capture token usage
             # Try to capture token usage
             # Method 1: Check for token info in result metadata
             if hasattr(result, 'metadata') and result.metadata and 'usage' in result.metadata:
@@ -257,6 +262,10 @@ class ModelBackendTracker:
                 
                 # Add metrics summary to metadata
                 result.metadata['performance_metrics'] = self.metrics.get_summary()
+                
+                # Also add program_metadata if available
+                if hasattr(self.backend, 'program_metadata'):
+                    result.metadata['program_metadata'] = self.backend.program_metadata
             
             return result
             
