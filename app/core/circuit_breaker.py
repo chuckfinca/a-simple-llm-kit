@@ -20,20 +20,60 @@ class CircuitBreaker:
         self.last_failure_time = None
         self.lock = asyncio.Lock()
         self.protected_function_name = None  # Store the name of the function being protected
+        
+        # Metrics tracking
+        self.metrics = {
+            "total_calls": 0,
+            "successful_calls": 0,
+            "failed_calls": 0,
+            "state_changes": [],
+            "recovery_attempts": 0,
+            "successful_recoveries": 0,
+            "consecutive_failures": 0,
+            "max_consecutive_failures": 0,
+            "current_state": State.CLOSED.value,
+            "time_in_states": {
+                State.CLOSED.value: 0,
+                State.OPEN.value: 0,
+                State.HALF_OPEN.value: 0
+            },
+            "state_change_timestamps": {
+                State.CLOSED.value: datetime.now(),
+                State.OPEN.value: None,
+                State.HALF_OPEN.value: None
+            }
+        }
 
     def __call__(self, func):
         self.protected_function_name = func.__name__  # Capture function name
         
         @wraps(func)
         async def wrapper(*args, **kwargs):
+            self.metrics["total_calls"] += 1
+            
             async with self.lock:
+                # Update time spent in current state
+                current_time = datetime.now()
+                last_state_change = self.metrics["state_change_timestamps"][self.state.value]
+                if last_state_change:
+                    time_delta = (current_time - last_state_change).total_seconds()
+                    self.metrics["time_in_states"][self.state.value] += time_delta
+                    # Update the timestamp for the current state
+                    self.metrics["state_change_timestamps"][self.state.value] = current_time
+                
                 if self.state == State.OPEN:
                     if await self._should_reset():
+                        # Track state change
+                        old_state = self.state
+                        self.state = State.HALF_OPEN
+                        await self._track_state_change(old_state, self.state)
+                        
+                        self.metrics["recovery_attempts"] += 1
+                        
                         logging.info(
                             f"Circuit breaker for '{self.protected_function_name}' attempting reset "
                             f"after {self.reset_timeout} seconds in OPEN state"
                         )
-                        self.state = State.HALF_OPEN
                     else:
                         remaining_time = (
                             self.last_failure_time + 
@@ -45,6 +85,9 @@ class CircuitBreaker:
                             f"Blocking request. Will try reset in {remaining_time.seconds} seconds. "
                             f"Last failure was at {self.last_failure_time}"
                         )
+                        # Track blocked request
+                        self.metrics["blocked_requests"] = self.metrics.get("blocked_requests", 0) + 1
+                        
                         raise RuntimeError(
                             f"Circuit breaker is OPEN for '{self.protected_function_name}'. "
                             f"Too many failures (threshold: {self.failure_threshold}). "
@@ -60,9 +103,19 @@ class CircuitBreaker:
                     
                     result = await func(*args, **kwargs)
                     
+                    # Handle successful execution
+                    self.metrics["successful_calls"] += 1
+                    
                     if self.state == State.HALF_OPEN:
+                        # Track state change and successful recovery
+                        old_state = self.state
                         self.state = State.CLOSED
+                        await self._track_state_change(old_state, self.state)
+                        
                         self.failures = 0
+                        self.metrics["consecutive_failures"] = 0
+                        self.metrics["successful_recoveries"] += 1
+                        
                         logging.info(
                             f"Circuit breaker for '{self.protected_function_name}' test succeeded. "
                             f"Resetting to CLOSED state."
@@ -70,6 +123,8 @@ class CircuitBreaker:
                     return result
                 
                 except Exception as e:
+                    # Handle failure
+                    self.metrics["failed_calls"] += 1
                     await self._handle_failure(e)
                     raise
 
@@ -85,9 +140,19 @@ class CircuitBreaker:
         self.failures += 1
         self.last_failure_time = datetime.now()
         
+        # Update consecutive failures metric
+        self.metrics["consecutive_failures"] += 1
+        self.metrics["max_consecutive_failures"] = max(
+            self.metrics["max_consecutive_failures"], 
+            self.metrics["consecutive_failures"]
+        )
+        
         if self.state == State.HALF_OPEN or self.failures >= self.failure_threshold:
             old_state = self.state
             self.state = State.OPEN
+            
+            # Track state change
+            await self._track_state_change(old_state, self.state)
             
             # Log detailed failure information
             # Only log detailed message when circuit first opens
@@ -104,3 +169,47 @@ class CircuitBreaker:
                     f"Circuit breaker for '{self.protected_function_name}': "
                     f"{self.failures}/{self.failure_threshold} failures"
                 )
+    
+    async def _track_state_change(self, from_state: State, to_state: State):
+        """Track a state transition for metrics purposes"""
+        current_time = datetime.now()
+        
+        # Record time spent in previous state
+        if self.metrics["state_change_timestamps"][from_state.value]:
+            time_delta = (current_time - self.metrics["state_change_timestamps"][from_state.value]).total_seconds()
+            self.metrics["time_in_states"][from_state.value] += time_delta
+        
+        # Update state change metrics
+        self.metrics["state_changes"].append({
+            "from": from_state.value,
+            "to": to_state.value,
+            "timestamp": current_time.isoformat(),
+            "failures": self.failures
+        })
+        
+        # Update current state metrics
+        self.metrics["current_state"] = to_state.value
+        
+        # Reset timestamp for the new state
+        self.metrics["state_change_timestamps"][to_state.value] = current_time
+        
+        # Log state change
+        logging.info(
+            f"Circuit breaker for '{self.protected_function_name}' state changed: "
+            f"{from_state.value} -> {to_state.value} (failures: {self.failures})"
+        )
+    
+    def get_metrics(self) -> Dict[str, Any]:
+        """Get current circuit breaker metrics"""
+        # Update time spent in current state
+        current_time = datetime.now()
+        last_state_change = self.metrics["state_change_timestamps"][self.state.value]
+        if last_state_change:
+            time_delta = (current_time - last_state_change).total_seconds()
+            current_state_time = self.metrics["time_in_states"][self.state.value]
+            self.metrics["time_in_states"][self.state.value] = current_state_time + time_delta
+            # Update the timestamp
+            self.metrics["state_change_timestamps"][self.state.value] = current_time
+        
+        # Return a copy of the metrics to prevent external modification
+        return self.metrics.copy()

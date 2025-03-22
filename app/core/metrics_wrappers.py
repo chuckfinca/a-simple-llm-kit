@@ -97,19 +97,39 @@ class PerformanceMetrics:
         # Calculate total time
         total_time = time.time() - self.start_time
         
-        # Create summary
+        # Create summary with basic timing information
         summary = {
             "timing": {
                 "total_ms": round(total_time * 1000, 2),
             },
             "tokens": self.token_usage.copy(),
-            "estimated_cost_usd": self.metadata.get("estimated_cost_usd", 0)
+            "trace_id": self.trace_id,
         }
         
-        # Add detailed timing if available
+        # Add detailed timing for each checkpoint
         for name, timestamp in self.checkpoints.items():
-            if name != "request_start" and f"{name}_duration" in self.metadata:
-                summary["timing"][f"{name}_ms"] = round(self.metadata[f"{name}_duration"] * 1000, 2)
+            if name != "request_start":
+                summary["timing"][f"{name}_ms"] = round((timestamp - self.start_time) * 1000, 2)
+        
+        # Add pipeline step timing if available
+        if "step_timing" in self.metadata:
+            summary["step_timing"] = self.metadata["step_timing"]
+            
+            # Calculate step percentages of total time
+            if total_time > 0:
+                step_percentages = {}
+                for step_name, timing in self.metadata["step_timing"].items():
+                    step_duration = timing.get("duration_ms", 0) / 1000  # Convert back to seconds
+                    step_percentages[step_name] = round((step_duration / total_time) * 100, 1)
+                summary["step_percentages"] = step_percentages
+        
+        # Add steps in sequence if available
+        if "pipeline_steps" in self.metadata:
+            summary["pipeline_steps"] = self.metadata["pipeline_steps"]
+        
+        # Add estimated cost if available
+        if "estimated_cost_usd" in self.metadata:
+            summary["estimated_cost_usd"] = self.metadata["estimated_cost_usd"]
         
         return summary
     
@@ -289,26 +309,56 @@ class PipelineStepTracker:
         Returns:
             Processed PipelineData from the wrapped step
         """
-        # Mark step start
-        self.metrics.mark_checkpoint(f"{self.step_name}_start")
+        # Mark step start with more detailed naming
+        step_start_key = f"{self.step_name}_start"
+        self.metrics.mark_checkpoint(step_start_key)
         
         try:
             # Execute the wrapped step
             result = await self.step.process(data)
             
             # Mark step complete
-            self.metrics.mark_checkpoint(f"{self.step_name}_complete")
+            step_complete_key = f"{self.step_name}_complete"
+            self.metrics.mark_checkpoint(step_complete_key)
             
-            # Create new metadata dictionary that includes our metrics
-            combined_metadata = {
-                **result.metadata,
-                "performance_metrics": self.metrics.get_summary()
-            }
+            # Calculate and record step duration explicitly
+            start_time = self.metrics.checkpoints.get(step_start_key)
+            complete_time = self.metrics.checkpoints.get(step_complete_key)
+            if start_time and complete_time:
+                duration = complete_time - start_time
+                self.metrics.add_metadata(f"{self.step_name}_duration_ms", round(duration * 1000, 2))
+            
+            # Add step-specific metadata to metrics
+            self.metrics.add_metadata("pipeline_steps", 
+                                     self.metrics.metadata.get("pipeline_steps", []) + [self.step_name])
             
             # Add step-specific metrics if available
             if self.step_name == "ImageProcessor" and "original_size" in result.metadata:
                 self.metrics.add_metadata("image_original_size", result.metadata["original_size"])
                 self.metrics.add_metadata("image_processed_size", result.metadata.get("processed_size"))
+            
+            # Create new metadata dictionary that includes our metrics
+            # Include per-step timing in the metrics
+            step_metrics = {
+                f"step_timing": self.metrics.metadata.get("step_timing", {})
+            }
+            
+            # Add this step's timing to the step_timing dictionary
+            step_metrics["step_timing"][self.step_name] = {
+                "start_ms": round((start_time - self.metrics.start_time) * 1000, 2),
+                "end_ms": round((complete_time - self.metrics.start_time) * 1000, 2),
+                "duration_ms": round(duration * 1000, 2)
+            }
+            
+            # Update metrics' metadata with the step timing
+            self.metrics.metadata["step_timing"] = step_metrics["step_timing"]
+            
+            # Combine with result metadata
+            combined_metadata = {**result.metadata}
+            
+            # Add performance metrics with a consistent key
+            # Use "performance_metrics" key to match middleware expectations
+            combined_metadata["performance_metrics"] = self.metrics.get_summary()
             
             # Return new PipelineData with updated metadata
             return PipelineData(
@@ -319,10 +369,11 @@ class PipelineStepTracker:
             
         except Exception as e:
             # Mark error in metrics
+            step_error_key = f"{self.step_name}_error"
             self.metrics.add_metadata("error", str(e))
             self.metrics.add_metadata("error_type", type(e).__name__)
             self.metrics.add_metadata("error_step", self.step_name)
-            self.metrics.mark_checkpoint(f"{self.step_name}_error")
+            self.metrics.mark_checkpoint(step_error_key)
             
             # Log the error with metrics context
             logging.error(
@@ -348,6 +399,9 @@ class TrackedPipeline:
         """
         self.pipeline = pipeline
         self.metrics = metrics or PerformanceMetrics()
+        # Track the step count for diagnostics
+        self.step_count = len(getattr(pipeline, 'steps', []))
+        self.metrics.add_metadata("total_pipeline_steps", self.step_count)
     
     async def execute(self, data: PipelineData) -> PipelineData:
         """
@@ -379,11 +433,51 @@ class TrackedPipeline:
             # Mark pipeline complete
             self.metrics.mark_checkpoint("pipeline_complete")
             
+            # Calculate pipeline execution time
+            pipeline_start = self.metrics.checkpoints.get("pipeline_start")
+            pipeline_complete = self.metrics.checkpoints.get("pipeline_complete")
+            
+            if pipeline_start and pipeline_complete:
+                pipeline_duration = pipeline_complete - pipeline_start
+                self.metrics.add_metadata("pipeline_duration_ms", round(pipeline_duration * 1000, 2))
+            
+            # Aggregate step timing statistics if available
+            if "step_timing" in self.metrics.metadata:
+                step_stats = {
+                    "min_duration_ms": float('inf'),
+                    "max_duration_ms": 0,
+                    "avg_duration_ms": 0,
+                    "slowest_step": None,
+                    "fastest_step": None
+                }
+                
+                total_step_time = 0
+                step_count = 0
+                
+                for step_name, timing in self.metrics.metadata["step_timing"].items():
+                    duration_ms = timing.get("duration_ms", 0)
+                    total_step_time += duration_ms
+                    step_count += 1
+                    
+                    if duration_ms > step_stats["max_duration_ms"]:
+                        step_stats["max_duration_ms"] = duration_ms
+                        step_stats["slowest_step"] = step_name
+                        
+                    if duration_ms < step_stats["min_duration_ms"]:
+                        step_stats["min_duration_ms"] = duration_ms
+                        step_stats["fastest_step"] = step_name
+                
+                if step_count > 0:
+                    step_stats["avg_duration_ms"] = round(total_step_time / step_count, 2)
+                    self.metrics.add_metadata("step_statistics", step_stats)
+            
             # Add metrics to result metadata
-            combined_metadata = {
-                **result.metadata,
-                "performance_metrics": self.metrics.get_summary()
-            }
+            # Merge with existing metadata without overriding
+            combined_metadata = result.metadata.copy()
+            
+            # Only add performance_metrics if not already present
+            if "performance_metrics" not in combined_metadata:
+                combined_metadata["performance_metrics"] = self.metrics.get_summary()
             
             # Create new PipelineData with updated metadata
             return PipelineData(

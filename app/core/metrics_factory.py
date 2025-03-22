@@ -56,8 +56,16 @@ def create_metrics_enabled_text_processor(
         metadata=metadata or {}
     )
     
-    # Wrap processor with tracking
-    return TrackingFactory.track_step(processor, metrics, "TextProcessor")
+    # Even for simple text processors, create a simple pipeline
+    # This ensures we have consistent metrics even for single-step operations
+    tracked_processor = TrackingFactory.track_step(processor, metrics, "TextProcessor")
+    
+    # Create a pipeline with just this one step
+    # This generates more comprehensive metrics
+    pipeline = Pipeline([tracked_processor])
+    
+    # Wrap whole pipeline with tracking
+    return TrackingFactory.track_pipeline(pipeline, metrics)
 
 def create_metrics_enabled_extract_contact_processor(
     model_manager, 

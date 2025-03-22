@@ -283,7 +283,7 @@ def create_versioned_route_handler(endpoint_name, processor_factory, request_mod
 async def predict(request: Request, body: Dict[str, Any] = Body(...)):
     handler = create_versioned_route_handler(
         endpoint_name="predict",
-        processor_factory=create_text_processor,
+        processor_factory=create_metrics_enabled_text_processor,
         request_model=QueryRequest,
         response_model=QueryResponse
     )
@@ -293,7 +293,7 @@ async def predict(request: Request, body: Dict[str, Any] = Body(...)):
 async def predict_pipeline(request: Request, body: Dict[str, Any] = Body(...)):
     handler = create_versioned_route_handler(
         endpoint_name="pipeline/predict",
-        processor_factory=create_metrics_enabled_text_processor,  # You might need to create a different factory
+        processor_factory=create_metrics_enabled_text_processor,
         request_model=PipelineRequest,
         response_model=PipelineResponse
     )
