@@ -166,29 +166,23 @@ def create_versioned_route_handler(endpoint_name, processor_factory, request_mod
                     detail="Execution info missing from result. This is required for versioning."
                 )
             
-            # Build response metadata
-            response_metadata = {
-                "model_id": model_id,
-                "timestamp": datetime.now(timezone.utc).isoformat()
-            }
+            # Extract required information from execution_info
+            program_id = execution_info.get("program_id")
+            program_version = execution_info.get("program_version")
+            program_name = execution_info.get("program_name")
+            execution_id = execution_info.get("execution_id")
+            model_info = execution_info.get("model_info", {})
             
-            # Add any additional parameters to metadata
-            if hasattr(validated_request, "model_extra") and validated_request.model_extra:
-                for key, value in validated_request.model_extra.items():
-                    if key not in response_metadata:
-                        response_metadata[key] = value
-            
-            # Add execution info - required for versioning
-            if execution_info:
-                for key in ["program_id", "program_version", "program_name", "execution_id", "model_info"]:
-                    if key in execution_info:
-                        response_metadata[key] = execution_info.get(key)
-            
-            # Verify versioning info is present before returning
-            required_fields = ["program_id", "program_version", "model_id"]
-            missing_fields = [field for field in required_fields if field not in response_metadata]
-            
-            if missing_fields:
+            # Verify versioning info is present
+            if not program_id or not program_version or not model_id:
+                missing_fields = []
+                if not program_id:
+                    missing_fields.append("program_id")
+                if not program_version:
+                    missing_fields.append("program_version")
+                if not model_id:
+                    missing_fields.append("model_id")
+                
                 missing_str = ", ".join(missing_fields)
                 logging.error(f"{endpoint_name}: Missing required versioning fields: {missing_str}")
                 raise HTTPException(
@@ -196,20 +190,38 @@ def create_versioned_route_handler(endpoint_name, processor_factory, request_mod
                     detail=f"Missing required versioning fields: {missing_str}. Check program registration."
                 )
             
-            # Create response with the appropriate model
-            if response_model == QueryResponse:
-                # Extract the actual response text from the content
-                # The content may be a StandardModelOutput object with an 'output' attribute
-                response_text = result.content
-                if hasattr(result.content, 'output'):
-                    response_text = result.content.output
+            # Build response metadata in a structured way
+            response_metadata = {
+                "model": {
+                    "id": model_id,
+                    **(model_info or {})
+                },
+                "program": {
+                    "id": program_id,
+                    "version": program_version,
+                    "name": program_name or "Unknown"
+                },
+                "execution_id": execution_id,
+                "timestamp": datetime.now(timezone.utc).isoformat()
+            }
+            
+            # Add any additional parameters to metadata
+            if hasattr(validated_request, "model_extra") and validated_request.model_extra:
+                for key, value in validated_request.model_extra.items():
+                    # Add these at the top level, not in nested structures
+                    response_metadata[key] = value
+            
+            # Extract the actual response content
+            response_content = result.content
+            if hasattr(result.content, 'output'):
+                response_content = result.content.output
                 
+            # Create response based on the model type
+            if response_model == QueryResponse:
                 return QueryResponse(
                     success=True,
                     data=QueryResponseData(
-                        response=response_text,
-                        model_used=model_id,
-                        metadata=response_metadata
+                        response=response_content
                     ),
                     metadata=response_metadata,
                     timestamp=datetime.now(timezone.utc)
@@ -220,14 +232,13 @@ def create_versioned_route_handler(endpoint_name, processor_factory, request_mod
                     data=PipelineResponseData(
                         content=result.content,
                         media_type=result.media_type,
-                        metadata=result.metadata
+                        metadata={}  # No nested metadata here
                     ),
                     metadata=response_metadata,
                     timestamp=datetime.now(timezone.utc)
                 )
             elif response_model == ExtractContactResponse:
                 # Handle the special case for ExtractContact
-                # Convert StandardModelOutput to ExtractContact if needed
                 contact_data = result.content
                 if hasattr(result.content, 'output'):
                     contact_data = result.content.output
@@ -253,7 +264,7 @@ def create_versioned_route_handler(endpoint_name, processor_factory, request_mod
             else:
                 return response_model(
                     success=True,
-                    data=result.content,
+                    data=response_content,
                     metadata=response_metadata,
                     timestamp=datetime.now(timezone.utc)
                 )

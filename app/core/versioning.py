@@ -25,32 +25,37 @@ async def get_versioning_info(
     # Get program manager if available
     program_manager = getattr(request.app.state, "program_manager", None)
     
-    # Initialize basic versioning info
+    # Initialize versioning info with basic fields
     versioning_info = {
-        "timestamp": datetime.now(timezone.utc).isoformat(),
-        "request_id": str(uuid.uuid4())
+        "request_id": str(uuid.uuid4()),
+        "timestamp": datetime.now(timezone.utc).isoformat()
     }
     
-    # Add model_id if provided
+    # Create structured model info
     if model_id:
-        versioning_info["model_id"] = model_id
-        
-        # Add model details if program manager is available
+        model_info_dict = {}
         if program_manager and hasattr(program_manager, "model_info"):
-            model_info = program_manager.model_info.get(model_id, {})
-            versioning_info["model_info"] = model_info
-    
-    # Add program_id and version if provided
-    if program_id:
-        versioning_info["program_id"] = program_id
-        versioning_info["program_version"] = program_version or "unknown"
+            model_info_dict = program_manager.model_info.get(model_id, {})
         
-        # Add program details if program manager is available
+        versioning_info["model"] = {
+            "id": model_id,
+            **model_info_dict
+        }
+    
+    # Create structured program info
+    if program_id:
+        program_info = {
+            "id": program_id,
+            "version": program_version or "unknown"
+        }
+        
         if program_manager:
             program_metadata = program_manager.registry.get_program_metadata(program_id, program_version)
             if program_metadata:
-                versioning_info["program_name"] = program_metadata.name
-                versioning_info["program_version"] = program_metadata.version
+                program_info["name"] = program_metadata.name
+                program_info["version"] = program_metadata.version
+        
+        versioning_info["program"] = program_info
     
     # If program info wasn't provided, try to get a default program
     elif program_manager and not program_id:
@@ -63,9 +68,11 @@ async def get_versioning_info(
             
             for prog in program_manager.registry.list_programs():
                 if endpoint_name in prog.name.lower():
-                    versioning_info["program_id"] = prog.id
-                    versioning_info["program_version"] = prog.version
-                    versioning_info["program_name"] = prog.name
+                    versioning_info["program"] = {
+                        "id": prog.id,
+                        "version": prog.version,
+                        "name": prog.name
+                    }
                     break
         except Exception:
             # If anything goes wrong, just continue without the program info

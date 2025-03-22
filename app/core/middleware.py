@@ -8,6 +8,8 @@ class VersioningMiddleware:
     """
     Middleware that ensures all API responses include program and model versioning information.
     It will throw an error if versioning info is missing from JSON responses.
+    
+    Updated to support both flat and nested metadata structures.
     """
     
     def __init__(
@@ -56,8 +58,20 @@ class VersioningMiddleware:
                     # Check for required fields
                     missing_fields = []
                     for field, error_message in self.required_fields.items():
-                        if field not in metadata:
-                            missing_fields.append(error_message)
+                        # Check for field directly in metadata (flat structure)
+                        if field in metadata:
+                            continue
+                            
+                        # Check for nested fields (new structure)
+                        if field == "program_id" and "program" in metadata and "id" in metadata["program"]:
+                            continue
+                        elif field == "program_version" and "program" in metadata and "version" in metadata["program"]:
+                            continue
+                        elif field == "model_id" and "model" in metadata and "id" in metadata["model"]:
+                            continue
+                            
+                        # Field not found in either structure
+                        missing_fields.append(error_message)
                     
                     if missing_fields:
                         # Create error response

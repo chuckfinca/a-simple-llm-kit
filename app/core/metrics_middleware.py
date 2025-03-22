@@ -263,22 +263,29 @@ class PerformanceMetricsMiddleware:
                         logging.debug(f"Generated metrics summary: {json.dumps(metrics_summary)}")
                         
                         if isinstance(response_data, dict):
-                            # Add to top-level metadata if it exists
+                            # Only add metrics to top-level metadata
                             if "metadata" in response_data:
                                 logging.debug("Adding metrics to top-level metadata")
-                                response_data["metadata"]["performance_metrics"] = metrics_summary
+                                
+                                # Structure the metrics in a clean format
+                                performance = {
+                                    "performance": {
+                                        "total_ms": metrics_summary["timing"],
+                                        "tokens": metrics_summary["tokens"],
+                                        "trace_id": metrics_summary.get("trace_id")
+                                    }
+                                }
+                                
+                                # Add cost information if available
+                                if "estimated_cost_usd" in metrics_summary:
+                                    performance["performance"]["cost_usd"] = metrics_summary["estimated_cost_usd"]
+                                    
+                                # Add to metadata
+                                response_data["metadata"].update(performance)
+                                
+                                # No longer add metrics to nested data.metadata
                             else:
                                 logging.debug("No top-level metadata field found in response")
-                            
-                            # Add to nested data.metadata if it exists
-                            if "data" in response_data and isinstance(response_data["data"], dict):
-                                if "metadata" in response_data["data"]:
-                                    logging.debug("Adding metrics to nested data.metadata")
-                                    response_data["data"]["metadata"]["performance_metrics"] = metrics_summary
-                                else:
-                                    logging.debug("No nested data.metadata field found in response")
-                            else:
-                                logging.debug("No valid data field found in response")
                             
                             # Convert back to JSON
                             modified_body = json.dumps(response_data).encode()
@@ -374,7 +381,6 @@ class PerformanceMetricsMiddleware:
         except Exception as e:
             logging.error(f"Error in metrics middleware for {path}: {str(e)}", exc_info=True)
             raise
-
 
 def add_metrics_middleware(app):
     """Add performance metrics middleware to FastAPI application"""
