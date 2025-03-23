@@ -188,6 +188,16 @@ class DSPyModelBackendWithProcessor(ModelBackend):
                     extra={"trace_id": trace_id}
                 )
                 await asyncio.sleep(delay)
+    
+    def get_lm_history(self):
+        """Safely get LM history without exposing the full LM object"""
+        try:
+            lm = self.model_manager.models.get(self.model_id)
+            if hasattr(lm, 'history'):
+                return lm.history
+        except Exception as e:
+            logging.warning(f"Could not access LM history: {str(e)}")
+        return []
 
 
 # Factory function for creating backends with processors

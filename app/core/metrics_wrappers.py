@@ -97,12 +97,23 @@ class PerformanceMetrics:
         # Calculate total time
         total_time = time.time() - self.start_time
         
+        # Create tokens structure with method information and cost
+        tokens_data = self.token_usage.copy()
+        
+        # Add the token calculation method inside the tokens object
+        if "token_count_method" in self.metadata:
+            tokens_data["method"] = self.metadata["token_count_method"]
+        
+        # Add cost inside the tokens object
+        if "estimated_cost_usd" in self.metadata:
+            tokens_data["cost_usd"] = self.metadata["estimated_cost_usd"]
+        
         # Create summary with basic timing information
         summary = {
             "timing": {
                 "total_ms": round(total_time * 1000, 2),
             },
-            "tokens": self.token_usage.copy(),
+            "tokens": tokens_data,
             "trace_id": self.trace_id,
         }
         
@@ -126,10 +137,6 @@ class PerformanceMetrics:
         # Add steps in sequence if available
         if "pipeline_steps" in self.metadata:
             summary["pipeline_steps"] = self.metadata["pipeline_steps"]
-        
-        # Add estimated cost if available
-        if "estimated_cost_usd" in self.metadata:
-            summary["estimated_cost_usd"] = self.metadata["estimated_cost_usd"]
         
         return summary
     
@@ -166,6 +173,10 @@ class ModelBackendTracker:
         self.backend = backend
         self.metrics = metrics or PerformanceMetrics()
         
+        # Initialize token tracking variables
+        self.pre_prompt_tokens = 0
+        self.pre_completion_tokens = 0
+        
         # Pass through model ID if available
         if hasattr(backend, 'model_id'):
             self.model_id = backend.model_id
@@ -174,15 +185,15 @@ class ModelBackendTracker:
         # Directly expose program_metadata from backend for versioning middleware
         if hasattr(backend, 'program_metadata'):
             self.program_metadata = backend.program_metadata
-    
+            
     async def predict(self, input_data: Any) -> Any:
         """Execute prediction with metrics tracking"""
         # Mark preparation complete
         self.metrics.mark_checkpoint("preparation_complete")
         
-        # Preserve token counts if the backend exposes them
-        pre_prompt_tokens = getattr(self.backend, 'total_prompt_tokens', 0)
-        pre_completion_tokens = getattr(self.backend, 'total_completion_tokens', 0)
+        # Store initial token counts for diff calculation if available
+        self.pre_prompt_tokens = getattr(self.backend, 'total_prompt_tokens', 0)
+        self.pre_completion_tokens = getattr(self.backend, 'total_completion_tokens', 0)
         
         # Mark model start
         self.metrics.mark_checkpoint("model_start")
@@ -194,73 +205,8 @@ class ModelBackendTracker:
             # Mark model complete
             self.metrics.mark_checkpoint("model_complete")
             
-            # Add metrics to result if possible
-            if hasattr(result, 'metadata'):
-                # Create a new dict if needed
-                if not isinstance(result.metadata, dict):
-                    result.metadata = {}
-                
-                # Add metrics summary directly to 'performance' key
-                result.metadata['performance'] = self.metrics.get_summary()
-                
-                # Also add program_metadata if available
-                if hasattr(self.backend, 'program_metadata'):
-                    result.metadata['program_metadata'] = self.backend.program_metadata
-                    
-                # Add model_info if available from metrics
-                if hasattr(self.metrics, 'model_info') and self.metrics.model_info:
-                    result.metadata['model_info'] = self.metrics.model_info
-            
-            # Try to capture token usage
-            # Method 1: Check for token info in result metadata
-            if hasattr(result, 'metadata') and result.metadata and 'usage' in result.metadata:
-                usage = result.metadata['usage']
-                if 'prompt_tokens' in usage and 'completion_tokens' in usage:
-                    self.metrics.record_token_usage(
-                        input_tokens=usage['prompt_tokens'],
-                        output_tokens=usage['completion_tokens']
-                    )
-            
-            # Method 2: Check backend attributes
-            elif hasattr(self.backend, 'last_prompt_tokens') and hasattr(self.backend, 'last_completion_tokens'):
-                self.metrics.record_token_usage(
-                    input_tokens=self.backend.last_prompt_tokens,
-                    output_tokens=self.backend.last_completion_tokens
-                )
-            
-            # Method 3: Calculate difference in token counts
-            elif hasattr(self.backend, 'total_prompt_tokens') and hasattr(self.backend, 'total_completion_tokens'):
-                post_prompt_tokens = getattr(self.backend, 'total_prompt_tokens', 0)
-                post_completion_tokens = getattr(self.backend, 'total_completion_tokens', 0)
-                
-                prompt_tokens = max(0, post_prompt_tokens - pre_prompt_tokens)
-                completion_tokens = max(0, post_completion_tokens - pre_completion_tokens)
-                
-                if prompt_tokens > 0 or completion_tokens > 0:
-                    self.metrics.record_token_usage(
-                        input_tokens=prompt_tokens,
-                        output_tokens=completion_tokens
-                    )
-            
-            # Method 4: Estimate based on input length if no other methods work
-            else:
-                # Very rough estimate based on input length
-                input_str = str(input_data)
-                # Approximate tokens: ~4 chars per token for English
-                estimated_input_tokens = len(input_str) // 4
-                
-                # If the result has text we can estimate
-                if hasattr(result, 'output') and isinstance(result.output, str):
-                    estimated_output_tokens = len(result.output) // 4
-                else:
-                    # Default to a reasonable ratio
-                    estimated_output_tokens = estimated_input_tokens // 2
-                
-                self.metrics.add_metadata("token_count_estimated", True)
-                self.metrics.record_token_usage(
-                    input_tokens=estimated_input_tokens,
-                    output_tokens=estimated_output_tokens
-                )
+            # Record token usage using the new encapsulated method
+            self.determine_token_usage(result, input_data)
             
             # Add metrics to result if possible
             if hasattr(result, 'metadata'):
@@ -291,6 +237,96 @@ class ModelBackendTracker:
             
             # Re-raise the exception
             raise
+
+    def determine_token_usage(self, result, input_data):
+        """
+        Record token usage with multiple fallback methods and track the method used
+        
+        Args:
+            result: The prediction result
+            input_data: The original input data
+            
+        Returns:
+            bool: True if token usage was successfully recorded
+        """
+        # Method 1: Try DSPy history first
+        if hasattr(self.backend, 'get_lm_history'):
+            history = self.backend.get_lm_history()
+            if history and len(history) > 0:
+                last_call = history[-1]
+                if 'prompt_tokens' in last_call and 'completion_tokens' in last_call:
+                    # Call the existing method in PerformanceMetrics
+                    self.metrics.record_token_usage(
+                        input_tokens=last_call.get('prompt_tokens', 0),
+                        output_tokens=last_call.get('completion_tokens', 0)
+                    )
+                    
+                    # Add actual cost if available
+                    if 'cost' in last_call and last_call['cost'] is not None:
+                        self.metrics.add_metadata("actual_cost_usd", last_call['cost'])
+                        
+                    self.metrics.add_metadata("token_count_method", "dspy_history_exact")
+                    return True
+        
+        # Method 2: Check result metadata
+        if hasattr(result, 'metadata') and result.metadata and 'usage' in result.metadata:
+            usage = result.metadata['usage']
+            if 'prompt_tokens' in usage and 'completion_tokens' in usage:
+                self.metrics.record_token_usage(
+                    input_tokens=usage['prompt_tokens'],
+                    output_tokens=usage['completion_tokens']
+                )
+                
+                self.metrics.add_metadata("token_count_method", "response_metadata_exact")
+                return True
+        
+        # Method 3: Check backend attributes
+        if hasattr(self.backend, 'last_prompt_tokens') and hasattr(self.backend, 'last_completion_tokens'):
+            self.metrics.record_token_usage(
+                input_tokens=self.backend.last_prompt_tokens,
+                output_tokens=self.backend.last_completion_tokens
+            )
+            
+            self.metrics.add_metadata("token_count_method", "backend_attributes_exact")
+            return True
+        
+        # Method 4: Calculate difference in token counts
+        if hasattr(self.backend, 'total_prompt_tokens') and hasattr(self.backend, 'total_completion_tokens'):
+            post_prompt_tokens = getattr(self.backend, 'total_prompt_tokens', 0)
+            post_completion_tokens = getattr(self.backend, 'total_completion_tokens', 0)
+            
+            prompt_tokens = max(0, post_prompt_tokens - self.pre_prompt_tokens)
+            completion_tokens = max(0, post_completion_tokens - self.pre_completion_tokens)
+            
+            if prompt_tokens > 0 or completion_tokens > 0:
+                self.metrics.record_token_usage(
+                    input_tokens=prompt_tokens,
+                    output_tokens=completion_tokens
+                )
+                
+                self.metrics.add_metadata("token_count_method", "diff_calculation_exact")
+                return True
+        
+        # Method 5: Fall back to character-based estimation
+        input_str = str(input_data)
+        estimated_input_tokens = len(input_str) // 4
+        
+        # If the result has text we can estimate
+        if hasattr(result, 'output') and isinstance(result.output, str):
+            estimated_output_tokens = len(result.output) // 4
+        else:
+            # Default to a reasonable ratio
+            estimated_output_tokens = estimated_input_tokens // 2
+        
+        self.metrics.record_token_usage(
+            input_tokens=estimated_input_tokens,
+            output_tokens=estimated_output_tokens
+        )
+        
+        # Use a descriptive method name that incorporates both the technique and the fact that it's an estimate
+        self.metrics.add_metadata("token_count_method", "character_based_estimate")
+        
+        return True
 
 class PipelineStepTracker:
     """
