@@ -250,23 +250,79 @@ class ModelBackendTracker:
             bool: True if token usage was successfully recorded
         """
         # Method 1: Try DSPy history first
-        if hasattr(self.backend, 'get_lm_history'):
-            history = self.backend.get_lm_history()
-            if history and len(history) > 0:
-                last_call = history[-1]
-                if 'prompt_tokens' in last_call and 'completion_tokens' in last_call:
-                    # Call the existing method in PerformanceMetrics
-                    self.metrics.record_token_usage(
-                        input_tokens=last_call.get('prompt_tokens', 0),
-                        output_tokens=last_call.get('completion_tokens', 0)
-                    )
+        logging.debug("Attempting to determine token usage via DSPy history")
+        has_get_lm_history = hasattr(self.backend, 'get_lm_history')
+        logging.debug(f"Backend has get_lm_history method: {has_get_lm_history}")
+        
+        if has_get_lm_history:
+            try:
+                history = self.backend.get_lm_history()
+                logging.debug(f"DSPy history type: {type(history)}, length: {len(history) if history else 0}")
+                
+                if history and len(history) > 0:
+                    last_call = history[-1]
+                    logging.debug(f"Last call in history: {last_call}")
                     
-                    # Add actual cost if available
-                    if 'cost' in last_call and last_call['cost'] is not None:
-                        self.metrics.add_metadata("actual_cost_usd", last_call['cost'])
+                    # Check if token counts are directly in last_call
+                    direct_prompt_tokens = 'prompt_tokens' in last_call
+                    direct_completion_tokens = 'completion_tokens' in last_call
+                    
+                    # Check if token counts are in last_call['usage']
+                    usage_exists = 'usage' in last_call
+                    nested_prompt_tokens = usage_exists and 'prompt_tokens' in last_call['usage']
+                    nested_completion_tokens = usage_exists and 'completion_tokens' in last_call['usage']
+                    
+                    logging.debug(f"Direct tokens: prompt={direct_prompt_tokens}, completion={direct_completion_tokens}")
+                    logging.debug(f"Usage exists: {usage_exists}")
+                    if usage_exists:
+                        logging.debug(f"Nested tokens: prompt={nested_prompt_tokens}, completion={nested_completion_tokens}")
+                    
+                    # Case 1: Tokens are directly in last_call
+                    if direct_prompt_tokens and direct_completion_tokens:
+                        prompt_tokens = last_call.get('prompt_tokens', 0)
+                        completion_tokens = last_call.get('completion_tokens', 0)
+                        logging.debug(f"Using direct token counts: prompt={prompt_tokens}, completion={completion_tokens}")
                         
-                    self.metrics.add_metadata("token_count_method", "dspy_history_exact")
-                    return True
+                        self.metrics.record_token_usage(
+                            input_tokens=prompt_tokens,
+                            output_tokens=completion_tokens
+                        )
+                        
+                        self.metrics.add_metadata("token_count_method", "dspy_history_exact")
+                        logging.info(f"Successfully determined token usage via direct DSPy history: {prompt_tokens} input, {completion_tokens} output")
+                        return True
+                    
+                    # Case 2: Tokens are in last_call['usage']
+                    elif usage_exists and nested_prompt_tokens and nested_completion_tokens:
+                        prompt_tokens = last_call['usage'].get('prompt_tokens', 0)
+                        completion_tokens = last_call['usage'].get('completion_tokens', 0)
+                        logging.debug(f"Using nested token counts from usage: prompt={prompt_tokens}, completion={completion_tokens}")
+                        
+                        self.metrics.record_token_usage(
+                            input_tokens=prompt_tokens,
+                            output_tokens=completion_tokens
+                        )
+                        
+                        # Also check for cost in usage or at top level
+                        if 'cost' in last_call:
+                            cost = last_call['cost']
+                            logging.debug(f"Found cost in history: {cost}")
+                            self.metrics.add_metadata("actual_cost_usd", cost)
+                        
+                        self.metrics.add_metadata("token_count_method", "dspy_history_exact")
+                        logging.info(f"Successfully determined token usage via nested DSPy history: {prompt_tokens} input, {completion_tokens} output")
+                        return True
+                    else:
+                        logging.debug("Could not find token counts in DSPy history")
+                else:
+                    logging.debug("DSPy history is empty or None")
+            except Exception as e:
+                logging.error(f"Error accessing DSPy history: {str(e)}", exc_info=True)
+        else:
+            logging.debug("Backend does not have get_lm_history method, trying next method")
+        
+        # Continue with other methods...
+        logging.debug("Falling back to other token counting methods")
         
         # Method 2: Check result metadata
         if hasattr(result, 'metadata') and result.metadata and 'usage' in result.metadata:
