@@ -189,12 +189,19 @@ def create_versioned_route_handler(endpoint_name, processor_factory, request_mod
             # Ensure program_metadata is a proper object before passing to collector
             program_metadata = ensure_program_metadata_object(program_metadata)
             
+            # Get model_info directly from program_manager
+            model_info = {}
+            if program_manager and hasattr(program_manager, 'model_info') and model_id in program_manager.model_info:
+                model_info = program_manager.model_info.get(model_id, {})
+                logging.info(f"Using model info from program_manager: {model_info}")
+
             # Collect all metadata in a clean, structured format
             response_metadata = MetadataCollector.collect_response_metadata(
                 result=result,
                 model_id=model_id,
                 program_metadata=program_metadata,
-                performance_metrics=performance_metrics
+                performance_metrics=performance_metrics,
+                model_info=model_info
             )
             
             # Add any additional parameters to metadata

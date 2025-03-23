@@ -202,7 +202,23 @@ class ModelBackendTracker:
             # Mark model complete
             self.metrics.mark_checkpoint("model_complete")
             
-            # Try to capture token usage
+            # Add metrics to result if possible
+            if hasattr(result, 'metadata'):
+                # Create a new dict if needed
+                if not isinstance(result.metadata, dict):
+                    result.metadata = {}
+                
+                # Add metrics summary to metadata
+                result.metadata['performance_metrics'] = self.metrics.get_summary()
+                
+                # Also add program_metadata if available
+                if hasattr(self.backend, 'program_metadata'):
+                    result.metadata['program_metadata'] = self.backend.program_metadata
+                    
+                # Add model_info if available from metrics
+                if hasattr(self.metrics, 'model_info') and self.metrics.model_info:
+                    result.metadata['model_info'] = self.metrics.model_info
+        
             # Try to capture token usage
             # Method 1: Check for token info in result metadata
             if hasattr(result, 'metadata') and result.metadata and 'usage' in result.metadata:
@@ -529,3 +545,27 @@ class TrackingFactory:
     def track_pipeline(pipeline, metrics: Optional[PerformanceMetrics] = None) -> TrackedPipeline:
         """Create a tracked pipeline wrapper"""
         return TrackedPipeline(pipeline, metrics)
+        
+    @staticmethod
+    def setup_metrics(metrics: Optional[PerformanceMetrics], model_id: str, program_manager=None) -> PerformanceMetrics:
+        """
+        Setup metrics with model information from program_manager if available
+        
+        Args:
+            metrics: Optional PerformanceMetrics instance (creates a new one if None)
+            model_id: The model ID to set
+            program_manager: Optional program manager for extracting model info
+            
+        Returns:
+            Configured PerformanceMetrics instance
+        """
+        metrics = metrics or PerformanceMetrics()
+        
+        # Try to get model info from program_manager
+        if program_manager and hasattr(program_manager, 'model_info') and model_id in program_manager.model_info:
+            model_info = program_manager.model_info.get(model_id, {})
+            metrics.set_model_info(model_id, model_info)
+        else:
+            metrics.set_model_info(model_id)
+            
+        return metrics

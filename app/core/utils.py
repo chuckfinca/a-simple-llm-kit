@@ -43,19 +43,11 @@ class MetadataCollector:
         result, 
         model_id: str, 
         program_metadata: Optional[Any] = None, 
-        performance_metrics: Optional[Dict[str, Any]] = None
+        performance_metrics: Optional[Dict[str, Any]] = None,
+        model_info: Optional[Dict[str, Any]] = None
     ) -> Dict[str, Any]:
         """
         Collect and structure all metadata for the API response.
-        
-        Args:
-            result: The pipeline or processor result
-            model_id: The model ID used
-            program_metadata: Optional program metadata (will be converted to object if needed)
-            performance_metrics: Optional performance metrics
-            
-        Returns:
-            Dictionary with structured metadata for API response
         """
         # Start with basic metadata
         metadata = {
@@ -63,17 +55,17 @@ class MetadataCollector:
             "timestamp": datetime.now(timezone.utc).isoformat(),
         }
         
-        # Try to get model info from result metadata or processor/backend
-        model_info = {}
-        if hasattr(result, "metadata") and "model_info" in result.metadata:
-            model_info = result.metadata["model_info"]
-            
+        # Use model_info parameter first if provided, then try result metadata
+        info = model_info or {}
+        if not info and hasattr(result, 'metadata') and 'model_info' in result.metadata:
+            info = result.metadata['model_info']
+        
         # Add model info in the standardized format
         metadata["model"] = {
             "id": model_id,
-            "provider": model_info.get("provider", "unknown"),
-            "base_model": model_info.get("base_model", model_id),
-            "model_name": model_info.get("model_name", "")
+            "provider": info.get("provider", "unknown"),
+            "base_model": info.get("base_model", model_id),
+            "model_name": info.get("model_name", "")
         }
         
         # Add program info if available - always convert to object first

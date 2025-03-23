@@ -10,6 +10,16 @@ from app.models.predictor import Predictor
 from app.core.modules import ContactExtractor
 from app.core.output_processors import DefaultOutputProcessor, ContactExtractorProcessor
 
+# Helper function to setup metrics with model info
+def _setup_metrics_with_model_info(metrics, model_id, program_manager):
+    """Helper to initialize metrics with proper model information"""
+    metrics = metrics or PerformanceMetrics()
+    if program_manager and hasattr(program_manager, 'model_info') and model_id in program_manager.model_info:
+        metrics.set_model_info(model_id, program_manager.model_info[model_id])
+    else:
+        metrics.set_model_info(model_id)
+    return metrics
+
 def create_metrics_enabled_text_processor(
     model_manager, 
     model_id: str, 
@@ -32,9 +42,8 @@ def create_metrics_enabled_text_processor(
     Returns:
         A text processor with metrics tracking
     """
-    # Create metrics collector if not provided
-    metrics = metrics or PerformanceMetrics()
-    metrics.set_model_info(model_id)
+    # Initialize metrics with proper model information
+    metrics = _setup_metrics_with_model_info(metrics, model_id, program_manager)
     
     # Use original factory to create backend
     backend = create_dspy_backend(
@@ -89,9 +98,8 @@ def create_metrics_enabled_extract_contact_processor(
     Returns:
         A pipeline with metrics tracking
     """
-    # Create metrics collector if not provided
-    metrics = metrics or PerformanceMetrics()
-    metrics.set_model_info(model_id)
+    # Initialize metrics with proper model information
+    metrics = _setup_metrics_with_model_info(metrics, model_id, program_manager)
     
     # Create components as usual
     contact_processor = output_processor or ContactExtractorProcessor()
@@ -165,9 +173,8 @@ def create_metrics_enabled_processor_for_signature(
     Returns:
         A processor with metrics tracking
     """
-    # Create metrics collector if not provided
-    metrics = metrics or PerformanceMetrics()
-    metrics.set_model_info(model_id)
+    # Initialize metrics with proper model information
+    metrics = _setup_metrics_with_model_info(metrics, model_id, program_manager)
     
     # Create backend normally
     backend = create_dspy_backend(
