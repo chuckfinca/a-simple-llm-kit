@@ -176,15 +176,7 @@ class ModelBackendTracker:
             self.program_metadata = backend.program_metadata
     
     async def predict(self, input_data: Any) -> Any:
-        """
-        Execute prediction with metrics tracking
-        
-        Args:
-            input_data: The input data for the model
-            
-        Returns:
-            Model output from the wrapped backend
-        """
+        """Execute prediction with metrics tracking"""
         # Mark preparation complete
         self.metrics.mark_checkpoint("preparation_complete")
         
@@ -208,8 +200,8 @@ class ModelBackendTracker:
                 if not isinstance(result.metadata, dict):
                     result.metadata = {}
                 
-                # Add metrics summary to metadata
-                result.metadata['performance_metrics'] = self.metrics.get_summary()
+                # Add metrics summary directly to 'performance' key
+                result.metadata['performance'] = self.metrics.get_summary()
                 
                 # Also add program_metadata if available
                 if hasattr(self.backend, 'program_metadata'):
@@ -218,7 +210,7 @@ class ModelBackendTracker:
                 # Add model_info if available from metrics
                 if hasattr(self.metrics, 'model_info') and self.metrics.model_info:
                     result.metadata['model_info'] = self.metrics.model_info
-        
+            
             # Try to capture token usage
             # Method 1: Check for token info in result metadata
             if hasattr(result, 'metadata') and result.metadata and 'usage' in result.metadata:

@@ -77,11 +77,10 @@ class MetadataCollector:
                 "name": program_metadata.name
             }
         
-        # Add performance metrics if available
+        # Add performance metrics if available - only check the standard location
         if performance_metrics:
             metadata["performance"] = performance_metrics
-        # Also try to extract performance metrics from result
-        elif hasattr(result, "metadata") and "performance_metrics" in result.metadata:
-            metadata["performance"] = result.metadata["performance_metrics"]
+        elif hasattr(result, "metadata") and "performance" in result.metadata:
+            metadata["performance"] = result.metadata["performance"]
         
         return metadata
