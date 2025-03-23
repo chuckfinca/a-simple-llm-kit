@@ -1,4 +1,4 @@
-from typing import Dict, Any, Optional, List, Type
+from typing import Dict, Any, Optional, List, Type, Tuple
 from app.core.protocols import PipelineStep, ModelBackend
 from app.core.pipeline import Pipeline
 from app.core.types import MediaType
@@ -10,7 +10,7 @@ from app.models.predictor import Predictor
 from app.core.modules import ContactExtractor
 from app.core.output_processors import DefaultOutputProcessor, ContactExtractorProcessor
 
-# Helper function to setup metrics with model info
+# Helper function to setup metrics with model info (unchanged)
 def _setup_metrics_with_model_info(metrics, model_id, program_manager):
     """Helper to initialize metrics with proper model information"""
     metrics = metrics or PerformanceMetrics()
@@ -19,6 +19,47 @@ def _setup_metrics_with_model_info(metrics, model_id, program_manager):
     else:
         metrics.set_model_info(model_id)
     return metrics
+
+def _create_metrics_enabled_base(
+    model_manager, 
+    model_id: str,
+    signature_class: Type[Signature],
+    program_manager=None,
+    metadata: Optional[Dict[str, Any]] = None,
+    output_processor=None,
+    metrics: Optional[PerformanceMetrics] = None
+) -> Tuple[ModelBackend, PerformanceMetrics]:
+    """
+    Base factory method for creating metrics-enabled components
+    
+    Args:
+        model_manager: Model manager instance
+        model_id: Model identifier
+        signature_class: DSPy signature class
+        program_manager: Optional program manager
+        metadata: Optional additional metadata
+        output_processor: Optional custom output processor
+        metrics: Optional metrics collector instance
+        
+    Returns:
+        Tuple of (tracked backend, metrics instance)
+    """
+    # Initialize metrics with proper model information
+    metrics = _setup_metrics_with_model_info(metrics, model_id, program_manager)
+    
+    # Create backend
+    backend = create_dspy_backend(
+        model_manager, 
+        model_id, 
+        signature_class, 
+        output_processor=output_processor,
+        program_manager=program_manager
+    )
+    
+    # Wrap backend with tracking
+    tracked_backend = TrackingFactory.track_backend(backend, metrics)
+    
+    return tracked_backend, metrics
 
 def create_metrics_enabled_text_processor(
     model_manager, 
@@ -42,20 +83,16 @@ def create_metrics_enabled_text_processor(
     Returns:
         A text processor with metrics tracking
     """
-    # Initialize metrics with proper model information
-    metrics = _setup_metrics_with_model_info(metrics, model_id, program_manager)
-    
-    # Use original factory to create backend
-    backend = create_dspy_backend(
+    # Use base factory to get tracked backend and metrics
+    tracked_backend, metrics = _create_metrics_enabled_base(
         model_manager, 
         model_id, 
-        Predictor, 
-        output_processor=output_processor or DefaultOutputProcessor(),
-        program_manager=program_manager
+        Predictor,
+        program_manager, 
+        metadata, 
+        output_processor or DefaultOutputProcessor(),
+        metrics
     )
-    
-    # Wrap backend with tracking
-    tracked_backend = TrackingFactory.track_backend(backend, metrics)
     
     # Create processor with tracked backend
     processor = ModelProcessor(
@@ -65,15 +102,13 @@ def create_metrics_enabled_text_processor(
         metadata=metadata or {}
     )
     
-    # Even for simple text processors, create a simple pipeline
-    # This ensures we have consistent metrics even for single-step operations
+    # Track the processor
     tracked_processor = TrackingFactory.track_step(processor, metrics, "TextProcessor")
     
-    # Create a pipeline with just this one step
-    # This generates more comprehensive metrics
+    # Create a pipeline with the tracked processor
     pipeline = Pipeline([tracked_processor])
     
-    # Wrap whole pipeline with tracking
+    # Return the tracked pipeline
     return TrackingFactory.track_pipeline(pipeline, metrics)
 
 def create_metrics_enabled_extract_contact_processor(
@@ -98,22 +133,16 @@ def create_metrics_enabled_extract_contact_processor(
     Returns:
         A pipeline with metrics tracking
     """
-    # Initialize metrics with proper model information
-    metrics = _setup_metrics_with_model_info(metrics, model_id, program_manager)
-    
-    # Create components as usual
-    contact_processor = output_processor or ContactExtractorProcessor()
-    
-    backend = create_dspy_backend(
+    # Use base factory to get tracked backend and metrics
+    tracked_backend, metrics = _create_metrics_enabled_base(
         model_manager, 
         model_id, 
-        ContactExtractor, 
-        output_processor=contact_processor,
-        program_manager=program_manager
+        ContactExtractor,
+        program_manager, 
+        metadata, 
+        output_processor or ContactExtractorProcessor(),
+        metrics
     )
-    
-    # Wrap backend with tracking
-    tracked_backend = TrackingFactory.track_backend(backend, metrics)
     
     # Create image processor
     image_processor = ImageProcessor()
@@ -142,7 +171,7 @@ def create_metrics_enabled_extract_contact_processor(
         tracked_model_processor
     ])
     
-    # Wrap entire pipeline with tracking
+    # Wrap pipeline with tracking
     return TrackingFactory.track_pipeline(pipeline, metrics)
 
 def create_metrics_enabled_processor_for_signature(
@@ -173,20 +202,16 @@ def create_metrics_enabled_processor_for_signature(
     Returns:
         A processor with metrics tracking
     """
-    # Initialize metrics with proper model information
-    metrics = _setup_metrics_with_model_info(metrics, model_id, program_manager)
-    
-    # Create backend normally
-    backend = create_dspy_backend(
-        model_manager,
-        model_id,
+    # Use base factory to get tracked backend and metrics
+    tracked_backend, metrics = _create_metrics_enabled_base(
+        model_manager, 
+        model_id, 
         signature_class,
-        output_processor=output_processor or DefaultOutputProcessor(),
-        program_manager=program_manager
+        program_manager, 
+        metadata, 
+        output_processor or DefaultOutputProcessor(),
+        metrics
     )
-    
-    # Wrap backend with tracking
-    tracked_backend = TrackingFactory.track_backend(backend, metrics)
     
     # Create processor
     processor = ModelProcessor(
@@ -196,7 +221,7 @@ def create_metrics_enabled_processor_for_signature(
         metadata=metadata or {}
     )
     
-    # Wrap processor with tracking
+    # Track processor and return
     return TrackingFactory.track_step(
         processor, 
         metrics, 
