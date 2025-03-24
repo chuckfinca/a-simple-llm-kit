@@ -18,19 +18,19 @@ from datetime import datetime, timezone
 from pydantic import ValidationError, BaseModel
 from app.core.modules import ExtractContact
 from app.core.metrics_factory import create_metrics_enabled_extract_contact_processor, create_metrics_enabled_text_processor
-
-
+from app.core.timestamp_dependency import validate_request_timestamp  # Import the new dependency
 
 # Create main router with dependencies for all /v1 routes
 main_router = APIRouter(
     prefix="/v1",
     dependencies=[
         Depends(get_api_key),  # Apply API key authentication to all routes
-        Depends(rate_limit())  # Apply rate limiting to all routes
+        Depends(rate_limit()),  # Apply rate limiting to all routes
+        Depends(validate_request_timestamp)  # Apply timestamp validation to all routes
     ]
 )
 
-# Special case for health check - no auth required
+# Special case for health check - no auth or timestamp required
 health_router = APIRouter(prefix="/v1")
 
 @health_router.get("/health", response_model=HealthResponse)
@@ -40,15 +40,6 @@ async def health_check():
 def create_versioned_route_handler(endpoint_name, processor_factory, request_model, response_model):
     """
     Creates a route handler with proper versioning validation.
-    
-    Args:
-        endpoint_name: Name of the endpoint for logging
-        processor_factory: Function that creates the processor/pipeline
-        request_model: Pydantic model for request validation
-        response_model: Response model class for the response
-        
-    Returns:
-        A route handler function
     """
     async def route_handler(
         request: Request, 

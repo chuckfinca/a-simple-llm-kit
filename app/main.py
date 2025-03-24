@@ -11,6 +11,7 @@ from app.core import logging
 from app.core.middleware import add_versioning_middleware
 from fastapi.exceptions import RequestValidationError
 from app.core.metrics_middleware import add_metrics_middleware
+from app.core.latency_middleware import add_latency_tracking_middleware  # Import the new middleware
 
 logging.setup_logging() 
 
@@ -42,6 +43,9 @@ app.add_middleware(
     allow_methods=["*"],
     allow_headers=["*"],
 )
+
+# Add latency tracking middleware before other middleware
+add_latency_tracking_middleware(app)
 
 # Add versioning middleware to enforce program/model versioning
 add_versioning_middleware(app)
