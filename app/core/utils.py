@@ -1,5 +1,5 @@
 import uuid
-from datetime import datetime, timezone
+import datetime
 from typing import Optional, Dict, Any, Union
 
 def ensure_program_metadata_object(metadata):
@@ -32,6 +32,19 @@ def ensure_program_metadata_object(metadata):
     # Already an object with required attributes
     return metadata
 
+def get_utc_now() -> datetime:
+    """Returns the current UTC datetime with timezone information."""
+    return datetime.datetime.now(datetime.timezone.utc)
+
+def format_timestamp(dt=None) -> str:
+    """Returns an ISO 8601 formatted timestamp string with timezone information."""
+    if dt is None:
+        dt = get_utc_now()
+    elif dt.tzinfo is None:
+        # Convert naive datetime to timezone-aware
+        dt = dt.replace(tzinfo=datetime.timezone.utc)
+    return dt.isoformat()
+
 class MetadataCollector:
     """
     Helper class to enforce consistent metadata collection across all processors.
@@ -52,7 +65,7 @@ class MetadataCollector:
         # Start with basic metadata
         metadata = {
             "execution_id": str(uuid.uuid4()),
-            "timestamp": datetime.now(timezone.utc).isoformat(),
+            "timestamp": format_timestamp(),
         }
         
         # Use model_info parameter first if provided, then try result metadata
@@ -84,3 +97,4 @@ class MetadataCollector:
             metadata["performance"] = result.metadata["performance"]
         
         return metadata
+    

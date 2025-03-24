@@ -2,6 +2,7 @@ import uuid
 import datetime
 import importlib
 from typing import Dict, Any, List, Optional, Type, Union, Tuple
+from app.core.utils import format_timestamp
 import dspy
 
 from app.core import logging
@@ -133,7 +134,7 @@ class ProgramManager:
         
         # Generate execution ID
         execution_id = str(uuid.uuid4())
-        timestamp = datetime.datetime.now().isoformat()
+        timestamp = format_timestamp()
         
         # Get program metadata for name
         program_metadata = self.registry.get_program_metadata(program_id, program_version)

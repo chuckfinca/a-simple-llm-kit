@@ -3,6 +3,8 @@ from typing import Dict, Any, Optional
 import uuid
 from datetime import datetime, timezone
 
+from app.core.utils import get_utc_now
+
 async def get_versioning_info(
     request: Request,
     model_id: Optional[str] = None,
@@ -28,7 +30,7 @@ async def get_versioning_info(
     # Initialize versioning info with basic fields
     versioning_info = {
         "request_id": str(uuid.uuid4()),
-        "timestamp": datetime.now(timezone.utc).isoformat()
+        "timestamp": get_utc_now()
     }
     
     # Create structured model info
@@ -121,5 +123,5 @@ class VersionedResponse:
             "data": data,
             "error": error,
             "metadata": metadata,
-            "timestamp": datetime.now(timezone.utc).isoformat()
+            "timestamp": get_utc_now()
         }

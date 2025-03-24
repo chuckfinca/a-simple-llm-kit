@@ -3,6 +3,7 @@ from typing import Dict, Any, Generic, Optional, TypeVar, List
 import pydantic
 from app.core.types import MediaType
 from app.core.modules import ExtractContact
+from app.core.utils import get_utc_now
 
 T = TypeVar('T')
 
@@ -40,7 +41,7 @@ class StandardResponse(pydantic.BaseModel, Generic[T]):
     success: bool = pydantic.Field(description="Indicates if the request was successful")
     data: Optional[T] = pydantic.Field(default=None, description="The response payload")
     error: Optional[str] = pydantic.Field(default=None, description="Error message if success is false")
-    timestamp: datetime = pydantic.Field(default_factory=lambda: datetime.now(timezone.utc))
+    timestamp: datetime = pydantic.Field(default_factory=get_utc_now)
     metadata: Dict[str, Any] = pydantic.Field(default_factory=dict, description="Response metadata including program/model info")
 
 class QueryResponse(StandardResponse[QueryResponseData]):

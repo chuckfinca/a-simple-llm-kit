@@ -6,6 +6,7 @@ import importlib
 import datetime
 from typing import Dict, Any, List, Optional, Type, Union
 from pathlib import Path
+from app.core.utils import format_timestamp
 import dspy
 
 from app.core import logging
@@ -103,7 +104,7 @@ class ProgramRegistry:
             "parent_version": parent_version,
             "class_name": program_class.__name__,
             "module_path": program_class.__module__,
-            "created_at": datetime.datetime.now().isoformat(),
+            "created_at": format_timestamp(),
             "source_code": source_code
         }
         
@@ -367,7 +368,7 @@ class ProgramRegistry:
             "model_id": model_id,
             "model_info": model_info,
             "evaluation_id": evaluation_id,
-            "timestamp": datetime.datetime.now().isoformat(),
+            "timestamp": format_timestamp(),
             "results": results
         }
         

@@ -3,6 +3,7 @@ from datetime import datetime, timedelta
 import asyncio
 from functools import wraps
 from app.core import logging
+from app.core.utils import get_utc_now
 
 class State(Enum):
     CLOSED = "CLOSED"       # Everything is normal
@@ -38,7 +39,7 @@ class CircuitBreaker:
                 State.HALF_OPEN.value: 0
             },
             "state_change_timestamps": {
-                State.CLOSED.value: datetime.now(),
+                State.CLOSED.value: get_utc_now(),
                 State.OPEN.value: None,
                 State.HALF_OPEN.value: None
             }
@@ -53,7 +54,7 @@ class CircuitBreaker:
             
             async with self.lock:
                 # Update time spent in current state
-                current_time = datetime.now()
+                current_time = get_utc_now()                
                 last_state_change = self.metrics["state_change_timestamps"][self.state.value]
                 if last_state_change:
                     time_delta = (current_time - last_state_change).total_seconds()
@@ -172,8 +173,7 @@ class CircuitBreaker:
     
     async def _track_state_change(self, from_state: State, to_state: State):
         """Track a state transition for metrics purposes"""
-        current_time = datetime.now()
-        
+        current_time = get_utc_now()        
         # Record time spent in previous state
         if self.metrics["state_change_timestamps"][from_state.value]:
             time_delta = (current_time - self.metrics["state_change_timestamps"][from_state.value]).total_seconds()
@@ -202,7 +202,7 @@ class CircuitBreaker:
     def get_metrics(self) -> Dict[str, Any]:
         """Get current circuit breaker metrics"""
         # Update time spent in current state
-        current_time = datetime.now()
+        current_time = get_utc_now()        
         last_state_change = self.metrics["state_change_timestamps"][self.state.value]
         if last_state_change:
             time_delta = (current_time - last_state_change).total_seconds()
