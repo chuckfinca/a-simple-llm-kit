@@ -71,12 +71,15 @@ class PerformanceMetrics:
     
     def _calculate_cost(self) -> None:
         """Calculate the estimated cost based on token usage and model"""
-        # Cost rates per 1K tokens (input, output) in USD as of March 2025
+        # Cost rates per 1M tokens (input, output) in USD as of March 24, 2025
         pricing = {
             "gpt-4o-mini": (0.15, 0.60),
-            "gpt-4o": (0.5, 1.5),
+            "gpt-4o": (2.5, 10),
+            "openai-o3-mini": (1.1, 4.4),
             "claude-3.7-sonnet": (3.0, 15.0),
-            "gemini-2.0-flash": (0.35, 1.05),
+            "claude-3.5-haiku": (0.8, 4.0),
+            "gemini-2.0-flash": (0.1, 0.4),
+            "gemini-2.0-flash-lite": (0.075, 0.3),
             # Fallback rates for unknown models
             "default": (0.0015, 0.002)
         }
