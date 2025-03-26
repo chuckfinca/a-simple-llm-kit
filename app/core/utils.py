@@ -98,3 +98,39 @@ class MetadataCollector:
         
         return metadata
     
+def detect_extraction_error(exception):
+    """
+    Detect the type of extraction error based on the exception.
+    
+    Args:
+        exception: The exception that was raised
+        
+    Returns:
+        Dict containing error code, message, and technical details
+    """
+    error_message = str(exception)
+    error_class = exception.__class__.__name__
+    error_info = {
+        "code": "EXTRACTION_ERROR",
+        "message": "Contact extraction failed",
+        "details": error_message
+    }
+    
+    # Detect specific error patterns
+    if "Images are not yet supported in JSON mode" in error_message:
+        error_info.update({
+            "code": "UNSUPPORTED_INPUT_FORMAT",
+            "message": "Contact extraction failed: image format not supported in fallback processing mode"
+        })
+    elif "validation error for list" in error_message:
+        error_info.update({
+            "code": "SCHEMA_VALIDATION_ERROR",
+            "message": "Contact extraction failed: model output missing required fields"
+        })
+    elif "Error parsing field" in error_message:
+        error_info.update({
+            "code": "OUTPUT_PARSING_ERROR",
+            "message": "Contact extraction failed: unable to parse model response"
+        })
+    
+    return error_info

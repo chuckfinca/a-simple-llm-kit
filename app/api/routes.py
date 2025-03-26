@@ -1,3 +1,4 @@
+import time
 from typing import Any, Dict, Optional, Union
 import uuid
 from app.core.implementations import ModelProcessor
@@ -54,6 +55,10 @@ def create_versioned_route_handler(endpoint_name, processor_factory, request_mod
         request: Request, 
         body: Dict[str, Any] = Body(...)
     ):
+        start_time = time.time()
+        trace_id = str(uuid.uuid4())
+        timing_metrics = {}
+        
         try:
             if "request" not in body:
                 raise HTTPException(
@@ -136,6 +141,9 @@ def create_versioned_route_handler(endpoint_name, processor_factory, request_mod
             
             # Execute pipeline or processor
             try:
+                # Record pipeline start
+                timing_metrics["pipeline_start_ms"] = round((time.time() - start_time) * 1000, 2)
+                
                 # Check if it's a pipeline or single processor
                 if hasattr(processor, "execute"):  # It's a pipeline
                     result = await processor.execute(PipelineData(
@@ -150,11 +158,80 @@ def create_versioned_route_handler(endpoint_name, processor_factory, request_mod
                         metadata=metadata
                     ))
             except Exception as e:
-                logging.error(f"{endpoint_name}: Execution failed: {str(e)}", exc_info=True)
-                raise HTTPException(
-                    status_code=500,
-                    detail=f"Execution failed: {str(e)}"
+                # Record when the error occurred
+                error_time = time.time()
+                error_ms = round((error_time - start_time) * 1000, 2)
+                timing_metrics["error_ms"] = error_ms
+                
+                # Extract error information
+                error_info = detect_extraction_error(e)
+                
+                # Log the error with detailed information
+                logging.error(
+                    f"{endpoint_name}: {error_info['code']}: {error_info['message']}",
+                    extra={
+                        "trace_id": trace_id,
+                        "error_details": error_info['details'],
+                        "model_id": model_id
+                    },
+                    exc_info=True
                 )
+                
+                # Get model information for the response
+                model_info = {}
+                if program_manager and hasattr(program_manager, 'model_info') and model_id in program_manager.model_info:
+                    model_info = program_manager.model_info.get(model_id, {})
+                
+                # Get program information if available
+                program_metadata = None
+                if hasattr(processor, 'backend') and hasattr(processor.backend, 'program_metadata'):
+                    program_metadata = processor.backend.program_metadata
+                
+                from app.core.utils import ensure_program_metadata_object
+                program_metadata = ensure_program_metadata_object(program_metadata)
+                
+                # Create a response object with the error information
+                response_data = {
+                    "success": False,
+                    "data": None,
+                    "error": error_info,
+                    "metadata": {
+                        "execution_id": str(uuid.uuid4()),
+                        "timestamp": format_timestamp(),
+                        "model": {
+                            "id": model_id,
+                            "provider": model_info.get("provider", "unknown"),
+                            "base_model": model_info.get("base_model", model_id),
+                            "model_name": model_info.get("model_name", "")
+                        },
+                        "performance": {
+                            "timing": timing_metrics,
+                            "tokens": {
+                                "input": 0,
+                                "output": 0,
+                                "total": 0
+                            },
+                            "trace_id": trace_id
+                        }
+                    },
+                    "timestamp": datetime.now(timezone.utc)
+                }
+                
+                # Add program information if available
+                if program_metadata:
+                    response_data["metadata"]["program"] = {
+                        "id": program_metadata.id,
+                        "version": program_metadata.version,
+                        "name": program_metadata.name
+                    }
+                
+                # Return the appropriate response based on the model type
+                if response_model == ExtractContactResponse:
+                    return ExtractContactResponse(**response_data)
+                elif response_model == PipelineResponse:
+                    return PipelineResponse(**response_data)
+                else:
+                    return response_model(**response_data)
             
             # Extract program metadata - we need this for versioning
             program_metadata = None
