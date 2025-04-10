@@ -5,6 +5,7 @@ from app.core.config import get_settings
 from app.api.routes import main_router, health_router
 from app.api.routes_programs import programs_router
 from app.core.error_handling import handle_exception, validation_exception_handler
+from app.core.orientation_debugger import setup_orientation_debugger
 from app.models.manager import ModelManager
 from app.models.program_manager import ProgramManager
 from app.core import logging
@@ -48,6 +49,9 @@ add_versioning_middleware(app)
 
 # Add after other middleware
 add_metrics_middleware(app)
+
+# Setup orientation_debugger
+setup_orientation_debugger(app)
 
 # Include health check routes (no authentication)
 app.include_router(health_router)

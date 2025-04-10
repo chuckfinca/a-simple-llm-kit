@@ -1,8 +1,9 @@
+import json
 import time
 from typing import Any, Dict, Optional, Union
 import uuid
 from app.core.implementations import ModelProcessor
-from app.core.utils import MetadataCollector
+from app.core.utils import MetadataCollector, detect_extraction_error, format_timestamp
 import dspy
 from fastapi import APIRouter, Depends, HTTPException, Request, Body
 from app.api.schemas.requests import QueryRequest, PipelineRequest
@@ -122,7 +123,7 @@ def create_versioned_route_handler(endpoint_name, processor_factory, request_mod
                     status_code=500,
                     detail=f"Failed to create processor: {str(e)}"
                 )
-            
+                
             # Prepare pipeline data
             media_type = getattr(validated_request, "media_type", MediaType.TEXT)
             content = getattr(validated_request, "content", 
@@ -368,6 +369,18 @@ async def predict_pipeline(request: Request, body: Dict[str, Any] = Body(...)):
 
 @main_router.post("/extract-contact", response_model=ExtractContactResponse)
 async def process_extract_contact(request: Request, body: Dict[str, Any] = Body(...)):
+    # --- START: Add this logging block ---
+    try:
+        # Log the body as formatted JSON for readability
+        # Use logging.info initially to ensure it shows up, can change to logging.debug later
+        logging.info(f"--- /v1/extract-contact Request Body ---")
+        logging.info(json.dumps(body, indent=2))
+        logging.info(f"--- End Request Body ---")
+    except Exception as e:
+        # Log error if formatting/logging fails for some reason
+        logging.error(f"Error logging request body for /v1/extract-contact: {e}")
+    # --- END: Add this logging block ---
+
     handler = create_versioned_route_handler(
         endpoint_name="extract-contact",
         processor_factory=create_metrics_enabled_extract_contact_processor,

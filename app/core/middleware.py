@@ -118,5 +118,6 @@ def add_versioning_middleware(app):
             "/redoc",
             "/v1/programs",
             "/metrics",     
+            "/debug/orientation" 
         ]
     )
