@@ -9,7 +9,7 @@ import os
 import json
 import base64
 from datetime import datetime
-from typing import Dict, List, Optional, Any
+from typing import Dict, List, Optional, Any, Tuple
 from collections import deque
 
 from PIL import Image, ExifTags
@@ -89,20 +89,32 @@ class OrientationDebugger:
 
             logging.debug(f"OrientationDebugger: Extracted orientation: {orientation}")
 
-            # Create small thumbnail for display
-            logging.debug(f"OrientationDebugger: Creating thumbnail...")
-            # Use a copy for thumbnail to avoid modifying original img object if needed later
-            thumb_img = img.copy()
-            thumb_img.thumbnail((400, 400), Image.Resampling.LANCZOS)
-            thumbnail_buffer = io.BytesIO()
-            # Ensure thumbnail is saved in a web-friendly format like JPEG
-            if thumb_img.mode not in ['RGB', 'RGBA']:
-                logging.debug(f"OrientationDebugger: Converting thumbnail mode from {thumb_img.mode} to RGB")
-                thumb_img = thumb_img.convert('RGB')
-            # Save as JPEG for wider browser compatibility
-            thumb_img.save(thumbnail_buffer, format='JPEG', quality=85)
-            thumbnail_base64 = base64.b64encode(thumbnail_buffer.getvalue()).decode('utf-8')
-            logging.debug(f"OrientationDebugger: Thumbnail created (Base64 length: {len(thumbnail_base64)})")
+            # Create thumbnails - both original and EXIF-corrected
+            logging.debug(f"OrientationDebugger: Creating thumbnails...")
+            
+            # Create original (unrotated) thumbnail
+            orig_thumb_img = img.copy()
+            orig_thumb_img.thumbnail((400, 400), Image.Resampling.LANCZOS)
+            if orig_thumb_img.mode not in ['RGB', 'RGBA']:
+                logging.debug(f"OrientationDebugger: Converting original thumbnail mode from {orig_thumb_img.mode} to RGB")
+                orig_thumb_img = orig_thumb_img.convert('RGB')
+            
+            orig_thumbnail_buffer = io.BytesIO()
+            orig_thumb_img.save(orig_thumbnail_buffer, format='JPEG', quality=85)
+            orig_thumbnail_base64 = base64.b64encode(orig_thumbnail_buffer.getvalue()).decode('utf-8')
+            
+            # Create EXIF-corrected thumbnail
+            corrected_thumb_img = cls._apply_orientation(img.copy(), orientation)
+            corrected_thumb_img.thumbnail((400, 400), Image.Resampling.LANCZOS)
+            if corrected_thumb_img.mode not in ['RGB', 'RGBA']:
+                logging.debug(f"OrientationDebugger: Converting corrected thumbnail mode from {corrected_thumb_img.mode} to RGB")
+                corrected_thumb_img = corrected_thumb_img.convert('RGB')
+                
+            corrected_thumbnail_buffer = io.BytesIO()
+            corrected_thumb_img.save(corrected_thumbnail_buffer, format='JPEG', quality=85)
+            corrected_thumbnail_base64 = base64.b64encode(corrected_thumbnail_buffer.getvalue()).decode('utf-8')
+            
+            logging.debug(f"OrientationDebugger: Thumbnails created (Original Base64 length: {len(orig_thumbnail_base64)}, Corrected Base64 length: {len(corrected_thumbnail_base64)})")
 
             # Create entry
             entry = {
@@ -110,7 +122,9 @@ class OrientationDebugger:
                 "timestamp": timestamp,
                 "endpoint": endpoint,
                 "orientation": orientation,
-                "thumbnail": thumbnail_base64, # JPEG thumbnail
+                "thumbnail_original": orig_thumbnail_base64,  # Original unrotated thumbnail
+                "thumbnail_corrected": corrected_thumbnail_base64, # EXIF-corrected thumbnail
+                "has_exif_orientation": orientation != 1,  # Flag to indicate if image had EXIF orientation data
                 "metadata": metadata or {}
             }
 
@@ -127,6 +141,35 @@ class OrientationDebugger:
             # Enhanced error logging
             logging.error(f"OrientationDebugger: Error processing image for endpoint {endpoint}: {type(e).__name__} - {str(e)}", exc_info=True)
             return None
+    
+    @classmethod
+    def _apply_orientation(cls, image: Image.Image, orientation: int) -> Image.Image:
+        """Apply EXIF orientation to the image"""
+        if orientation == 1:
+            # Normal orientation, no change needed
+            return image
+        elif orientation == 2:
+            # Mirror horizontal
+            return image.transpose(Image.Transpose.FLIP_LEFT_RIGHT)
+        elif orientation == 3:
+            # Rotate 180
+            return image.transpose(Image.Transpose.ROTATE_180)
+        elif orientation == 4:
+            # Mirror vertical
+            return image.transpose(Image.Transpose.FLIP_TOP_BOTTOM)
+        elif orientation == 5:
+            # Mirror horizontal and rotate 270 CW
+            return image.transpose(Image.Transpose.FLIP_LEFT_RIGHT).transpose(Image.Transpose.ROTATE_270)
+        elif orientation == 6:
+            # Rotate 90 CW
+            return image.transpose(Image.Transpose.ROTATE_270)
+        elif orientation == 7:
+            # Mirror horizontal and rotate 90 CW
+            return image.transpose(Image.Transpose.FLIP_LEFT_RIGHT).transpose(Image.Transpose.ROTATE_90)
+        elif orientation == 8:
+            # Rotate 270 CW
+            return image.transpose(Image.Transpose.ROTATE_90)
+        return image  # Default: return original image
 
     @classmethod
     def get_images(cls) -> List[Dict]:
@@ -184,6 +227,16 @@ class OrientationDebugger:
                 .notice {{ background: #fff3cd; color: #856404; border: 1px solid #ffeeba; padding: 15px; border-radius: 5px; margin-bottom: 20px; }}
                 .orientation-guide {{ margin: 20px 0; padding: 15px; background: #e9ecef; border-radius: 5px; }}
                 .orientation-guide ul {{ padding-left: 20px; margin-top: 10px; }}
+                .toggle-container {{ margin: 20px 0; background: #e9ecef; padding: 15px; border-radius: 5px; display: flex; align-items: center; gap: 10px; }}
+                .toggle-switch {{ position: relative; display: inline-block; width: 60px; height: 34px; }}
+                .toggle-switch input {{ opacity: 0; width: 0; height: 0; }}
+                .slider {{ position: absolute; cursor: pointer; top: 0; left: 0; right: 0; bottom: 0; background-color: #ccc; transition: .4s; border-radius: 34px; }}
+                .slider:before {{ position: absolute; content: ""; height: 26px; width: 26px; left: 4px; bottom: 4px; background-color: white; transition: .4s; border-radius: 50%; }}
+                input:checked + .slider {{ background-color: #2196F3; }}
+                input:checked + .slider:before {{ transform: translateX(26px); }}
+                .no-exif-badge {{ display: inline-block; padding: 3px 8px; background-color: #dc3545; color: white; border-radius: 12px; font-size: 0.7em; margin-left: 8px; }}
+                .exif-normal-badge {{ display: inline-block; padding: 3px 8px; background-color: #28a745; color: white; border-radius: 12px; font-size: 0.7em; margin-left: 8px; }}
+                .hidden {{ display: none; }}
             </style>
         </head>
         <body>
@@ -197,6 +250,15 @@ class OrientationDebugger:
             <div class="controls">
                 <button onclick="window.location.reload()">Refresh</button>
                 <button class="clear-btn" onclick="clearImages()">Clear Images</button>
+            </div>
+            
+            <div class="toggle-container">
+                <span><strong>Display Mode:</strong></span>
+                <label class="toggle-switch">
+                    <input type="checkbox" id="orientationToggle" checked>
+                    <span class="slider"></span>
+                </label>
+                <span id="toggleLabel"><strong>Correctly Oriented</strong> (EXIF-corrected)</span>
             </div>
 
             <h2>Statistics</h2>
@@ -235,7 +297,9 @@ class OrientationDebugger:
                     <li><strong>8:</strong> Rotated 270° Clockwise (CW) / 90° Counter-Clockwise (CCW)</li>
                     <li>2, 4, 5, 7 involve mirroring/flipping.</li>
                 </ul>
-                <p>Thumbnails are shown *without* applying EXIF orientation correction to reflect what the server received initially.</p>
+                <p>Toggle the switch above to view images with or without EXIF orientation correction applied.</p>
+                <p><span class="no-exif-badge">No EXIF</span> indicates images without orientation data.</p>
+                <p><span class="exif-normal-badge">Normal</span> indicates images with orientation = 1 (normal).</p>
             </div>
 
             <h2>Recent Images (Newest First)</h2>
@@ -248,13 +312,23 @@ class OrientationDebugger:
 
             # Add images
             for img_data in images: # Iterate directly as deque stores in order
+                badge = ""
+                if img_data['orientation'] == 1:
+                    badge = '<span class="exif-normal-badge">Normal</span>'
+                elif not img_data.get('has_exif_orientation', False):
+                    badge = '<span class="no-exif-badge">No EXIF</span>'
+                
                 html += f"""
                     <div class="image-card">
-                        <img src="data:image/jpeg;base64,{img_data['thumbnail']}" alt="Image {img_data['id']}">
+                        <img src="data:image/jpeg;base64,{img_data['thumbnail_corrected']}" 
+                             alt="Image {img_data['id']}" 
+                             class="corrected-img"
+                             data-original="data:image/jpeg;base64,{img_data['thumbnail_original']}"
+                             data-corrected="data:image/jpeg;base64,{img_data['thumbnail_corrected']}">
                         <div class="image-info">
                             <div><strong>ID:</strong> {img_data['id']}</div>
                             <div><strong>Endpoint:</strong> {img_data['endpoint']}</div>
-                            <div><strong>Orientation Tag:</strong> {img_data['orientation']} ({orientation_desc.get(img_data['orientation'], 'Unknown')})</div>
+                            <div><strong>Orientation Tag:</strong> {img_data['orientation']} ({orientation_desc.get(img_data['orientation'], 'Unknown')}) {badge}</div>
                             <div><strong>Time:</strong> {img_data['timestamp'].replace('T', ' ').split('.')[0]}</div>
                         </div>
                     </div>
@@ -264,6 +338,32 @@ class OrientationDebugger:
 
         html += f"""
             <script>
+                // Handle orientation toggle
+                const orientationToggle = document.getElementById('orientationToggle');
+                const toggleLabel = document.getElementById('toggleLabel');
+                const images = document.querySelectorAll('.image-card img');
+                
+                // Initial state set to corrected (checked)
+                updateImageDisplay();
+                
+                orientationToggle.addEventListener('change', updateImageDisplay);
+                
+                function updateImageDisplay() {{
+                    const isCorrected = orientationToggle.checked;
+                    
+                    toggleLabel.innerHTML = isCorrected ? 
+                        "<strong>Correctly Oriented</strong> (EXIF-corrected)" : 
+                        "<strong>Original Orientation</strong> (as received)";
+                        
+                    images.forEach(img => {{
+                        if (isCorrected) {{
+                            img.src = img.dataset.corrected;
+                        }} else {{
+                            img.src = img.dataset.original;
+                        }}
+                    }});
+                }}
+                
                 function clearImages() {{
                     // Try to get key from URL first for convenience
                     const urlParams = new URLSearchParams(window.location.search);
