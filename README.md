@@ -18,8 +18,8 @@ The recommended way to run the server locally is using Docker Compose:
 
 ```bash
 # Clone the repository
-git clone https://github.com/chuckfinca/llm-server.git
-cd llm-server
+git clone https://github.com/chuckfinca/llm_server.git
+cd llm_server
 
 # Set up your environment variables in .env file
 cat > .env << EOL
