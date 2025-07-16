@@ -1,6 +1,44 @@
 from typing import Any, Dict, Optional, List
 import pydantic
 import dspy
+from enum import Enum
+
+# --- NEW: Canonical Label Enum ---
+# This is the single source of truth for all labels, making it cross-platform.
+class ContactFieldLabel(str, Enum):
+    # Phone Labels
+    PHONE_MAIN = "main"
+    PHONE_MOBILE = "mobile"
+    PHONE_WORK = "work"
+    PHONE_HOME = "home"
+    PHONE_PAGER = "pager"
+    OTHER_PHONE = "other_phone" # Renamed for clarity
+    
+    # Email Labels
+    EMAIL_WORK = "work"
+    EMAIL_HOME = "home"
+    OTHER_EMAIL = "other_email"
+    
+    # URL Labels
+    URL_HOMEPAGE = "homepage"
+    URL_WORK = "work"
+    URL_HOME = "home"
+    OTHER_URL = "other_url"
+    
+    # Address Labels
+    ADDRESS_WORK = "work"
+    ADDRESS_HOME = "home"
+    OTHER_ADDRESS = "other_address"
+
+# --- Generic LabeledValue Model ---
+class LabeledValue(pydantic.BaseModel):
+    label: ContactFieldLabel
+    value: str
+
+# --- LabeledPostalAddress Model ---
+class LabeledPostalAddress(pydantic.BaseModel):
+    label: ContactFieldLabel
+    value: "PostalAddress" # Use forward reference for the Pydantic model
 
 class PersonName(pydantic.BaseModel):
     """Structured format for a person's name"""
@@ -28,51 +66,43 @@ class PostalAddress(pydantic.BaseModel):
     iso_country_code: Optional[str] = pydantic.Field(None, description="ISO country code")
 
 class ContactInformation(pydantic.BaseModel):
-    """Structured format for contact information"""
-    phone_numbers: List[str] = pydantic.Field(default_factory=list, description="List of phone numbers")
-    email_addresses: List[str] = pydantic.Field(default_factory=list, description="List of email addresses")
-    postal_addresses: List[PostalAddress] = pydantic.Field(default_factory=list, description="List of postal addresses")
-    url_addresses: List[str] = pydantic.Field(default_factory=list, description="List of websites/URLs")
-    social_profiles: List[str] = pydantic.Field(default_factory=list, description="List of social media profiles")
+    phone_numbers: List[LabeledValue] = pydantic.Field(default_factory=list, description="List of labeled phone numbers")
+    email_addresses: List[LabeledValue] = pydantic.Field(default_factory=list, description="List of labeled email addresses")
+    postal_addresses: List[LabeledPostalAddress] = pydantic.Field(default_factory=list, description="List of labeled postal addresses")
+    url_addresses: List[LabeledValue] = pydantic.Field(default_factory=list, description="List of labeled websites/URLs")
+    social_profiles: List["SocialProfile"] = pydantic.Field(default_factory=list, description="List of social media profiles") # Renamed for clarity
 
-class SocialProfiles(pydantic.BaseModel):
-    """Structured format for social profile information"""
-    service: str = pydantic.Field(default_factory=list, description="Name of social media service")
-    url: Optional[str] = pydantic.Field(default_factory=list, description="URL of service")
-    username: str = pydantic.Field(default_factory=list, description="User handle")
+class SocialProfile(pydantic.BaseModel):
+    service: str = pydantic.Field(description="Name of social media service, e.g., 'twitter', 'linkedIn'")
+    username: str = pydantic.Field(description="User handle or username on the service")
 
+# The main domain model that the API will return.
 class ExtractContact(pydantic.BaseModel):
-    """Domain model for contact data"""
     name: PersonName
     work: WorkInformation
     contact: ContactInformation
-    social: List[SocialProfiles]
     notes: Optional[str] = pydantic.Field(None, description="Additional notes or information")
-
+    
+    model_config = pydantic.ConfigDict(extra="allow")
 
 class ContactExtractor(dspy.Signature):
-    """Extract contact information from an image."""
-    image: dspy.Image = dspy.InputField()
+    """Extracts structured contact information from an image of a business card.
+    For each phone, email, and URL, provide a label from the allowed list.
+    Allowed labels for phones: 'main', 'mobile', 'work', 'home', 'pager', 'other_phone'.
+    Allowed labels for emails: 'work', 'home', 'other_email'.
+    Allowed labels for URLs: 'homepage', 'work', 'home', 'other_url'.
+    Allowed labels for addresses: 'work', 'home', 'other_address'.
+    """
+    image: dspy.Image = dspy.InputField(desc="An image of a business card.")
+
+    # Pydantic models are used as OutputFields. DSPy will attempt to generate JSON.
+    name: PersonName = dspy.OutputField(desc="The person's full name.")
+    work: WorkInformation = dspy.OutputField(desc="The person's work and company information.")
     
-    # Name Information
-    name_prefix: Optional[str] = dspy.OutputField()
-    given_name: Optional[str] = dspy.OutputField()
-    middle_name: Optional[str] = dspy.OutputField()
-    family_name: Optional[str] = dspy.OutputField()
-    name_suffix: Optional[str] = dspy.OutputField()
+    # This is the biggest change. We now ask for a single 'contact' object.
+    contact: ContactInformation = dspy.OutputField(desc="All contact details including labeled phones, emails, URLs, addresses, and social profiles.")
     
-    # Work Information
-    job_title: Optional[str] = dspy.OutputField()
-    department_name: Optional[str] = dspy.OutputField()
-    organization_name: Optional[str] = dspy.OutputField()
-    
-    # Contact Information
-    phone_numbers: List[str] = dspy.OutputField()
-    email_addresses: List[str] = dspy.OutputField()
-    postal_addresses: List[PostalAddress] = dspy.OutputField()
-    url_addresses: List[str] = dspy.OutputField()
-    social_profiles: List[SocialProfiles] = dspy.OutputField()
-    notes: Optional[str] = dspy.OutputField()
+    notes: Optional[str] = dspy.OutputField(desc="Any other relevant information or notes from the card.")
 
     @classmethod
     def process_output(cls, result: Any) -> ExtractContact:
