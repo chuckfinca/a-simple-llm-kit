@@ -86,23 +86,17 @@ class ExtractContact(pydantic.BaseModel):
     model_config = pydantic.ConfigDict(extra="allow")
 
 class ContactExtractor(dspy.Signature):
-    """Extracts structured contact information from an image of a business card.
-    For each phone, email, and URL, provide a label from the allowed list.
-    Allowed labels for phones: 'main', 'mobile', 'work', 'home', 'pager', 'other_phone'.
-    Allowed labels for emails: 'work', 'home', 'other_email'.
-    Allowed labels for URLs: 'homepage', 'work', 'home', 'other_url'.
-    Allowed labels for addresses: 'work', 'home', 'other_address'.
-    """
-    image: dspy.Image = dspy.InputField(desc="An image of a business card.")
+    """Extract contact information from an image."""
+    image: dspy.Image = dspy.InputField()
 
     # Pydantic models are used as OutputFields. DSPy will attempt to generate JSON.
-    name: PersonName = dspy.OutputField(desc="The person's full name.")
-    work: WorkInformation = dspy.OutputField(desc="The person's work and company information.")
+    name: PersonName = dspy.OutputField()
+    work: WorkInformation = dspy.OutputField()
     
     # This is the biggest change. We now ask for a single 'contact' object.
-    contact: ContactInformation = dspy.OutputField(desc="All contact details including labeled phones, emails, URLs, addresses, and social profiles.")
+    contact: ContactInformation = dspy.OutputField()
     
-    notes: Optional[str] = dspy.OutputField(desc="Any other relevant information or notes from the card.")
+    notes: Optional[str] = dspy.OutputField()
 
     @classmethod
     def process_output(cls, result: Any) -> ExtractContact:

@@ -1,5 +1,5 @@
-from datetime import datetime, timezone
-from typing import Dict, Any, Generic, Optional, TypeVar, List
+from datetime import datetime
+from typing import Dict, Any, Generic, Optional, TypeVar, Union
 import pydantic
 from app.core.types import MediaType
 from app.core.modules import ExtractContact
@@ -40,7 +40,7 @@ class StandardResponse(pydantic.BaseModel, Generic[T]):
     """Standard envelope for all API responses"""
     success: bool = pydantic.Field(description="Indicates if the request was successful")
     data: Optional[T] = pydantic.Field(default=None, description="The response payload")
-    error: Optional[str] = pydantic.Field(default=None, description="Error message if success is false")
+    error: Optional[Union[str, Dict[str, Any]]] = pydantic.Field(default=None, description="Error message or object if success is false")
     timestamp: datetime = pydantic.Field(default_factory=get_utc_now)
     metadata: Dict[str, Any] = pydantic.Field(default_factory=dict, description="Response metadata including program/model info")
 
