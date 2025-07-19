@@ -12,7 +12,6 @@ RUN pip install uv
 COPY pyproject.toml ./
 COPY README.md ./
 COPY ./src ./src
-COPY ./run.py ./
 
 # Now that all source files are present, install the project and its dependencies.
 # The `.` tells uv to install the local project found in the current directory.
@@ -25,4 +24,4 @@ COPY ./config ./config
 EXPOSE 8000
 
 # The command to run the application.
-CMD ["python", "run.py"]
+CMD ["llm-server"]

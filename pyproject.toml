@@ -32,8 +32,7 @@ dependencies = [
 Homepage = "https://github.com/chuckfinca/llm-server"
 
 [project.scripts]
-# This makes the `llm-server` command available after installation
-llm-server = "run:main"
+llm-server = "llm_server.runner:main"
 
 [project.optional-dependencies]
 dev = [
