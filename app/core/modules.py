@@ -60,8 +60,9 @@ class PostalAddress(pydantic.BaseModel):
     country: Optional[str] = pydantic.Field(None, description="Country name")
 
 class SocialProfile(pydantic.BaseModel):
-    service: str = pydantic.Field(description="Name of social media service, e.g., 'twitter', 'linkedIn'")
-    username: str = pydantic.Field(description="User handle or username on the service")
+    service: Optional[str] = pydantic.Field(None, description="Name of social media service, e.g., 'twitter', 'linkedIn'")
+    username: Optional[str] = pydantic.Field(None, description="User handle or username on the service")
+    url_string: Optional[str] = pydantic.Field(None, description="The full URL to the user's profile.")
 
 class ContactInformation(pydantic.BaseModel):
     # Each list now uses the generic LabeledValue with its specific Label enum.
