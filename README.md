@@ -12,29 +12,56 @@ A lightweight, extensible server for working with large language models, focused
 - **Monitoring**: Prometheus integration for metrics
 - **Flexible Parameters**: Supports additional model parameters for fine-tuned control
 
-## Quick Start with Docker Compose
+## Getting Started
 
-The recommended way to run the server locally is using Docker Compose:
+You can run the server either using Docker for a fully containerized environment or directly on your local machine using `uv` for faster development iterations.
 
-```bash
-# Clone the repository
-git clone https://github.com/chuckfinca/llm_server.git
-cd llm_server
+### Option 1: Running with Docker (Recommended for a Production-like Environment)
 
-# Set up your environment variables in .env file
-cat > .env << EOL
-OPENAI_API_KEY=your_key_here
-ANTHROPIC_API_KEY=your_key_here
-HUGGINGFACE_API_KEY=your_key_here
-LLM_SERVER_API_KEY=your_server_key_here
-GEMINI_API_KEY=your_key_here
-EOL
+This method packages the entire application and its dependencies into a container, ensuring it runs the same way everywhere.
 
-# Run with Docker Compose
-docker-compose up
-```
+1.  **Set up your environment variables:** Create a `.env` file in the project root:
+    ```bash
+    cat > .env << EOL
+    OPENAI_API_KEY=your_key_here
+    ANTHROPIC_API_KEY=your_key_here
+    HUGGINGFACE_API_KEY=your_key_here
+    LLM_SERVER_API_KEY=your_server_key_here
+    GEMINI_API_KEY=your_key_here
+    EOL
+    ```
 
-The server will be available at `http://localhost:8000` with Prometheus metrics at `http://localhost:9090`.
+2.  **Build and run with Docker Compose:**
+    ```bash
+    docker-compose up --build
+    ```
+    The server will be available at `http://localhost:8000`.
+
+### Option 2: Running Locally with `uv` (Recommended for Active Development)
+
+This method is ideal for writing code, running tests, and using development tools, as it provides faster feedback and hot-reloading.
+
+1.  **Install `uv`:** If you don't have it, follow the [official installation guide](https://github.com/astral-sh/uv).
+
+2.  **Create the virtual environment:**
+    ```bash
+    uv venv
+    ```
+
+3.  **Install dependencies and development tools:**
+    ```bash
+    uv pip install -e ".[dev]"
+    ```
+    This command installs the server in "editable" mode and includes all tools like `pytest`, `ruff`, and `black`.
+
+4.  **Run the application:**
+    ```bash
+    uv run llm-server
+    ```
+    For development with automatic hot-reloading, set the `LLM_SERVER_RELOAD` environment variable:
+    ```bash
+    LLM_SERVER_RELOAD=true uv run llm-server
+    ```
 
 ## API Examples
 
@@ -150,22 +177,6 @@ All API responses follow a consistent format:
 }
 ```
 
-## Manual Setup
-
-If you prefer to run without Docker:
-
-1. Install dependencies:
-```bash
-pip install -r requirements.txt
-```
-
-2. Set up environment variables (create a `.env` file or export directly)
-
-3. Run the server:
-```bash
-python run.py
-```
-
 ## Configuration
 
 Models are configured in `config/model_config.yml`:
@@ -197,8 +208,8 @@ Refer to `INFRASTRUCTURE.md` for more details on deployment and infrastructure s
 The server uses a composable pipeline architecture:
 
 ```python
-from app.core.types import MediaType, PipelineData
-from app.core.protocols import PipelineStep
+from llm_server.core.types import MediaType, PipelineData
+from llm_server.core.protocols import PipelineStep
 
 class MyCustomStep(PipelineStep):
     @property
@@ -219,7 +230,7 @@ class MyCustomStep(PipelineStep):
 Then use it in your pipeline:
 
 ```python
-from app.core.pipeline import Pipeline
+from llm_server.core.pipeline import Pipeline
 
 pipeline = Pipeline([
     MyCustomStep(),

@@ -1,7 +1,7 @@
 import pytest
-from app.core.types import MediaType
-from app.core.factories import create_text_processor
-from app.core.protocols import PipelineStep
+from llm_server.core.types import MediaType
+from llm_server.core.factories import create_text_processor
+from llm_server.core.protocols import PipelineStep
 
 @pytest.fixture
 def mock_model_manager(monkeypatch):
@@ -34,7 +34,7 @@ def test_create_text_processor(mock_model_manager):
 @pytest.mark.asyncio
 async def test_text_processor_functionality(mock_model_manager):
     """Test the created text processor actually works"""
-    from app.core.types import PipelineData
+    from llm_server.core.types import PipelineData
     
     processor = create_text_processor(mock_model_manager, "test-model")
     

@@ -11,9 +11,13 @@ services:
       - HUGGINGFACE_API_KEY=${HUGGINGFACE_API_KEY}
       - LLM_SERVER_API_KEY=${LLM_SERVER_API_KEY}
       - GEMINI_API_KEY=${GEMINI_API_KEY}
-      - LOG_LEVEL=DEBUG  # More detailed logging for development
+      - LOG_LEVEL=DEBUG
+      # Add this environment variable to enable hot-reloading
+      - LLM_SERVER_RELOAD=true
     volumes:
-      - .:/app  # Mount code for hot-reloading
+      # This is the line to change:
+      - ./src/llm_server:/app/src/llm_server  # Mount the package directory for hot-reloading
+      - ./config:/app/config
       - ./logs:/app/logs
     healthcheck:
       test: ["CMD", "curl", "-f", "http://localhost:8000/v1/health"]

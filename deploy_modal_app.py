@@ -40,7 +40,7 @@ def fastapi_app():
     import os
     # Set the working directory to /app
     os.chdir('/app')
-    from app.main import app
+    from llm_server.main import app
     return app
 
 if __name__ == "__main__":

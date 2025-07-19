@@ -1,0 +1,67 @@
+[build-system]
+requires = ["setuptools>=61.0", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "llm-server"
+version = "0.2.0"
+description = "A lightweight, extensible server for working with large language models, focused on pipeline processing and multi-modal capabilities. Built with FastAPI and DSPy."
+readme = "README.md"
+requires-python = ">=3.9"
+license = "MIT"
+authors = [{ name = "Charles Feinn", email = "charles@appsimple.io" }]
+classifiers = [
+    "Development Status :: 3 - Alpha",
+    "Intended Audience :: Developers",
+    "Programming Language :: Python :: 3.9",
+]
+dependencies = [
+    "fastapi[all]>=0.68.0",
+    "uvicorn>=0.15.0",
+    "pydantic>=2.0.0",
+    "pydantic-settings>=2.0.0",
+    "python-dotenv>=0.19.0",
+    "pyyaml>=6.0.0",
+    "dspy-ai>=2.0.0",
+    "pillow>=10.0.0",
+    "prometheus-client>=0.17.0",
+    "python-multipart>=0.0.5"
+]
+
+[project.urls]
+Homepage = "https://github.com/chuckfinca/llm-server"
+
+[project.scripts]
+# This makes the `llm-server` command available after installation
+llm-server = "run:main"
+
+[project.optional-dependencies]
+dev = [
+    "black>=24.4.0",
+    "mypy>=1.9.0",
+    "pytest>=7.0.0",
+    "ruff>=0.4.0",
+    "httpx>=0.23.0",
+    "email-validator>=2.0.0",
+    "pillow-heif"
+]
+
+[tool.setuptools.packages.find]
+where = ["src"]
+
+[tool.setuptools]
+package-dir = { "" = "src" }
+
+[tool.black]
+line-length = 88
+target-version = ['py39']
+
+[tool.ruff]
+line-length = 88
+select = ["E", "F", "W", "I", "UP", "C4"]
+ignore = []
+
+[tool.mypy]
+python_version = "3.9"
+warn_return_any = true
+ignore_missing_imports = true

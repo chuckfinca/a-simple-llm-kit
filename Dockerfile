@@ -1,27 +1,28 @@
-# Use Python 3.9 slim image as base
+# Use an official Python runtime as a parent image
 FROM python:3.9-slim
 
-# Set working directory
+# Set the working directory in the container
 WORKDIR /app
 
-# Install dependencies
-RUN apt-get update && \
-    apt-get install -y curl && \
-    rm -rf /var/lib/apt/lists/*
+# Install uv, our fast package installer
+RUN pip install uv
 
-# Don't copy code - we'll mount it
-COPY requirements.txt .
-COPY setup.py .
-COPY README.md .
+# Copy all the files required for the build process first.
+# This includes the project definition, the readme, and the source code itself.
+COPY pyproject.toml ./
+COPY README.md ./
+COPY ./src ./src
+COPY ./run.py ./
 
-# Install dependencies including dev extras
-RUN pip install -e ".[dev]"
+# Now that all source files are present, install the project and its dependencies.
+# The `.` tells uv to install the local project found in the current directory.
+RUN uv pip install --system .
 
-# Expose port
+# Copy the application configuration
+COPY ./config ./config
+
+# Expose the port the app runs on
 EXPOSE 8000
 
-# Command to run the application with reload
-CMD ["uvicorn", "app.main:app", "--host", "0.0.0.0", "--port", "8000", "--reload"]
-
-# Include health check endpoint
-HEALTHCHECK CMD curl -f http://localhost:8000/health || exit 1
+# The command to run the application.
+CMD ["python", "run.py"]

@@ -1,8 +1,8 @@
 import pytest
-from app.core.types import MediaType, PipelineData
-from app.core.protocols import ModelBackend
-from app.core.implementations import ModelProcessor
-from app.core.pipeline import Pipeline
+from llm_server.core.types import MediaType, PipelineData
+from llm_server.core.protocols import ModelBackend
+from llm_server.core.implementations import ModelProcessor
+from llm_server.core.pipeline import Pipeline
 
 # Test Data
 @pytest.fixture
