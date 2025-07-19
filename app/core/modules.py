@@ -1,47 +1,46 @@
-from typing import Any, Dict, Optional, List
+from typing import Any, Optional, List, TypeVar, Generic
 import pydantic
 import dspy
 from enum import Enum
 
-# --- NEW: Canonical Label Enum ---
-# This is the single source of truth for all labels, making it cross-platform.
-class ContactFieldLabel(str, Enum):
-    # Phone Labels
-    PHONE_MAIN = "main"
-    PHONE_MOBILE = "mobile"
-    PHONE_WORK = "work"
-    PHONE_HOME = "home"
-    PHONE_PAGER = "pager"
-    OTHER_PHONE = "other_phone" # Renamed for clarity
-    
-    # Email Labels
-    EMAIL_WORK = "work"
-    EMAIL_HOME = "home"
-    OTHER_EMAIL = "other_email"
-    
-    # URL Labels
-    URL_HOMEPAGE = "homepage"
-    URL_WORK = "work"
-    URL_HOME = "home"
-    OTHER_URL = "other_url"
-    
-    # Address Labels
-    ADDRESS_WORK = "work"
-    ADDRESS_HOME = "home"
-    OTHER_ADDRESS = "other_address"
+# --- CONTEXT-SPECIFIC LABEL ENUMS ---
 
-# --- Generic LabeledValue Model ---
-class LabeledValue(pydantic.BaseModel):
-    label: ContactFieldLabel
-    value: str
+class PhoneFieldLabel(str, Enum):
+    MOBILE = "mobile"
+    WORK = "work"
+    HOME = "home"
+    MAIN = "main"
+    PAGER = "pager"
+    OTHER = "other"
 
-# --- LabeledPostalAddress Model ---
-class LabeledPostalAddress(pydantic.BaseModel):
-    label: ContactFieldLabel
-    value: "PostalAddress" # Use forward reference for the Pydantic model
+class EmailFieldLabel(str, Enum):
+    WORK = "work"
+    HOME = "home"
+    OTHER = "other"
+
+class UrlFieldLabel(str, Enum):
+    HOMEPAGE = "homepage"
+    WORK = "work"
+    HOME = "home"
+    OTHER = "other"
+
+class AddressFieldLabel(str, Enum):
+    WORK = "work"
+    HOME = "home"
+    OTHER = "other"
+
+# --- GENERIC LABELED VALUE MODEL ---
+# A generic Pydantic model to handle any kind of labeled value.
+T = TypeVar('T')
+LabelT = TypeVar('LabelT')
+
+class LabeledValue(pydantic.BaseModel, Generic[LabelT, T]):
+    label: LabelT
+    value: T
+
+# --- CORE DATA MODELS ---
 
 class PersonName(pydantic.BaseModel):
-    """Structured format for a person's name"""
     prefix: Optional[str] = pydantic.Field(None, description="Title/prefix like Dr., Mr., Ms.")
     given_name: Optional[str] = pydantic.Field(None, description="First name")
     middle_name: Optional[str] = pydantic.Field(None, description="Middle name")
@@ -49,34 +48,31 @@ class PersonName(pydantic.BaseModel):
     suffix: Optional[str] = pydantic.Field(None, description="Suffix like Jr., Ph.D.")
 
 class WorkInformation(pydantic.BaseModel):
-    """Structured format for work-related information"""
     job_title: Optional[str] = pydantic.Field(None, description="Professional title")
     department: Optional[str] = pydantic.Field(None, description="Department within organization")
     organization_name: Optional[str] = pydantic.Field(None, description="Company or organization name")
 
 class PostalAddress(pydantic.BaseModel):
-    """Structured format for a postal address"""
     street: Optional[str] = pydantic.Field(None, description="Street name and number")
-    sub_locality: Optional[str] = pydantic.Field(None, description="Neighborhood or district")
     city: Optional[str] = pydantic.Field(None, description="City name")
-    sub_administrative_area: Optional[str] = pydantic.Field(None, description="County or region")
     state: Optional[str] = pydantic.Field(None, description="State or province")
     postal_code: Optional[str] = pydantic.Field(None, description="ZIP or postal code")
     country: Optional[str] = pydantic.Field(None, description="Country name")
-    iso_country_code: Optional[str] = pydantic.Field(None, description="ISO country code")
-
-class ContactInformation(pydantic.BaseModel):
-    phone_numbers: List[LabeledValue] = pydantic.Field(default_factory=list, description="List of labeled phone numbers")
-    email_addresses: List[LabeledValue] = pydantic.Field(default_factory=list, description="List of labeled email addresses")
-    postal_addresses: List[LabeledPostalAddress] = pydantic.Field(default_factory=list, description="List of labeled postal addresses")
-    url_addresses: List[LabeledValue] = pydantic.Field(default_factory=list, description="List of labeled websites/URLs")
-    social_profiles: List["SocialProfile"] = pydantic.Field(default_factory=list, description="List of social media profiles") # Renamed for clarity
 
 class SocialProfile(pydantic.BaseModel):
     service: str = pydantic.Field(description="Name of social media service, e.g., 'twitter', 'linkedIn'")
     username: str = pydantic.Field(description="User handle or username on the service")
 
-# The main domain model that the API will return.
+class ContactInformation(pydantic.BaseModel):
+    # Each list now uses the generic LabeledValue with its specific Label enum.
+    phone_numbers: List[LabeledValue[PhoneFieldLabel, str]] = pydantic.Field(default_factory=list)
+    email_addresses: List[LabeledValue[EmailFieldLabel, str]] = pydantic.Field(default_factory=list)
+    postal_addresses: List[LabeledValue[AddressFieldLabel, PostalAddress]] = pydantic.Field(default_factory=list)
+    url_addresses: List[LabeledValue[UrlFieldLabel, str]] = pydantic.Field(default_factory=list)
+    social_profiles: List[SocialProfile] = pydantic.Field(default_factory=list)
+
+# --- TOP-LEVEL MODELS ---
+
 class ExtractContact(pydantic.BaseModel):
     name: PersonName
     work: WorkInformation
@@ -89,54 +85,19 @@ class ContactExtractor(dspy.Signature):
     """Extract contact information from an image."""
     image: dspy.Image = dspy.InputField()
 
-    # Pydantic models are used as OutputFields. DSPy will attempt to generate JSON.
     name: PersonName = dspy.OutputField()
     work: WorkInformation = dspy.OutputField()
-    
-    # This is the biggest change. We now ask for a single 'contact' object.
     contact: ContactInformation = dspy.OutputField()
-    
     notes: Optional[str] = dspy.OutputField()
 
     @classmethod
     def process_output(cls, result: Any) -> ExtractContact:
-        """Process raw output into validated ExtractContact domain model"""
-        
-        # Handle the case where addresses might already be PostalAddress objects
-        postal_addresses = []
-        for addr in result.postal_addresses:
-            if isinstance(addr, PostalAddress):
-                postal_addresses.append(addr)
-            else:
-                # It's a dictionary, so unpack it
-                postal_addresses.append(PostalAddress(**addr))
-                
-        contact = ExtractContact(
-            name=PersonName(
-                prefix=result.name_prefix,
-                given_name=result.given_name,
-                middle_name=result.middle_name,
-                family_name=result.family_name,
-                suffix=result.name_suffix
-            ),
-            work=WorkInformation(
-                job_title=result.job_title,
-                department=result.department_name,
-                organization_name=result.organization_name
-            ),
-            contact=ContactInformation(
-                phone_numbers=result.phone_numbers,
-                email_addresses=result.email_addresses,
-                postal_addresses=postal_addresses,
-                url_addresses=result.url_addresses
-            ),
-            social=[SocialProfiles(**social) for social in result.social_profiles],
-            notes=result.notes
+        """This method is now handled by the robust ContactExtractorProcessor and is effectively unused."""
+        # This is a fallback and should ideally not be called.
+        # The real processing happens in ContactExtractorProcessor.
+        return ExtractContact(
+            name=getattr(result, 'name', PersonName()),
+            work=getattr(result, 'work', WorkInformation()),
+            contact=getattr(result, 'contact', ContactInformation()),
+            notes=getattr(result, 'notes', None)
         )
-        
-        # Preserve metadata if it exists on the result
-        if hasattr(result, 'metadata'):
-            setattr(contact, 'metadata', result.metadata)
-        
-        return contact
-    

@@ -63,7 +63,6 @@ class DSPyModelBackendWithProcessor(ModelBackend):
                 if not lm: raise ValueError(f"Model {self.model_id} not found")
 
                 if self.program_manager and self.program_metadata:
-                    # --- KEY CHANGE: Unpack the new 3-part tuple ---
                     result, execution_info, raw_completion_text = await self.program_manager.execute_program(
                         program_id=self.program_metadata.id, model_id=self.model_id,
                         input_data=input_dict, trace_id=trace_id
@@ -71,7 +70,6 @@ class DSPyModelBackendWithProcessor(ModelBackend):
                     
                     # Attach the raw text to the result object for the processor
                     setattr(result, 'raw_completion', raw_completion_text)
-                    # --- END KEY CHANGE ---
                     
                     metadata = getattr(result, 'metadata', {})
                     metadata['execution_info'] = execution_info.model_dump()

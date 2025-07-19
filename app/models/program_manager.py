@@ -79,7 +79,6 @@ class ProgramManager:
                 predictor = dspy.Predict(program_class)
                 result = predictor(**input_data)
     
-                # --- KEY CHANGE: Extract raw text from the correct 'outputs' key ---
                 raw_completion_text = None
                 logging.info("Attempting to extract raw completion from LM history...")
                 try:
@@ -95,7 +94,6 @@ class ProgramManager:
                         logging.warning("LM history is missing or empty. Cannot extract raw completion.")
                 except Exception as e:
                     logging.error(f"ProgramManager failed to extract raw completion text due to an error: {e}", exc_info=True)
-                # --- END KEY CHANGE ---
     
                 self.executions.append(execution_info)
                 return result, execution_info, raw_completion_text

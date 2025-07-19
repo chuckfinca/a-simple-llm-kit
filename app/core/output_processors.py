@@ -1,11 +1,9 @@
 import re
 import json
-from typing import Any, List, Dict
+from typing import Any, Dict
 from app.core import logging
-from app.core.model_interfaces import ModelOutput
 from app.core.modules import (
-    ExtractContact, PersonName, WorkInformation, ContactInformation, PostalAddress, 
-    SocialProfile, LabeledValue, LabeledPostalAddress, ContactFieldLabel
+    ExtractContact, PersonName, WorkInformation, ContactInformation
 )
 
 class DefaultOutputProcessor:
@@ -37,11 +35,9 @@ class ContactExtractorProcessor:
         metadata = getattr(result, 'metadata', {})
         
         try:
-            # --- KEY CHANGE: Use the 'raw_completion' attribute attached in the backend ---
             raw_output_text = getattr(result, 'raw_completion', None)
             if not raw_output_text or not isinstance(raw_output_text, str):
                 raise AttributeError("The 'raw_completion' attribute is missing from the result object.")
-            # --- END KEY CHANGE ---
         except AttributeError as e:
             logging.error(f"CRITICAL PARSING FAILURE: {e}", exc_info=True)
             return self._process_with_fallback(result)

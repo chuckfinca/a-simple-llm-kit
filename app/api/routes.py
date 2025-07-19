@@ -369,7 +369,6 @@ async def predict_pipeline(request: Request, body: Dict[str, Any] = Body(...)):
 
 @main_router.post("/extract-contact", response_model=ExtractContactResponse)
 async def process_extract_contact(request: Request, body: Dict[str, Any] = Body(...)):
-    # --- START: Add this logging block ---
     try:
         # Log the body as formatted JSON for readability
         # Use logging.info initially to ensure it shows up, can change to logging.debug later
@@ -379,7 +378,6 @@ async def process_extract_contact(request: Request, body: Dict[str, Any] = Body(
     except Exception as e:
         # Log error if formatting/logging fails for some reason
         logging.error(f"Error logging request body for /v1/extract-contact: {e}")
-    # --- END: Add this logging block ---
 
     handler = create_versioned_route_handler(
         endpoint_name="extract-contact",

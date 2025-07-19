@@ -418,7 +418,6 @@ class OrientationDebugMiddleware:
         request = Request(scope, receive=receive)
         request_body_bytes = None # Store body if read
 
-        # --- Logic moved BEFORE calling the app ---
         if OrientationDebugger.ENABLED and request.method == "POST" and \
            any(request.url.path.startswith(watch_path) for watch_path in self.WATCHED_PATHS):
 
@@ -476,7 +475,6 @@ class OrientationDebugMiddleware:
             except Exception as e:
                  # Log errors during the initial body read or middleware logic
                  logging.error(f"OrientationDebugMiddleware: Error processing request: {type(e).__name__} - {str(e)}", exc_info=True)
-
 
             # --- Make the read body available again for the actual endpoint ---
             async def cached_receive() -> dict:
