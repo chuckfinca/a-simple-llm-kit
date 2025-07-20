@@ -1,135 +1,150 @@
 import json
 import time
-from typing import Any, Dict, Optional, Union
 import uuid
-from llm_server.core.implementations import ModelProcessor
-from llm_server.core.utils import MetadataCollector, detect_extraction_error, format_timestamp
-import dspy
-from fastapi import APIRouter, Depends, HTTPException, Request, Body
-from llm_server.api.schemas.requests import QueryRequest, PipelineRequest
-from llm_server.api.schemas.responses import ExtractContactResponse, HealthResponse, PipelineResponse, PipelineResponseData, QueryResponse, QueryResponseData
-from llm_server.core import logging
-from llm_server.core.pipeline import Pipeline
-from llm_server.core.rate_limiting import RateLimit, rate_limit
-from llm_server.core.types import PipelineData, MediaType
-from llm_server.core.factories import create_extract_contact_processor, create_text_processor
-from llm_server.core.security import get_api_key
-from llm_server.core.versioning import get_versioning_info
-from llm_server.services.prediction import PredictionService
 from datetime import datetime, timezone
-from pydantic import ValidationError, BaseModel
+from typing import Any
+
+from fastapi import APIRouter, Body, Depends, HTTPException, Request
+from pydantic import ValidationError
+
+from llm_server.api.schemas.requests import PipelineRequest, QueryRequest
+from llm_server.api.schemas.responses import (
+    ExtractContactResponse,
+    HealthResponse,
+    PipelineResponse,
+    PipelineResponseData,
+    QueryResponse,
+    QueryResponseData,
+)
+from llm_server.core import logging
+from llm_server.core.metrics_factory import (
+    create_metrics_enabled_extract_contact_processor,
+    create_metrics_enabled_text_processor,
+)
 from llm_server.core.modules import ExtractContact
-from llm_server.core.metrics_factory import create_metrics_enabled_extract_contact_processor, create_metrics_enabled_text_processor
-
-
+from llm_server.core.rate_limiting import rate_limit
+from llm_server.core.security import get_api_key
+from llm_server.core.types import MediaType, PipelineData
+from llm_server.core.utils import (
+    detect_extraction_error,
+    format_timestamp,
+)
 
 # Create main router with dependencies for all /v1 routes
 main_router = APIRouter(
     prefix="/v1",
     dependencies=[
         Depends(get_api_key),  # Apply API key authentication to all routes
-        Depends(rate_limit())  # Apply rate limiting to all routes
-    ]
+        Depends(rate_limit()),  # Apply rate limiting to all routes
+    ],
 )
 
 # Special case for health check - no auth required
 health_router = APIRouter(prefix="/v1")
 
+
 @health_router.get("/health", response_model=HealthResponse)
 async def health_check():
     return HealthResponse(status="healthy")
 
-def create_versioned_route_handler(endpoint_name, processor_factory, request_model, response_model):
+
+def create_versioned_route_handler(
+    endpoint_name, processor_factory, request_model, response_model
+):
     """
     Creates a route handler with proper versioning validation.
-    
+
     Args:
         endpoint_name: Name of the endpoint for logging
         processor_factory: Function that creates the processor/pipeline
         request_model: Pydantic model for request validation
         response_model: Response model class for the response
-        
+
     Returns:
         A route handler function
     """
-    async def route_handler(
-        request: Request, 
-        body: Dict[str, Any] = Body(...)
-    ):
+
+    async def route_handler(request: Request, body: dict[str, Any] = Body(...)): # noqa: B008
         start_time = time.time()
         trace_id = str(uuid.uuid4())
         timing_metrics = {}
-        
+
         try:
             if "request" not in body:
                 raise HTTPException(
                     status_code=400,
-                    detail=f"Invalid request format. Expected 'request' field in request body."
+                    detail="Invalid request format. Expected 'request' field in request body.",
                 )
-                
+
             req_data = body["request"]
-                
+
             # Create a proper request object
             try:
                 validated_request = request_model(**req_data)
             except ValidationError as e:
                 raise HTTPException(
-                    status_code=422,
-                    detail=f"Invalid request parameters: {str(e)}"
-                )
-            
+                    status_code=422, detail=f"Invalid request parameters: {str(e)}"
+                ) from e
+
             # Get dependencies
             model_manager = request.app.state.model_manager
             program_manager = getattr(request.app.state, "program_manager", None)
-            
+
             if not program_manager:
                 raise HTTPException(
                     status_code=500,
-                    detail="Program manager is not initialized. This is required for versioning."
+                    detail="Program manager is not initialized. This is required for versioning.",
                 )
-            
+
             # Get request-specific fields
             model_id = None
-            if hasattr(validated_request, "params") and isinstance(validated_request.params, dict):
+            if hasattr(validated_request, "params") and isinstance(
+                validated_request.params, dict
+            ):
                 model_id = validated_request.params.get("model_id")
             else:
                 model_id = getattr(validated_request, "model_id", None)
-                
+
             if not model_id:
                 raise HTTPException(
                     status_code=400,
-                    detail="A 'model_id' must be provided in the request"
+                    detail="A 'model_id' must be provided in the request",
                 )
-            
+
             logging.info(f"{endpoint_name}: Processing request with model {model_id}")
-            
+
             try:
                 # Create processor or pipeline
                 processor = processor_factory(
                     model_manager,
                     model_id,
                     program_manager=program_manager,
-                    metadata={"request_id": str(uuid.uuid4())}
+                    metadata={"request_id": str(uuid.uuid4())},
                 )
             except ValueError as e:
-                logging.error(f"{endpoint_name}: Failed to create processor: {str(e)}", exc_info=True)
-                raise HTTPException(
-                    status_code=500,
-                    detail=f"Failed to create processor: {str(e)}"
+                logging.error(
+                    f"{endpoint_name}: Failed to create processor: {str(e)}",
+                    exc_info=True,
                 )
+                raise HTTPException(
+                    status_code=500, detail=f"Failed to create processor: {str(e)}"
+                ) from e
             except Exception as e:
-                logging.error(f"{endpoint_name}: Failed to create processor: {str(e)}", exc_info=True)
-                raise HTTPException(
-                    status_code=500,
-                    detail=f"Failed to create processor: {str(e)}"
+                logging.error(
+                    f"{endpoint_name}: Failed to create processor: {str(e)}",
+                    exc_info=True,
                 )
-                
+                raise HTTPException(
+                    status_code=500, detail=f"Failed to create processor: {str(e)}"
+                )  from e
+
             # Prepare pipeline data
             media_type = getattr(validated_request, "media_type", MediaType.TEXT)
-            content = getattr(validated_request, "content", 
-                            getattr(validated_request, "prompt", ""))
+            content = getattr(
+                validated_request, "content", getattr(validated_request, "prompt", "")
+            )
             metadata = getattr(validated_request, "params", {})
-            
+
             # For non-pipeline requests, add standard fields to metadata
             if not hasattr(validated_request, "params"):
                 metadata = {}
@@ -139,58 +154,67 @@ def create_versioned_route_handler(endpoint_name, processor_factory, request_mod
                     metadata["max_tokens"] = validated_request.max_tokens
                 if hasattr(validated_request, "model_id"):
                     metadata["model_id"] = validated_request.model_id
-            
+
             # Execute pipeline or processor
             try:
                 # Record pipeline start
-                timing_metrics["pipeline_start_ms"] = round((time.time() - start_time) * 1000, 2)
-                
+                timing_metrics["pipeline_start_ms"] = round(
+                    (time.time() - start_time) * 1000, 2
+                )
+
                 # Check if it's a pipeline or single processor
                 if hasattr(processor, "execute"):  # It's a pipeline
-                    result = await processor.execute(PipelineData(
-                        media_type=media_type,
-                        content=content,
-                        metadata=metadata
-                    ))
+                    result = await processor.execute(
+                        PipelineData(
+                            media_type=media_type, content=content, metadata=metadata
+                        )
+                    )
                 else:  # It's a single processor
-                    result = await processor.process(PipelineData(
-                        media_type=media_type,
-                        content=content,
-                        metadata=metadata
-                    ))
+                    result = await processor.process(
+                        PipelineData(
+                            media_type=media_type, content=content, metadata=metadata
+                        )
+                    )
             except Exception as e:
                 # Record when the error occurred
                 error_time = time.time()
                 error_ms = round((error_time - start_time) * 1000, 2)
                 timing_metrics["error_ms"] = error_ms
-                
+
                 # Extract error information
                 error_info = detect_extraction_error(e)
-                
+
                 # Log the error with detailed information
                 logging.error(
                     f"{endpoint_name}: {error_info['code']}: {error_info['message']}",
                     extra={
                         "trace_id": trace_id,
-                        "error_details": error_info['details'],
-                        "model_id": model_id
+                        "error_details": error_info["details"],
+                        "model_id": model_id,
                     },
-                    exc_info=True
+                    exc_info=True,
                 )
-                
+
                 # Get model information for the response
                 model_info = {}
-                if program_manager and hasattr(program_manager, 'model_info') and model_id in program_manager.model_info:
+                if (
+                    program_manager
+                    and hasattr(program_manager, "model_info")
+                    and model_id in program_manager.model_info
+                ):
                     model_info = program_manager.model_info.get(model_id, {})
-                
+
                 # Get program information if available
                 program_metadata = None
-                if hasattr(processor, 'backend') and hasattr(processor.backend, 'program_metadata'):
+                if hasattr(processor, "backend") and hasattr(
+                    processor.backend, "program_metadata"
+                ):
                     program_metadata = processor.backend.program_metadata
-                
+
                 from llm_server.core.utils import ensure_program_metadata_object
+
                 program_metadata = ensure_program_metadata_object(program_metadata)
-                
+
                 # Create a response object with the error information
                 response_data = {
                     "success": False,
@@ -203,29 +227,25 @@ def create_versioned_route_handler(endpoint_name, processor_factory, request_mod
                             "id": model_id,
                             "provider": model_info.get("provider", "unknown"),
                             "base_model": model_info.get("base_model", model_id),
-                            "model_name": model_info.get("model_name", "")
+                            "model_name": model_info.get("model_name", ""),
                         },
                         "performance": {
                             "timing": timing_metrics,
-                            "tokens": {
-                                "input": 0,
-                                "output": 0,
-                                "total": 0
-                            },
-                            "trace_id": trace_id
-                        }
+                            "tokens": {"input": 0, "output": 0, "total": 0},
+                            "trace_id": trace_id,
+                        },
                     },
-                    "timestamp": datetime.now(timezone.utc)
+                    "timestamp": datetime.now(timezone.utc),
                 }
-                
+
                 # Add program information if available
                 if program_metadata:
                     response_data["metadata"]["program"] = {
                         "id": program_metadata.id,
                         "version": program_metadata.version,
-                        "name": program_metadata.name
+                        "name": program_metadata.name,
                     }
-                
+
                 # Return the appropriate response based on the model type
                 if response_model == ExtractContactResponse:
                     return ExtractContactResponse(**response_data)
@@ -233,43 +253,56 @@ def create_versioned_route_handler(endpoint_name, processor_factory, request_mod
                     return PipelineResponse(**response_data)
                 else:
                     return response_model(**response_data)
-            
+
             # Extract program metadata - we need this for versioning
             program_metadata = None
             performance_metrics = None
-            
+
             # Look for program metadata directly in result
             if hasattr(result, "metadata"):
                 # Check for program_metadata in result
                 if "program_metadata" in result.metadata:
                     program_metadata = result.metadata["program_metadata"]
-                
+
                 # Check for performance_metrics
                 if "performance_metrics" in result.metadata:
                     performance_metrics = result.metadata["performance_metrics"]
-            
+
             # If no program metadata found, search common locations
             if program_metadata is None:
                 # First try looking for it in the processor's backend if available
-                if hasattr(processor, "backend") and hasattr(processor.backend, "program_metadata"):
+                if hasattr(processor, "backend") and hasattr(
+                    processor.backend, "program_metadata"
+                ):
                     program_metadata = processor.backend.program_metadata
-                
+
                 # For metrics-enabled processors, check the pipeline object
-                elif hasattr(processor, "pipeline") and hasattr(processor.pipeline, "steps"):
+                elif hasattr(processor, "pipeline") and hasattr(
+                    processor.pipeline, "steps"
+                ):
                     for step in processor.pipeline.steps:
-                        if hasattr(step, "backend") and hasattr(step.backend, "program_metadata"):
+                        if hasattr(step, "backend") and hasattr(
+                            step.backend, "program_metadata"
+                        ):
                             program_metadata = step.backend.program_metadata
                             break
-                        
+
             # Import at this point to avoid circular imports
-            from llm_server.core.utils import MetadataCollector, ensure_program_metadata_object
-            
+            from llm_server.core.utils import (
+                MetadataCollector,
+                ensure_program_metadata_object,
+            )
+
             # Ensure program_metadata is a proper object before passing to collector
             program_metadata = ensure_program_metadata_object(program_metadata)
-            
+
             # Get model_info directly from program_manager
             model_info = {}
-            if program_manager and hasattr(program_manager, 'model_info') and model_id in program_manager.model_info:
+            if (
+                program_manager
+                and hasattr(program_manager, "model_info")
+                and model_id in program_manager.model_info
+            ):
                 model_info = program_manager.model_info.get(model_id, {})
                 logging.info(f"Using model info from program_manager: {model_info}")
 
@@ -279,29 +312,30 @@ def create_versioned_route_handler(endpoint_name, processor_factory, request_mod
                 model_id=model_id,
                 program_metadata=program_metadata,
                 performance_metrics=performance_metrics,
-                model_info=model_info
+                model_info=model_info,
             )
-            
+
             # Add any additional parameters to metadata
-            if hasattr(validated_request, "model_extra") and validated_request.model_extra:
+            if (
+                hasattr(validated_request, "model_extra")
+                and validated_request.model_extra
+            ):
                 for key, value in validated_request.model_extra.items():
                     # Add these at the top level of metadata
                     response_metadata[key] = value
-            
+
             # Extract the actual response content
             response_content = result.content
-            if hasattr(result.content, 'output'):
+            if hasattr(result.content, "output"):
                 response_content = result.content.output
-            
+
             # Create response based on the model type
             if response_model == QueryResponse:
                 return QueryResponse(
                     success=True,
-                    data=QueryResponseData(
-                        response=response_content
-                    ),
+                    data=QueryResponseData(response=response_content),
                     metadata=response_metadata,
-                    timestamp=datetime.now(timezone.utc)
+                    timestamp=datetime.now(timezone.utc),
                 )
             elif response_model == PipelineResponse:
                 return PipelineResponse(
@@ -309,72 +343,77 @@ def create_versioned_route_handler(endpoint_name, processor_factory, request_mod
                     data=PipelineResponseData(
                         content=result.content,
                         media_type=result.media_type,
-                        metadata={}  # No nested metadata here
+                        metadata={},  # No nested metadata here
                     ),
                     metadata=response_metadata,
-                    timestamp=datetime.now(timezone.utc)
+                    timestamp=datetime.now(timezone.utc),
                 )
             elif response_model == ExtractContactResponse:
                 # Handle the special case for ExtractContact
                 contact_data = result.content
-                if hasattr(result.content, 'output'):
+                if hasattr(result.content, "output"):
                     contact_data = result.content.output
-                
+
                 # Make sure we have an ExtractContact instance
                 if not isinstance(contact_data, ExtractContact):
                     # Try to convert from dict if needed
                     if isinstance(contact_data, dict):
                         contact_data = ExtractContact(**contact_data)
                     else:
-                        logging.error(f"{endpoint_name}: Cannot convert result to ExtractContact: {type(contact_data)}")
+                        logging.error(
+                            f"{endpoint_name}: Cannot convert result to ExtractContact: {type(contact_data)}"
+                        )
                         raise HTTPException(
                             status_code=500,
-                            detail="Invalid contact data format returned from processor"
+                            detail="Invalid contact data format returned from processor",
                         )
-                
+
                 return ExtractContactResponse(
                     success=True,
                     data=contact_data,
                     metadata=response_metadata,
-                    timestamp=datetime.now(timezone.utc)
+                    timestamp=datetime.now(timezone.utc),
                 )
-                
+
         except Exception as e:
             logging.error(f"{endpoint_name} failed", exc_info=True)
-            raise HTTPException(status_code=500, detail=str(e))
-    
+            raise HTTPException(status_code=500, detail=str(e)) from e
+
     # Return the route handler function
     return route_handler
 
+
 # Route handlers using the factory
 @main_router.post("/predict", response_model=QueryResponse)
-async def predict(request: Request, body: Dict[str, Any] = Body(...)):
+async def predict(request: Request, body: dict[str, Any] = Body(...)): # noqa: B008
     handler = create_versioned_route_handler(
         endpoint_name="predict",
         processor_factory=create_metrics_enabled_text_processor,
         request_model=QueryRequest,
-        response_model=QueryResponse
+        response_model=QueryResponse,
     )
     return await handler(request, body)
 
+
 @main_router.post("/pipeline/predict", response_model=PipelineResponse)
-async def predict_pipeline(request: Request, body: Dict[str, Any] = Body(...)):
+async def predict_pipeline(request: Request, body: dict[str, Any] = Body(...)): # noqa: B008
     handler = create_versioned_route_handler(
         endpoint_name="pipeline/predict",
         processor_factory=create_metrics_enabled_text_processor,
         request_model=PipelineRequest,
-        response_model=PipelineResponse
+        response_model=PipelineResponse,
     )
     return await handler(request, body)
 
+
 @main_router.post("/extract-contact", response_model=ExtractContactResponse)
-async def process_extract_contact(request: Request, body: Dict[str, Any] = Body(...)):
+async def process_extract_contact(request: Request, body: dict[str, Any] = Body(...)): # noqa: B008
     try:
         # Log the body as formatted JSON for readability
         # Use logging.info initially to ensure it shows up, can change to logging.debug later
-        logging.info(f"--- /v1/extract-contact Request Body ---")
+        logging.info("--- /v1/extract-contact Request Body ---")
         logging.info(json.dumps(body, indent=2))
-        logging.info(f"--- End Request Body ---")
+        logging.info("--- End Request Body ---")
     except Exception as e:
         # Log error if formatting/logging fails for some reason
         logging.error(f"Error logging request body for /v1/extract-contact: {e}")
@@ -383,6 +422,6 @@ async def process_extract_contact(request: Request, body: Dict[str, Any] = Body(
         endpoint_name="extract-contact",
         processor_factory=create_metrics_enabled_extract_contact_processor,
         request_model=PipelineRequest,
-        response_model=ExtractContactResponse
+        response_model=ExtractContactResponse,
     )
     return await handler(request, body)

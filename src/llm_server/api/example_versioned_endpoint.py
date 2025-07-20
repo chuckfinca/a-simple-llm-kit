@@ -1,15 +1,18 @@
+from typing import Any
+
 from fastapi import APIRouter, Depends, Request
-from typing import Dict, Any
+
 from llm_server.core.versioning import VersionedResponse, get_versioning_info
 
 # Create a router with a custom prefix
 router = APIRouter(prefix="/v1/examples")
 
+
 @router.post("/simple-example")
 async def simple_example(
     request: Request,
-    data: Dict[str, Any],
-    versioning: Dict[str, Any] = Depends(get_versioning_info)
+    data: dict[str, Any],
+    versioning: dict[str, Any] = Depends(get_versioning_info),
 ):
     """
     A simple example endpoint that uses the versioning dependency.
@@ -17,20 +20,21 @@ async def simple_example(
     """
     # Process the request
     result = {"processed": True, "input_size": len(str(data))}
-    
+
     # Return with versioning info in metadata
     return {
         "success": True,
         "data": result,
         "metadata": versioning,  # Include versioning info here
-        "timestamp": versioning["timestamp"]
+        "timestamp": versioning["timestamp"],
     }
+
 
 @router.post("/versioned-response")
 async def versioned_response_example(
     request: Request,
-    data: Dict[str, Any],
-    versioned_response: VersionedResponse = Depends()
+    data: dict[str, Any],
+    versioned_response: VersionedResponse = Depends(),
 ):
     """
     Example using the VersionedResponse helper.
@@ -38,35 +42,35 @@ async def versioned_response_example(
     """
     # Process the request
     result = {"processed": True, "input_size": len(str(data))}
-    
+
     # Add any additional metadata specific to this endpoint
     additional_metadata = {"processing_time_ms": 42}
-    
+
     # Create a properly versioned response
     return versioned_response.create_response(
-        data=result,
-        additional_metadata=additional_metadata
+        data=result, additional_metadata=additional_metadata
     )
+
 
 @router.post("/custom-model")
 async def custom_model_example(
     request: Request,
-    data: Dict[str, Any],
+    data: dict[str, Any],
     model_id: str,
-    versioning: Dict[str, Any] = Depends(
+    versioning: dict[str, Any] = Depends(
         lambda req: get_versioning_info(req, model_id=model_id)
-    )
+    ),
 ):
     """
     Example that specifies a custom model ID.
     """
     # Process the request with the specified model
     result = {"processed": True, "model_used": model_id}
-    
+
     # Return with versioning info in metadata
     return {
         "success": True,
         "data": result,
         "metadata": versioning,
-        "timestamp": versioning["timestamp"]
+        "timestamp": versioning["timestamp"],
     }

@@ -213,7 +213,7 @@ from llm_server.core.protocols import PipelineStep
 
 class MyCustomStep(PipelineStep):
     @property
-    def accepted_media_types(self) -> List[MediaType]:
+    def accepted_media_types(self) -> list[MediaType]:
         return [MediaType.TEXT]
         
     async def process(self, data: PipelineData) -> PipelineData:

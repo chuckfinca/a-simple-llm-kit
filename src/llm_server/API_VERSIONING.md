@@ -30,8 +30,8 @@ router = APIRouter()
 
 @router.post("/my-endpoint")
 async def my_endpoint(
-    data: Dict[str, Any],
-    versioning: Dict[str, Any] = Depends(get_versioning_info)
+    data: dict[str, Any],
+    versioning: dict[str, Any] = Depends(get_versioning_info)
 ):
     # Process the request
     result = process_data(data)
@@ -57,7 +57,7 @@ router = APIRouter()
 
 @router.post("/my-endpoint")
 async def my_endpoint(
-    data: Dict[str, Any],
+    data: dict[str, Any],
     versioned_response: VersionedResponse = Depends()
 ):
     # Process the request
@@ -82,9 +82,9 @@ router = APIRouter()
 
 @router.post("/my-endpoint")
 async def my_endpoint(
-    data: Dict[str, Any],
+    data: dict[str, Any],
     model_id: str,
-    versioning: Dict[str, Any] = Depends(
+    versioning: dict[str, Any] = Depends(
         lambda req: get_versioning_info(
             req, 
             model_id=model_id,

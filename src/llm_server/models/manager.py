@@ -1,7 +1,9 @@
 import yaml
+
+from llm_server.core import logging
 from llm_server.core.config import get_settings
 from llm_server.core.providers import ProviderManager
-from llm_server.core import logging
+
 
 class ModelManager:
     def __init__(self, config_path: str):
@@ -13,11 +15,10 @@ class ModelManager:
         self._initialize_models()
 
     def _initialize_models(self):
-        for model_id, model_config in self.config['models'].items():
+        for model_id, model_config in self.config["models"].items():
             try:
                 lm = self.provider_manager.initialize_model(
-                    model_config['model_name'],
-                    model_config
+                    model_config["model_name"], model_config
                 )
                 self.models[model_id] = lm
                 logging.info(f"Successfully initialized model: {model_id}")

@@ -1,7 +1,8 @@
-from pydantic_settings import BaseSettings
-from functools import lru_cache
-from typing import Dict
 import os
+from functools import lru_cache
+
+from pydantic_settings import BaseSettings
+
 
 class Settings(BaseSettings):
     config_path: str = "config/model_config.yml"
@@ -14,8 +15,8 @@ class Settings(BaseSettings):
 
     class Config:
         env_file = ".env"
-        
-    
-@lru_cache()
+
+
+@lru_cache
 def get_settings() -> Settings:
     return Settings()
