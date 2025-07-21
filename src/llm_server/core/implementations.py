@@ -83,7 +83,7 @@ class DSPyModelBackend(ModelBackend):
                     f"Successfully registered {signature_class.__name__} with ID {self.program_metadata.id}"
                 )
                 return self.program_metadata.id
-            
+
             # If it's None, we should handle that case.
             return None
         except Exception as e:
@@ -192,8 +192,10 @@ class DSPyModelBackend(ModelBackend):
                     extra={"trace_id": trace_id},
                 )
                 await asyncio.sleep(delay)
-    
-        raise RuntimeError("The prediction loop completed without returning or raising an error.")
+
+        raise RuntimeError(
+            "The prediction loop completed without returning or raising an error."
+        )
 
     def get_lm_history(self):
         """Safely get LM history without exposing the full LM object"""

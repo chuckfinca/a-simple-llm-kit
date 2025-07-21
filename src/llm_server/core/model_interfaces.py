@@ -19,10 +19,12 @@ class Signature(Protocol):
         """Process raw model output into standardized format"""
         ...
 
+
 class SimpleOutput(ModelOutput):
     """A simple wrapper for string outputs to conform to ModelOutput."""
+
     def __init__(self, text: str):
         self.output = text
-    
+
     def to_response(self) -> Any:
         return self.output

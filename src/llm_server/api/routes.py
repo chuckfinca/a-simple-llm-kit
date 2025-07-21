@@ -64,7 +64,7 @@ def create_versioned_route_handler(
         A route handler function
     """
 
-    async def route_handler(request: Request, body: dict[str, Any] = Body(...)): # noqa: B008
+    async def route_handler(request: Request, body: dict[str, Any] = Body(...)):  # noqa: B008
         start_time = time.time()
         trace_id = str(uuid.uuid4())
         timing_metrics = {}
@@ -136,7 +136,7 @@ def create_versioned_route_handler(
                 )
                 raise HTTPException(
                     status_code=500, detail=f"Failed to create processor: {str(e)}"
-                )  from e
+                ) from e
 
             # Prepare pipeline data
             media_type = getattr(validated_request, "media_type", MediaType.TEXT)
@@ -385,7 +385,7 @@ def create_versioned_route_handler(
 
 # Route handlers using the factory
 @main_router.post("/predict", response_model=QueryResponse)
-async def predict(request: Request, body: dict[str, Any] = Body(...)): # noqa: B008
+async def predict(request: Request, body: dict[str, Any] = Body(...)):  # noqa: B008
     handler = create_versioned_route_handler(
         endpoint_name="predict",
         processor_factory=create_metrics_enabled_text_processor,
@@ -396,7 +396,7 @@ async def predict(request: Request, body: dict[str, Any] = Body(...)): # noqa: B
 
 
 @main_router.post("/pipeline/predict", response_model=PipelineResponse)
-async def predict_pipeline(request: Request, body: dict[str, Any] = Body(...)): # noqa: B008
+async def predict_pipeline(request: Request, body: dict[str, Any] = Body(...)):  # noqa: B008
     handler = create_versioned_route_handler(
         endpoint_name="pipeline/predict",
         processor_factory=create_metrics_enabled_text_processor,
@@ -407,7 +407,7 @@ async def predict_pipeline(request: Request, body: dict[str, Any] = Body(...)): 
 
 
 @main_router.post("/extract-contact", response_model=ExtractContactResponse)
-async def process_extract_contact(request: Request, body: dict[str, Any] = Body(...)): # noqa: B008
+async def process_extract_contact(request: Request, body: dict[str, Any] = Body(...)):  # noqa: B008
     try:
         # Log the body as formatted JSON for readability
         # Use logging.info initially to ensure it shows up, can change to logging.debug later

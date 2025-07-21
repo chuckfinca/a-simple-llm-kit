@@ -1,4 +1,4 @@
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from typing import Any, Optional
 
 import dspy
@@ -12,7 +12,7 @@ class ProviderConfig:
 
     api_key: str
     base_url: Optional[str] = None
-    default_params: dict[str, Any] = None
+    default_params: dict[str, Any] = field(default_factory=dict)
 
     def __post_init__(self):
         if self.default_params is None:

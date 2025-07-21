@@ -12,7 +12,7 @@ api_key_header = APIKeyHeader(name=API_KEY_NAME)
 def get_api_key(
     request: Request,
     api_key_header: str = Security(api_key_header),
-    settings: Settings = Depends(get_settings),
+    settings: Settings = Depends(get_settings),  # noqa: B008
 ) -> str:
     # Log the full path for debugging
     path = request.url.path

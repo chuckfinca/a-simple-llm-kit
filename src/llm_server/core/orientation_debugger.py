@@ -5,6 +5,7 @@ Requires 'pillow-heif' to be installed for HEIC support: pip install pillow-heif
 """
 
 import base64
+import binascii
 import io
 import json
 import os
@@ -42,10 +43,10 @@ class OrientationDebugger:
     """
 
     # Maximum number of images to keep in memory
-    MAX_IMAGES = 20
+    MAX_IMAGES: int = 20
 
     # Debug mode enabled flag - set by setup_orientation_debugger
-    ENABLED = False
+    ENABLED: bool = False
 
     # In-memory storage of images
     _images = deque(maxlen=MAX_IMAGES)
@@ -368,8 +369,8 @@ class OrientationDebugger:
 
                 html += f"""
                     <div class="image-card">
-                        <img src="data:image/jpeg;base64,{img_data["thumbnail_corrected"]}" 
-                             alt="Image {img_data["id"]}" 
+                        <img src="data:image/jpeg;base64,{img_data["thumbnail_corrected"]}"
+                             alt="Image {img_data["id"]}"
                              class="corrected-img"
                              data-original="data:image/jpeg;base64,{img_data["thumbnail_original"]}"
                              data-corrected="data:image/jpeg;base64,{img_data["thumbnail_corrected"]}">
@@ -399,8 +400,8 @@ class OrientationDebugger:
                 function updateImageDisplay() {
                     const isCorrected = orientationToggle.checked;
                     
-                    toggleLabel.innerHTML = isCorrected ? 
-                        "<strong>Correctly Oriented</strong> (EXIF-corrected)" : 
+                    toggleLabel.innerHTML = isCorrected ?
+                        "<strong>Correctly Oriented</strong> (EXIF-corrected)" :
                         "<strong>Original Orientation</strong> (as received)";
                         
                     images.forEach(img => {
@@ -517,7 +518,7 @@ class OrientationDebugMiddleware:
                                     request.url.path,
                                     {"content_type": content_type},
                                 )
-                            except base64.binascii.Error as b64_err:
+                            except binascii.Error as b64_err:
                                 logging.error(
                                     f"OrientationDebugMiddleware: Invalid Base64 data received: {b64_err}"
                                 )
@@ -624,8 +625,6 @@ def setup_orientation_debugger(app: FastAPI):
     Returns:
         The modified app with debugging middleware and routes (if enabled)
     """
-    # Check environment settings
-    settings = get_settings()
     # Allow overriding via environment variable, default to True in non-prod
     env = os.getenv("APP_ENV", "development").lower()
     debug_enabled_env = os.getenv(

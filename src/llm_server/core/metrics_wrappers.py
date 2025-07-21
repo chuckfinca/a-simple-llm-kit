@@ -89,7 +89,8 @@ class PerformanceMetrics:
         }
 
         # Get rate for the model, default to fallback rate if not found
-        input_rate, output_rate = pricing.get(self.model_id, pricing["default"])
+        key = self.model_id if self.model_id else "default"
+        input_rate, output_rate = pricing.get(key, pricing["default"])
 
         # Calculate cost
         input_cost = (self.token_usage["input"] / 1000) * input_rate
@@ -202,7 +203,7 @@ class ModelBackendTracker:
         if hasattr(backend, "program_metadata"):
             self.program_metadata = backend.program_metadata
 
-    async def predict(self, input_data: Any) -> Any:
+    async def predict(self, input: Any) -> Any:
         """Execute prediction with metrics tracking"""
         # Mark preparation complete
         self.metrics.mark_checkpoint("preparation_complete")
@@ -216,13 +217,13 @@ class ModelBackendTracker:
 
         try:
             # Execute prediction on wrapped backend
-            result = await self.backend.predict(input_data)
+            result = await self.backend.predict(input)
 
             # Mark model complete
             self.metrics.mark_checkpoint("model_complete")
 
             # Record token usage using the new encapsulated method
-            self.determine_token_usage(result, input_data)
+            self.determine_token_usage(result, input)
 
             # Add metrics to result if possible
             if hasattr(result, "metadata"):
@@ -253,6 +254,12 @@ class ModelBackendTracker:
 
             # Re-raise the exception
             raise
+
+    def get_lm_history(self) -> list[Any]:
+        """Pass through to the wrapped backend's get_lm_history method."""
+        if hasattr(self.backend, "get_lm_history"):
+            return self.backend.get_lm_history()
+        return []
 
     def determine_token_usage(self, result, input_data):
         """
@@ -391,8 +398,8 @@ class ModelBackendTracker:
             self.backend, "last_completion_tokens"
         ):
             self.metrics.record_token_usage(
-                input_tokens=self.backend.last_prompt_tokens,
-                output_tokens=self.backend.last_completion_tokens,
+                input_tokens=self.backend.last_prompt_tokens,  # type: ignore
+                output_tokens=self.backend.last_completion_tokens,  # type: ignore
             )
 
             self.metrics.add_metadata("token_count_method", "backend_attributes_exact")
@@ -501,6 +508,24 @@ class PipelineStepTracker:
                     f"{self.step_name}_duration_ms", round(duration * 1000, 2)
                 )
 
+                # Create new metadata dictionary that includes our metrics
+                # Include per-step timing in the metrics
+                step_metrics = {
+                    "step_timing": self.metrics.metadata.get("step_timing", {})
+                }
+
+                # Add this step's timing to the step_timing dictionary
+                step_metrics["step_timing"][self.step_name] = {
+                    "start_ms": round((start_time - self.metrics.start_time) * 1000, 2),
+                    "end_ms": round(
+                        (complete_time - self.metrics.start_time) * 1000, 2
+                    ),
+                    "duration_ms": round(duration * 1000, 2),
+                }
+
+                # Update metrics' metadata with the step timing
+                self.metrics.metadata["step_timing"] = step_metrics["step_timing"]
+
             # Add step-specific metadata to metrics
             self.metrics.add_metadata(
                 "pipeline_steps",
@@ -518,20 +543,6 @@ class PipelineStepTracker:
                 self.metrics.add_metadata(
                     "image_processed_size", result.metadata.get("processed_size")
                 )
-
-            # Create new metadata dictionary that includes our metrics
-            # Include per-step timing in the metrics
-            step_metrics = {"step_timing": self.metrics.metadata.get("step_timing", {})}
-
-            # Add this step's timing to the step_timing dictionary
-            step_metrics["step_timing"][self.step_name] = {
-                "start_ms": round((start_time - self.metrics.start_time) * 1000, 2),
-                "end_ms": round((complete_time - self.metrics.start_time) * 1000, 2),
-                "duration_ms": round(duration * 1000, 2),
-            }
-
-            # Update metrics' metadata with the step timing
-            self.metrics.metadata["step_timing"] = step_metrics["step_timing"]
 
             # Combine with result metadata
             combined_metadata = {**result.metadata}

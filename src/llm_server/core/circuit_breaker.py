@@ -2,6 +2,7 @@ import asyncio
 from datetime import datetime, timedelta
 from enum import Enum
 from functools import wraps
+from typing import Any
 
 from llm_server.core import logging
 from llm_server.core.utils import get_utc_now
@@ -83,11 +84,18 @@ class CircuitBreaker:
                             f"after {self.reset_timeout} seconds in OPEN state"
                         )
                     else:
-                        remaining_time = (
-                            self.last_failure_time
-                            + timedelta(seconds=self.reset_timeout)
-                            - datetime.now()
-                        )
+                        # Add a check to assure the type checker and for robustness
+                        if self.last_failure_time:
+                            remaining_time = (
+                                self.last_failure_time
+                                + timedelta(seconds=self.reset_timeout)
+                                - datetime.now()
+                            )
+                        else:
+                            # This case should not be reached in the current logic,
+                            # but it's safe to have a fallback.
+                            remaining_time = timedelta(seconds=self.reset_timeout)
+
                         logging.warning(
                             f"Circuit breaker for '{self.protected_function_name}' is OPEN. "
                             f"Blocking request. Will try reset in {remaining_time.seconds} seconds. "

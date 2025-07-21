@@ -40,7 +40,7 @@ async def lifespan(app: FastAPI):
 
 app = FastAPI(lifespan=lifespan)
 app.add_exception_handler(Exception, handle_exception)
-app.add_exception_handler(RequestValidationError, validation_exception_handler)
+app.add_exception_handler(RequestValidationError, validation_exception_handler)  # type: ignore
 
 # Add CORS middleware
 app.add_middleware(

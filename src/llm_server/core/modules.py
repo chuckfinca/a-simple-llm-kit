@@ -110,18 +110,22 @@ class ContactInformation(pydantic.BaseModel):
 
 
 class ExtractContact(pydantic.BaseModel):
-    name: PersonName
-    work: WorkInformation
-    contact: ContactInformation
+    name: PersonName = pydantic.Field(default_factory=lambda: PersonName())  # pyright: ignore[reportCallIssue]
+    work: WorkInformation = pydantic.Field(default_factory=lambda: WorkInformation())  # pyright: ignore[reportCallIssue]
+    contact: ContactInformation = pydantic.Field(
+        default_factory=lambda: ContactInformation()
+    )
+
     notes: Optional[str] = pydantic.Field(
         None, description="Additional notes or information"
     )
-    
+
     metadata: dict[str, Any] = {}
     model_config = pydantic.ConfigDict(extra="allow")
-    
+
     def to_response(self) -> Any:
-            return self
+        return self
+
 
 class ContactExtractor(dspy.Signature):
     """Extract contact information from an image."""
@@ -138,9 +142,13 @@ class ContactExtractor(dspy.Signature):
         """This method is now handled by the robust ContactExtractorProcessor and is effectively unused."""
         # This is a fallback and should ideally not be called.
         # The real processing happens in ContactExtractorProcessor.
-        return ExtractContact(
-            name=getattr(result, "name", PersonName()),
-            work=getattr(result, "work", WorkInformation()),
-            contact=getattr(result, "contact", ContactInformation()),
-            notes=getattr(result, "notes", None),
-        )
+        data_to_pass = {}
+        if hasattr(result, "name"):
+            data_to_pass["name"] = result.name
+        if hasattr(result, "work"):
+            data_to_pass["work"] = result.work
+        if hasattr(result, "contact"):
+            data_to_pass["contact"] = result.contact
+        if hasattr(result, "notes"):
+            data_to_pass["notes"] = result.notes
+        return ExtractContact(**data_to_pass)

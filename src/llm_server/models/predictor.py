@@ -1,5 +1,7 @@
-import dspy
 from typing import Any
+
+import dspy
+
 from llm_server.core.model_interfaces import SimpleOutput
 
 

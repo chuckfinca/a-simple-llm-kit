@@ -1,8 +1,12 @@
-from typing import Any, Optional, Tuple
+from typing import Any, Optional
 
 from llm_server.core.dspy_backend import create_dspy_backend
 from llm_server.core.implementations import ImageProcessor, ModelProcessor
-from llm_server.core.metrics_wrappers import PerformanceMetrics, TrackingFactory
+from llm_server.core.metrics_wrappers import (
+    PerformanceMetrics,
+    TrackedPipeline,
+    TrackingFactory,
+)
 from llm_server.core.model_interfaces import Signature
 from llm_server.core.modules import ContactExtractor
 from llm_server.core.output_processors import (
@@ -38,7 +42,7 @@ def _create_metrics_enabled_base(
     metadata: Optional[dict[str, Any]] = None,
     output_processor=None,
     metrics: Optional[PerformanceMetrics] = None,
-) -> Tuple[ModelBackend, PerformanceMetrics]:
+) -> tuple[ModelBackend, PerformanceMetrics]:
     """
     Base factory method for creating metrics-enabled components
 
@@ -52,7 +56,7 @@ def _create_metrics_enabled_base(
         metrics: Optional metrics collector instance
 
     Returns:
-        Tuple of (tracked backend, metrics instance)
+        tuple of (tracked backend, metrics instance)
     """
     # Initialize metrics with proper model information
     metrics = _setup_metrics_with_model_info(metrics, model_id, program_manager)
@@ -79,7 +83,7 @@ def create_metrics_enabled_text_processor(
     metadata: Optional[dict[str, Any]] = None,
     output_processor=None,
     metrics: Optional[PerformanceMetrics] = None,
-) -> PipelineStep:
+) -> TrackedPipeline:
     """
     Create a text processor with metrics tracking
 
@@ -130,7 +134,7 @@ def create_metrics_enabled_extract_contact_processor(
     metadata: Optional[dict[str, Any]] = None,
     output_processor=None,
     metrics: Optional[PerformanceMetrics] = None,
-) -> Pipeline:
+) -> TrackedPipeline:
     """
     Create a contact extraction pipeline with metrics tracking
 

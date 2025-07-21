@@ -2,7 +2,8 @@ name: Deploy to Modal
 
 on:
   push:
-    tags: 'v*'
+    tags: 
+      - 'v*'
   workflow_dispatch:
     inputs:
       environment:

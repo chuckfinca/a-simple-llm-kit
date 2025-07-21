@@ -64,7 +64,9 @@ def rate_limit(limits: Optional[RateLimit] = None):
 
         # Apply appropriate limit
         limit = limits.authenticated if is_authenticated else limits.unauthenticated
-        key = api_key or request.client.host
+
+        client_host = request.client.host if request.client else "unknown_client"
+        key = api_key or client_host
 
         await limiter.check_rate_limit(key, limit, limits.window)
 

@@ -28,7 +28,7 @@ def ensure_program_metadata_object(metadata: Any) -> ProgramMetadata | None:
         if field not in metadata or not isinstance(metadata[field], str):
             # This indicates a programming error or bad data.
             # We can't safely create the object.
-            return None # Or raise ValueError(f"Missing or invalid required field: {field}")
+            return None  # Or raise ValueError(f"Missing or invalid required field: {field}")
 
     # 2. Build the keyword arguments for the constructor.
     kwargs = {
@@ -46,7 +46,7 @@ def ensure_program_metadata_object(metadata: Any) -> ProgramMetadata | None:
 
     # 4. Now it's safe to create the object.
     return ProgramMetadata(**kwargs)
-    
+
 
 def get_utc_now() -> dt.datetime:
     """Returns the current UTC datetime with timezone information."""
@@ -85,7 +85,6 @@ class MetadataCollector:
             "execution_id": str(uuid.uuid4()),
             "timestamp": format_timestamp(),
         }
-
 
         # Use model_info parameter first if provided, then try result metadata
         info = model_info or {}

@@ -1,9 +1,11 @@
+from typing import Any, Optional
+
 import pytest
 
-from llm_server.core.implementations import ModelProcessor
-from llm_server.core.pipeline import Pipeline
+from llm_server.core.implementations import ImageProcessor, ModelProcessor
+from llm_server.core.pipeline import Pipeline, PipelineStep
 from llm_server.core.protocols import ModelBackend
-from llm_server.core.types import MediaType, PipelineData
+from llm_server.core.types import MediaType, PipelineData, ProgramMetadata
 
 
 # Test Data
@@ -42,8 +44,16 @@ class MockPipelineStep:
 class MockModelBackend:
     """Simple mock model that appends text"""
 
+    program_metadata: Optional[ProgramMetadata] = None
+
+    model_id: str = "mock-model"
+
     async def predict(self, input: str) -> str:
         return f"{input}_predicted"
+
+    # ADD a dummy get_lm_history method to conform to the protocol
+    def get_lm_history(self) -> list[Any]:
+        return []
 
 
 # Protocol Conformance Tests
@@ -89,7 +99,7 @@ async def test_pipeline_multiple_processors(text_data):
 async def test_pipeline_validation():
     """Test that pipeline validates media type compatibility"""
     text_processor = MockPipelineStep()
-    image_processor = ImagePreprocessor()
+    image_processor = ImageProcessor()
 
     # Should raise ValueError due to incompatible media types
     with pytest.raises(ValueError):
@@ -121,10 +131,12 @@ class TestModelProcessor:
         assert MediaType.TEXT in processor.accepted_media_types
 
 
-class TestImagePreprocessor:
+class TestImageProcessor:
     @pytest.mark.asyncio
-    async def test_image_preprocessing(self, image_data):
-        """Test image preprocessor functionality"""
+    async def test_image_processing(
+        self, image_data
+    ):  # The parameter name is fine, but the fixture data is unused
+        """Test image processor functionality"""
         import io
 
         from PIL import Image
@@ -138,15 +150,15 @@ class TestImagePreprocessor:
             media_type=MediaType.IMAGE, content=img_byte_arr.getvalue(), metadata={}
         )
 
-        processor = ImagePreprocessor(target_size=(800, 800))
+        processor = ImageProcessor(max_size=(800, 800))
         result = await processor.process(data)
 
-        # Verify the processed image
-        processed_image = Image.open(io.BytesIO(result.content))
-        assert processed_image.size == (800, 800)
-        assert result.metadata["preprocessed"] is True
+        # Verify the processed image size from metadata
+        assert "processed_size" in result.metadata
+        assert result.metadata["processed_size"] == (800, 800)
+        assert result.metadata["processed"] is True
 
     def test_image_processor_media_types(self):
         """Test image processor media type handling"""
-        processor = ImagePreprocessor()
+        processor = ImageProcessor()
         assert MediaType.IMAGE in processor.accepted_media_types

@@ -1,5 +1,5 @@
 import json
-from typing import Callable
+from typing import Callable, Optional
 
 from llm_server.core import logging
 
@@ -13,8 +13,8 @@ class VersioningMiddleware:
     def __init__(
         self,
         app,
-        required_fields: dict[str, str] = None,
-        bypass_paths: list[str] = None,
+        required_fields: Optional[dict[str, str]] = None,
+        bypass_paths: Optional[list[str]] = None,
     ):
         self.app = app
         self.bypass_paths = bypass_paths or [
@@ -27,6 +27,7 @@ class VersioningMiddleware:
             "program_id": "Program ID must be included in response metadata",
             "program_version": "Program version must be included in response metadata",
         }
+        self.status_code: int = 200
 
     async def __call__(self, scope: dict, receive: Callable, send: Callable):
         if scope["type"] != "http":

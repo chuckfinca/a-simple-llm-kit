@@ -1,31 +1,31 @@
-import modal
 import os
-from pathlib import Path
+
+from modal import App, Image, Secret, Volume, asgi_app
 
 # Create secrets
-app_secrets = modal.Secret.from_name("app-secrets")
+app_secrets = Secret.from_name("app-secrets")
 
 # Base app name
 APP_NAME = "llm-server"
 
 # Create the modal_app
-app = modal.App(APP_NAME)
+app = App(APP_NAME)
 
-ENV_NAME = os.getenv('APP_ENV', 'development')
+ENV_NAME = os.getenv("APP_ENV", "development")
 VOLUME_NAME = f"llm-server-{ENV_NAME}-logs"
 
-# Create image with requirements file and install packages
+# Create image
 image = (
-    modal.Image.debian_slim(python_version="3.9")
-    .copy_local_dir(".", remote_path="/app")
-    .run_commands([
-        "cd /app && pip install -r requirements.txt",
-        "cd /app && pip install -e ."
-    ])
+    Image.debian_slim(python_version="3.9")
+    .add_local_dir(".", remote_path="/app")
+    .run_commands(
+        ["cd /app && pip install -r requirements.txt", "cd /app && pip install -e ."]
+    )
 )
 
 # Create volume for logs
-volume = modal.Volume.from_name(VOLUME_NAME, create_if_missing=True)
+volume = Volume.from_name(VOLUME_NAME, create_if_missing=True)
+
 
 @app.function(
     image=image,
@@ -33,15 +33,13 @@ volume = modal.Volume.from_name(VOLUME_NAME, create_if_missing=True)
     volumes={"/data": volume},
     gpu="T4",
     memory=4096,
-    timeout=600
+    timeout=600,
 )
-@modal.asgi_app()
+@asgi_app()
 def fastapi_app():
     import os
-    # Set the working directory to /app
-    os.chdir('/app')
-    from llm_server.main import app
-    return app
 
-if __name__ == "__main__":
-    app.serve()
+    os.chdir("/app")
+    from llm_server.main import app as main_fastapi_app
+
+    return main_fastapi_app

@@ -1,5 +1,5 @@
 import logging
-from typing import Any, Optional, Tuple, Union
+from typing import Any, Optional, Union
 
 import dspy
 
@@ -14,7 +14,7 @@ class PredictionService:
 
     async def predict(
         self, request: Union[QueryRequest, dict[str, Any]]
-    ) -> Tuple[str, Optional[Any]]:
+    ) -> tuple[str, Optional[Any]]:
         """
         Process a prediction request using the specified model.
 
@@ -34,8 +34,6 @@ class PredictionService:
         else:
             prompt = request.prompt
             model_id = request.model_id
-            # Also capture any extra fields that might have been provided
-            extra_fields = getattr(request, "model_extra", {})
 
         # Log any extra parameters for debugging
         if (

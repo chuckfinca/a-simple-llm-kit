@@ -82,7 +82,7 @@ class VersionedResponse:
     Base class for creating versioned API responses.
     """
 
-    def __init__(self, versioning_info: dict[str, Any] = Depends(get_versioning_info)):
+    def __init__(self, versioning_info: dict[str, Any] = Depends(get_versioning_info)):  # noqa: B008
         self.versioning_info = versioning_info
 
     def create_response(

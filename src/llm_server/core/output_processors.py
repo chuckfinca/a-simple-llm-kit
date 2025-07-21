@@ -75,11 +75,9 @@ class ContactExtractorProcessor:
 
         try:
             contact = ExtractContact(
-                name=PersonName(**name_data) if name_data else PersonName(),
-                work=WorkInformation(**work_data) if work_data else WorkInformation(),
-                contact=ContactInformation(**contact_data)
-                if contact_data
-                else ContactInformation(),
+                name=PersonName(**name_data),
+                work=WorkInformation(**work_data),
+                contact=ContactInformation(**contact_data),
                 notes=final_notes if isinstance(final_notes, str) else None,
             )
             contact.metadata = metadata
@@ -94,12 +92,17 @@ class ContactExtractorProcessor:
 
     def _process_with_fallback(self, result: Any) -> ExtractContact:
         logging.warning("Executing fallback due to critical parsing error.")
-        contact = ExtractContact(
-            name=getattr(result, "name", None) or PersonName(),
-            work=getattr(result, "work", None) or WorkInformation(),
-            contact=getattr(result, "contact", None) or ContactInformation(),
-            notes=getattr(result, "notes", None),
-        )
+
+        data_to_pass = {}
+        if hasattr(result, "name"):
+            data_to_pass["name"] = result.name
+        if hasattr(result, "work"):
+            data_to_pass["work"] = result.work
+        if hasattr(result, "contact"):
+            data_to_pass["contact"] = result.contact
+        if hasattr(result, "notes"):
+            data_to_pass["notes"] = result.notes
+        contact = ExtractContact(**data_to_pass)
         contact.metadata = getattr(result, "metadata", {})
         # setattr(contact, "metadata", getattr(result, "metadata", {}))
         return contact

@@ -56,7 +56,7 @@ class DSPyModelBackendWithProcessor(ModelBackend):
             )
             if self.program_metadata:
                 return self.program_metadata.id
-            
+
             # If it's None, we should handle that case.
             return None
         except Exception as e:
@@ -123,8 +123,10 @@ class DSPyModelBackendWithProcessor(ModelBackend):
                     extra={"trace_id": trace_id},
                 )
                 await asyncio.sleep(delay)
-        
-        raise RuntimeError("The prediction loop completed without returning or raising an error.")
+
+        raise RuntimeError(
+            "The prediction loop completed without returning or raising an error."
+        )
 
     def get_lm_history(self):
         try:

@@ -1,3 +1,5 @@
+from collections.abc import Sequence
+
 from llm_server.core.protocols import PipelineStep
 from llm_server.core.types import PipelineData
 
@@ -36,10 +38,10 @@ class PipelineValidator:
 class Pipeline:
     """Manages execution of multiple pipeline steps in sequence"""
 
-    def __init__(self, steps: list[PipelineStep]):
+    def __init__(self, steps: Sequence[PipelineStep]):
         self.steps = steps
         self.validator = PipelineValidator()
-        self.validator.validate_steps(steps)
+        self.validator.validate_steps(list(steps))
 
     async def execute(self, initial_data: PipelineData) -> PipelineData:
         """Execute steps in sequence"""
