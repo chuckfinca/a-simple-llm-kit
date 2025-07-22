@@ -194,6 +194,9 @@ class ModelBackendTracker:
         self.pre_prompt_tokens = 0
         self.pre_completion_tokens = 0
 
+        self.last_prompt_tokens: Optional[int] = None
+        self.last_completion_tokens: Optional[int] = None
+
         # Pass through model ID if available
         if hasattr(backend, "model_id"):
             self.model_id = backend.model_id
@@ -261,191 +264,98 @@ class ModelBackendTracker:
             return self.backend.get_lm_history()
         return []
 
-    def determine_token_usage(self, result, input_data):
-        """
-        Record token usage with multiple fallback methods and track the method used
+        # --- Token Usage Strategy Methods ---
 
-        Args:
-            result: The prediction result
-            input_data: The original input data
+    def _get_tokens_from_dspy_history(self) -> Optional[tuple[int, int]]:
+        """Strategy 1: Get token usage from DSPy LM history."""
+        if not hasattr(self.backend, "get_lm_history"):
+            return None
+        try:
+            history = self.backend.get_lm_history()
+            if not history:
+                return None
 
-        Returns:
-            bool: True if token usage was successfully recorded
-        """
-        # Method 1: Try DSPy history first
-        logging.debug("Attempting to determine token usage via DSPy history")
-        has_get_lm_history = hasattr(self.backend, "get_lm_history")
-        logging.debug(f"Backend has get_lm_history method: {has_get_lm_history}")
+            last_call = history[-1]
+            usage = last_call.get("usage", {})
 
-        if has_get_lm_history:
-            try:
-                history = self.backend.get_lm_history()
-                logging.debug(
-                    f"DSPy history type: {type(history)}, length: {len(history) if history else 0}"
-                )
-
-                if history and len(history) > 0:
-                    last_call = history[-1]
-                    logging.debug(f"Last call in history: {last_call}")
-
-                    # Check if token counts are directly in last_call
-                    direct_prompt_tokens = "prompt_tokens" in last_call
-                    direct_completion_tokens = "completion_tokens" in last_call
-
-                    # Check if token counts are in last_call['usage']
-                    usage_exists = "usage" in last_call
-                    nested_prompt_tokens = (
-                        usage_exists and "prompt_tokens" in last_call["usage"]
-                    )
-                    nested_completion_tokens = (
-                        usage_exists and "completion_tokens" in last_call["usage"]
-                    )
-
-                    logging.debug(
-                        f"Direct tokens: prompt={direct_prompt_tokens}, completion={direct_completion_tokens}"
-                    )
-                    logging.debug(f"Usage exists: {usage_exists}")
-                    if usage_exists:
-                        logging.debug(
-                            f"Nested tokens: prompt={nested_prompt_tokens}, completion={nested_completion_tokens}"
-                        )
-
-                    # Case 1: Tokens are directly in last_call
-                    if direct_prompt_tokens and direct_completion_tokens:
-                        prompt_tokens = last_call.get("prompt_tokens", 0)
-                        completion_tokens = last_call.get("completion_tokens", 0)
-                        logging.debug(
-                            f"Using direct token counts: prompt={prompt_tokens}, completion={completion_tokens}"
-                        )
-
-                        self.metrics.record_token_usage(
-                            input_tokens=prompt_tokens, output_tokens=completion_tokens
-                        )
-
-                        self.metrics.add_metadata(
-                            "token_count_method", "dspy_history_exact"
-                        )
-                        logging.info(
-                            f"Successfully determined token usage via direct DSPy history: {prompt_tokens} input, {completion_tokens} output"
-                        )
-                        return True
-
-                    # Case 2: Tokens are in last_call['usage']
-                    elif (
-                        usage_exists
-                        and nested_prompt_tokens
-                        and nested_completion_tokens
-                    ):
-                        prompt_tokens = last_call["usage"].get("prompt_tokens", 0)
-                        completion_tokens = last_call["usage"].get(
-                            "completion_tokens", 0
-                        )
-                        logging.debug(
-                            f"Using nested token counts from usage: prompt={prompt_tokens}, completion={completion_tokens}"
-                        )
-
-                        self.metrics.record_token_usage(
-                            input_tokens=prompt_tokens, output_tokens=completion_tokens
-                        )
-
-                        # Also check for cost in usage or at top level
-                        if "cost" in last_call:
-                            cost = last_call["cost"]
-                            logging.debug(f"Found cost in history: {cost}")
-                            self.metrics.add_metadata("actual_cost_usd", cost)
-
-                        self.metrics.add_metadata(
-                            "token_count_method", "dspy_history_exact"
-                        )
-                        logging.info(
-                            f"Successfully determined token usage via nested DSPy history: {prompt_tokens} input, {completion_tokens} output"
-                        )
-                        return True
-                    else:
-                        logging.debug("Could not find token counts in DSPy history")
-                else:
-                    logging.debug("DSPy history is empty or None")
-            except Exception as e:
-                logging.error(f"Error accessing DSPy history: {str(e)}", exc_info=True)
-        else:
-            logging.debug(
-                "Backend does not have get_lm_history method, trying next method"
+            prompt_tokens = last_call.get("prompt_tokens") or usage.get("prompt_tokens")
+            completion_tokens = last_call.get("completion_tokens") or usage.get(
+                "completion_tokens"
             )
 
-        # Continue with other methods...
-        logging.debug("Falling back to other token counting methods")
+            if prompt_tokens is not None and completion_tokens is not None:
+                logging.info(
+                    f"Token usage from DSPy history: {prompt_tokens} input, {completion_tokens} output"
+                )
+                return prompt_tokens, completion_tokens
+        except Exception as e:
+            logging.warning(f"Could not get tokens from DSPy history: {e}")
+        return None
 
-        # Method 2: Check result metadata
-        if (
-            hasattr(result, "metadata")
-            and result.metadata
-            and "usage" in result.metadata
-        ):
-            usage = result.metadata["usage"]
+    def _get_tokens_from_result_metadata(
+        self, result: Any
+    ) -> Optional[tuple[int, int]]:
+        """Strategy 2: Get token usage from the result object's metadata."""
+        if hasattr(result, "metadata") and isinstance(result.metadata, dict):
+            usage = result.metadata.get("usage", {})
             if "prompt_tokens" in usage and "completion_tokens" in usage:
-                self.metrics.record_token_usage(
-                    input_tokens=usage["prompt_tokens"],
-                    output_tokens=usage["completion_tokens"],
-                )
+                return usage["prompt_tokens"], usage["completion_tokens"]
+        return None
 
-                self.metrics.add_metadata(
-                    "token_count_method", "response_metadata_exact"
-                )
-                return True
+    def _get_tokens_from_backend_attributes(self) -> Optional[tuple[int, int]]:
+        """Strategy 3: Get token usage from direct attributes on the backend."""
+        prompt_tokens = getattr(self.backend, "last_prompt_tokens", None)
+        completion_tokens = getattr(self.backend, "last_completion_tokens", None)
 
-        # Method 3: Check backend attributes
-        if hasattr(self.backend, "last_prompt_tokens") and hasattr(
-            self.backend, "last_completion_tokens"
-        ):
-            self.metrics.record_token_usage(
-                input_tokens=self.backend.last_prompt_tokens,  # type: ignore
-                output_tokens=self.backend.last_completion_tokens,  # type: ignore
-            )
+        # Only return a tuple if BOTH values are valid integers
+        if prompt_tokens is not None and completion_tokens is not None:
+            return prompt_tokens, completion_tokens
 
-            self.metrics.add_metadata("token_count_method", "backend_attributes_exact")
-            return True
+        # Otherwise, return None
+        return None
 
-        # Method 4: Calculate difference in token counts
-        if hasattr(self.backend, "total_prompt_tokens") and hasattr(
-            self.backend, "total_completion_tokens"
-        ):
-            post_prompt_tokens = getattr(self.backend, "total_prompt_tokens", 0)
-            post_completion_tokens = getattr(self.backend, "total_completion_tokens", 0)
-
-            prompt_tokens = max(0, post_prompt_tokens - self.pre_prompt_tokens)
-            completion_tokens = max(
-                0, post_completion_tokens - self.pre_completion_tokens
-            )
-
-            if prompt_tokens > 0 or completion_tokens > 0:
-                self.metrics.record_token_usage(
-                    input_tokens=prompt_tokens, output_tokens=completion_tokens
-                )
-
-                self.metrics.add_metadata(
-                    "token_count_method", "diff_calculation_exact"
-                )
-                return True
-
-        # Method 5: Fall back to character-based estimation
+    def _get_tokens_from_estimation(
+        self, input_data: Any, result: Any
+    ) -> tuple[int, int]:
+        """Strategy 4 (Fallback): Estimate tokens based on character count."""
         input_str = str(input_data)
-        estimated_input_tokens = len(input_str) // 4
+        output_str = getattr(result, "output", "")
+        estimated_input = len(input_str) // 4
+        estimated_output = len(str(output_str)) // 4
+        logging.info("Token usage estimated from character count.")
+        return estimated_input, estimated_output
 
-        # If the result has text we can estimate
-        if hasattr(result, "output") and isinstance(result.output, str):
-            estimated_output_tokens = len(result.output) // 4
-        else:
-            # Default to a reasonable ratio
-            estimated_output_tokens = estimated_input_tokens // 2
+    # --- Main Method ---
 
+    def determine_token_usage(self, result: Any, input_data: Any):
+        """
+        Records token usage by trying a sequence of strategies.
+        """
+        strategies = [
+            (self._get_tokens_from_dspy_history, "dspy_history_exact"),
+            (
+                lambda: self._get_tokens_from_result_metadata(result),
+                "response_metadata_exact",
+            ),
+            (self._get_tokens_from_backend_attributes, "backend_attributes_exact"),
+        ]
+
+        # Try exact strategies first
+        for strategy_func, method_name in strategies:
+            tokens = strategy_func()
+            if tokens is not None:
+                self.metrics.record_token_usage(
+                    input_tokens=tokens[0], output_tokens=tokens[1]
+                )
+                self.metrics.add_metadata("token_count_method", method_name)
+                return
+
+        # Fallback to estimation if no exact method works
+        est_input, est_output = self._get_tokens_from_estimation(input_data, result)
         self.metrics.record_token_usage(
-            input_tokens=estimated_input_tokens, output_tokens=estimated_output_tokens
+            input_tokens=est_input, output_tokens=est_output
         )
-
-        # Use a descriptive method name that incorporates both the technique and the fact that it's an estimate
         self.metrics.add_metadata("token_count_method", "character_based_estimate")
-
-        return True
 
 
 class PipelineStepTracker:

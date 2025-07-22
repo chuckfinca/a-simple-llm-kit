@@ -455,15 +455,58 @@ class OrientationDebugger:
 class OrientationDebugMiddleware:
     """ASGI Middleware to capture images before they reach the endpoint."""
 
-    # Define paths to watch for image uploads (Ensure these match your actual routes)
-    WATCHED_PATHS = [
-        "/v1/extract-contact",
-        "/v1/upload",
-        "/v1/image",
-    ]  # Corrected paths
+    WATCHED_PATHS = ["/v1/extract-contact", "/v1/upload", "/v1/image"]
 
     def __init__(self, app: ASGIApp):
         self.app = app
+
+    async def _try_capture_image_from_request(
+        self, request: Request
+    ) -> Optional[bytes]:
+        """Reads the request body and attempts to capture an image for debugging."""
+        body_bytes: Optional[bytes] = None
+        try:
+            body_bytes = await request.body()
+            content_type = request.headers.get("content-type", "").lower()
+
+            if "application/json" not in content_type:
+                logging.debug(
+                    "Skipping image capture: Content-Type is not application/json."
+                )
+                return body_bytes
+
+            data = json.loads(body_bytes)
+            # Standardized check for image content in the request
+            req_data = data.get("request", {})
+            content = (
+                req_data.get("content")
+                if req_data.get("media_type") == "image"
+                else None
+            )
+
+            if not content or not isinstance(content, str):
+                logging.debug("No suitable image content found in JSON payload.")
+                return body_bytes
+
+            # Handle data URI prefix if present
+            if "base64," in content:
+                content = content.split("base64,")[1]
+
+            image_bytes_for_debug = base64.b64decode(content)
+            OrientationDebugger.capture_image(
+                image_bytes_for_debug,
+                request.url.path,
+                {"content_type": content_type},
+            )
+            return body_bytes
+
+        except (json.JSONDecodeError, binascii.Error) as e:
+            logging.warning(f"Could not process request for image capture: {e}")
+            return body_bytes  # Return original bytes if parsing fails
+        except Exception as e:
+            logging.error(f"Unexpected error during image capture: {e}", exc_info=True)
+            # If an unknown error occurs, we might not have the body bytes, so return None
+            return None
 
     async def __call__(self, scope: Scope, receive: Receive, send: Send):
         if scope["type"] != "http":
@@ -471,107 +514,31 @@ class OrientationDebugMiddleware:
             return
 
         request = Request(scope, receive=receive)
-        request_body_bytes = None  # Store body if read
 
-        if (
-            OrientationDebugger.ENABLED
-            and request.method == "POST"
-            and any(
-                request.url.path.startswith(watch_path)
-                for watch_path in self.WATCHED_PATHS
-            )
-        ):
-            try:
-                # Read the body *before* calling the app
-                request_body_bytes = await request.body()
+        # Guard Clauses to exit early
+        if not OrientationDebugger.ENABLED or request.method != "POST":
+            await self.app(scope, receive, send)
+            return
 
-                # Now process the image using the read body_bytes
-                content_type = request.headers.get("content-type", "").lower()
-                if "application/json" in content_type:
-                    try:
-                        data = json.loads(request_body_bytes)
-                        content = None
-                        # Look for image content (same logic as before)
-                        if "request" in data and isinstance(data["request"], dict):
-                            req_data = data["request"]
-                            if req_data.get("media_type") == "image":
-                                content = req_data.get("content")
-                        if content is None:
-                            # Fallback checks
-                            for field in ["image", "content", "image_data"]:
-                                if field in data:
-                                    content = data.get(field)
-                                    break
+        is_watched_path = any(
+            request.url.path.startswith(p) for p in self.WATCHED_PATHS
+        )
+        if not is_watched_path:
+            await self.app(scope, receive, send)
+            return
 
-                        if content and isinstance(content, str):
-                            logging.debug(
-                                "OrientationDebugMiddleware: Found image content in JSON key."
-                            )
-                            # Handle data URI prefix if present
-                            if "base64," in content:
-                                content = content.split("base64,")[1]
+        # The core logic is now cleaner
+        body_bytes = await self._try_capture_image_from_request(request)
 
-                            try:
-                                image_bytes_for_debug = base64.b64decode(content)
-                                OrientationDebugger.capture_image(
-                                    image_bytes_for_debug,
-                                    request.url.path,
-                                    {"content_type": content_type},
-                                )
-                            except binascii.Error as b64_err:
-                                logging.error(
-                                    f"OrientationDebugMiddleware: Invalid Base64 data received: {b64_err}"
-                                )
-                            except Exception as capture_err:
-                                logging.error(
-                                    f"OrientationDebugMiddleware: Error during OrientationDebugger.capture_image: {capture_err}",
-                                    exc_info=True,
-                                )
+        # Re-create the receive channel so the endpoint can read the body
+        async def cached_receive() -> dict:
+            return {
+                "type": "http.request",
+                "body": body_bytes or b"",
+                "more_body": False,
+            }
 
-                        else:
-                            logging.debug(
-                                f"OrientationDebugMiddleware: No suitable image content found in JSON payload for path {request.url.path}."
-                            )
-
-                    except json.JSONDecodeError:
-                        logging.warning(
-                            f"OrientationDebugMiddleware: Request body for {request.url.path} is not valid JSON."
-                        )
-                    except Exception as e:
-                        # Log errors during image finding/decoding phase specifically
-                        logging.error(
-                            f"OrientationDebugMiddleware: Error extracting/processing image from JSON body: {type(e).__name__} - {str(e)}",
-                            exc_info=False,
-                        )
-                else:
-                    logging.debug(
-                        f"OrientationDebugMiddleware: Request Content-Type is not application/json ({content_type}), skipping image capture."
-                    )
-
-            except Exception as e:
-                # Log errors during the initial body read or middleware logic
-                logging.error(
-                    f"OrientationDebugMiddleware: Error processing request: {type(e).__name__} - {str(e)}",
-                    exc_info=True,
-                )
-
-            # --- Make the read body available again for the actual endpoint ---
-            async def cached_receive() -> dict:
-                # Send the cached body in one chunk
-                return {
-                    "type": "http.request",
-                    "body": request_body_bytes
-                    if request_body_bytes is not None
-                    else b"",
-                    "more_body": False,
-                }
-
-            # Replace the original receive channel
-            receive = cached_receive
-        # --- End of middleware pre-processing ---
-
-        # Call the main app (or next middleware) with the original or replaced 'receive'
-        await self.app(scope, receive, send)
+        await self.app(scope, cached_receive, send)
 
 
 # Function to add the debug routes to the FastAPI app

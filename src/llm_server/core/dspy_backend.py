@@ -1,6 +1,6 @@
 import asyncio
 import uuid
-from typing import Any
+from typing import Any, Optional
 
 import dspy
 
@@ -28,6 +28,8 @@ class DSPyModelBackendWithProcessor(ModelBackend):
         self.program_manager = program_manager
         self.output_processor = output_processor or DefaultOutputProcessor()
         self.program_metadata = None
+        self.last_prompt_tokens: Optional[int] = None
+        self.last_completion_tokens: Optional[int] = None
         if program_manager:
             if not self._ensure_program_registration(signature_class):
                 raise ValueError(

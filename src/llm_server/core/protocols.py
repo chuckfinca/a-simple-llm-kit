@@ -18,7 +18,10 @@ class ModelBackend(Protocol):
     """Protocol for model interaction implementations"""
 
     model_id: str
+
     program_metadata: Optional[ProgramMetadata]
+    last_prompt_tokens: Optional[int]
+    last_completion_tokens: Optional[int]
 
     async def predict(self, input: Any) -> Any: ...
 

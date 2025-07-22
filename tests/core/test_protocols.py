@@ -48,6 +48,9 @@ class MockModelBackend:
 
     model_id: str = "mock-model"
 
+    last_prompt_tokens: Optional[int] = 0
+    last_completion_tokens: Optional[int] = 0
+
     async def predict(self, input: str) -> str:
         return f"{input}_predicted"
 
