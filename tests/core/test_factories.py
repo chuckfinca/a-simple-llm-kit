@@ -10,26 +10,37 @@ def mock_model_manager(monkeypatch):
     """Create a mock model manager for testing"""
 
     class MockLM:
-        def __enter__(self):
-            return self
-
-        def __exit__(self, *args):
-            pass
+        """A minimal mock for the language model."""
+        pass
 
     class MockModelManager:
-        def get_model(self, model_id):
-            return MockLM()
+        """A mock that correctly has a .models attribute."""
+        def __init__(self):
+            self.models = {"test-model": MockLM()}
 
-    # Mock dspy configuration
+    # --- THIS IS THE FIX ---
+    # We create a class to mock dspy.Predict
+    class MockPredict:
+        def __init__(self, signature):
+            """Mocks the instantiation of dspy.Predict(signature)"""
+            # We don't need to use the signature in this test, but we
+            # accept it to match the real class.
+            pass
+
+        def __call__(self, **kwargs):
+            """Mocks the call to the predictor instance, e.g., predictor(input=...)"""
+            input_value = kwargs.get("input", "")
+            # Return a simple object with an 'output' attribute.
+            return type("obj", (), {"output": f"{input_value}_processed"})()
+
+    # Replace the actual dspy.Predict class with our mock class
+    monkeypatch.setattr("dspy.Predict", MockPredict)
+
+    # We still need to mock dspy.configure as it's called in the code
     monkeypatch.setattr("dspy.configure", lambda lm: None)
-    monkeypatch.setattr(
-        "dspy.Predict",
-        lambda module, lm: lambda input: type(
-            "obj", (), {"output": f"{input}_processed"}
-        )(),
-    )
 
     return MockModelManager()
+
 
 
 def test_create_text_processor(mock_model_manager):
