@@ -271,28 +271,34 @@ class ImageContent:
 
     @property
     def bytes(self) -> bytes:
-        """Get image as bytes, converting if necessary"""
-        if self._bytes is None:
-            if isinstance(self._content, bytes):
-                self._bytes = self._content
-            elif isinstance(self._content, str):
-                if self._content.startswith("data:"):
-                    # Handle data URI
-                    _, base64_data = self._content.split(",", 1)
-                    self._bytes = base64.b64decode(base64_data)
-                else:
-                    # Handle file path or base64 string
-                    try:
-                        with open(self._content, "rb") as f:
-                            self._bytes = f.read()
-                    # Be specific about what you expect to fail (e.g., file not found, not a string)
-                    except (FileNotFoundError, TypeError):
-                        # If opening as a file fails, THEN try decoding as base64
-                        self._bytes = base64.b64decode(self._content)
-
-        assert self._bytes is not None, "Image content could not be converted to bytes"
-
-        return self._bytes
+            """Get image as bytes, converting if necessary"""
+            import base64
+            import binascii # Required for specific error catching
+    
+            if self._bytes is None:
+                if isinstance(self._content, bytes):
+                    self._bytes = self._content
+                elif isinstance(self._content, str):
+                    content_str = self._content
+                    # 1. Handle data URI prefix if it exists
+                    if content_str.startswith("data:"):
+                        try:
+                            _, base64_data = content_str.split(",", 1)
+                            self._bytes = base64.b64decode(base64_data)
+                        except (binascii.Error, ValueError) as e:
+                            raise ValueError(f"Invalid data URI provided: {e}") from e
+                    else:
+                        # 2. If no data URI, assume it's a pure base64 string
+                        try:
+                            self._bytes = base64.b64decode(content_str)
+                        except (binascii.Error, TypeError) as e:
+                            # This error means the string is not valid base64
+                            raise ValueError(f"Content is not a valid base64 string: {e}") from e
+            
+            if self._bytes is None:
+                raise TypeError("Image content could not be converted to bytes.")
+    
+            return self._bytes
 
     @property
     def pil_image(self) -> Image.Image:

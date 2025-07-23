@@ -152,3 +152,12 @@ class ContactExtractor(dspy.Signature):
         if hasattr(result, "notes"):
             data_to_pass["notes"] = result.notes
         return ExtractContact(**data_to_pass)
+
+class RawContactExtractor(dspy.Signature):
+    """
+    A fallback signature that instructs the model to return all extracted contact
+    information as a single, raw text block, ready for manual parsing.
+    """
+
+    image: dspy.Image = dspy.InputField()
+    raw_data: str = dspy.OutputField()
