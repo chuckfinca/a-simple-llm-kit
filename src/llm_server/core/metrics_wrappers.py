@@ -320,8 +320,8 @@ class ModelBackendTracker:
         """Strategy 4 (Fallback): Estimate tokens based on character count."""
         input_str = str(input_data)
         output_str = getattr(result, "output", "")
-        estimated_input = len(input_str) // 4
-        estimated_output = len(str(output_str)) // 4
+        estimated_input = len(input_str) // 3
+        estimated_output = len(str(output_str)) // 3
         logging.info("Token usage estimated from character count.")
         return estimated_input, estimated_output
 
