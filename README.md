@@ -109,6 +109,10 @@ curl -X POST http://localhost:8000/v1/predict \
 
 ### Contact Extraction from Image
 
+This endpoint extracts structured contact information from an image of a business card.
+
+**Request:**
+
 ```bash
 # Cross-platform compatible way to encode an image as base64
 IMAGE_B64=$(base64 < path/to/business_card.png | tr -d '\n')
@@ -119,7 +123,7 @@ curl -X POST http://localhost:8000/v1/extract-contact \
   -d '{
     "request": {
       "pipeline_id": "extract-contact",
-      "content": "'$IMAGE_B64'",
+      "content": "'"$IMAGE_B64"'",
       "media_type": "image",
       "params": {
         "model_id": "gpt-4o-mini"
@@ -128,52 +132,132 @@ curl -X POST http://localhost:8000/v1/extract-contact \
   }'
 ```
 
-### Pipeline Processing
+**Example Success Response:**
 
-```bash
-curl -X POST http://localhost:8000/v1/pipeline/predict \
-  -H "Content-Type: application/json" \
-  -H "X-API-Key: your_server_key_here" \
-  -d '{
-    "request": {
-      "pipeline_id": "text-processing",
-      "content": "Analyze the sentiment of this text.",
-      "media_type": "text",
-      "params": {
-        "model_id": "gpt-4o-mini"
-      }
-    }
-  }'
-```
-
-## API Response Format
-
-All API responses follow a consistent format:
+The data field will contain a structured ExtractContact object.
 
 ```json
 {
   "success": true,
   "data": {
-    // Response data specific to the endpoint
+    "name": {
+      "prefix": null,
+      "given_name": "John",
+      "middle_name": null,
+      "family_name": "Smith",
+      "suffix": null
+    },
+    "work": {
+      "job_title": "Software Engineer",
+      "department": "Technology",
+      "organization_name": "Innovate Corp"
+    },
+    "contact": {
+      "phone_numbers": [
+        {
+          "label": "work",
+          "value": "123-456-7890"
+        }
+      ],
+      "email_addresses": [
+        {
+          "label": "work",
+          "value": "john.smith@innovatecorp.com"
+        }
+      ],
+      "postal_addresses": [
+        {
+          "label": "work",
+          "value": {
+            "street": "123 Innovation Drive",
+            "city": "Techville",
+            "state": "CA",
+            "postal_code": "12345",
+            "country": "USA"
+          }
+        }
+      ],
+      "url_addresses": [
+        {
+          "label": "work",
+          "value": "www.innovatecorp.com"
+        }
+      ],
+      "social_profiles": []
+    },
+    "notes": null
   },
+  "error": null,
+  "timestamp": "2025-07-23T22:00:00.123456Z",
   "metadata": {
-    "program_id": "text_completion",
-    "program_version": "1.0.0",
-    "program_name": "Predictor",
-    "model_id": "gpt-4o-mini", 
-    "model_info": {
+    "program": {
+      "id": "contact_extractor",
+      "version": "1.0.0",
+      "name": "Contact Extractor"
+    },
+    "model": {
+      "id": "gpt-4o-mini",
       "provider": "openai",
       "base_model": "gpt-4o-mini",
       "model_name": "openai/gpt-4o-mini"
     },
-    "request_id": "3a7e9f12-d8e2-4b01-9861-4f3a8e72c5a3",
-    "timestamp": "2025-03-13T15:42:33.123456Z",
-    // Any additional parameters provided will appear here
-    "temperature": 0.7,
-    "top_p": 0.95,
-    "frequency_penalty": 0.2
+    "performance": {
+      "timing": {
+        "total_ms": 1250.45
+      },
+      "tokens": {
+        "input": 1245,
+        "output": 387,
+        "total": 1632,
+        "cost_usd": 0.001547
+      },
+      "trace_id": "a7b3c9e1-f8d2-4e6a-9b1c-8d5f7e9a2c4b"
+    },
+    "execution_id": "3a7e9f12-d8e2-4b01-9861-4f3a8e72c5a3"
+  }
+}
+```
+
+## API Response Format
+
+All API responses follow a consistent, standardized envelope to ensure predictability.
+
+```json
+{
+  "success": true,
+  "data": {
+    // Response data specific to the endpoint, e.g., {"response": "The answer is..."}
   },
-  "timestamp": "2025-03-13T15:42:33.123456Z"
+  "error": null,
+  "timestamp": "2025-07-23T22:00:00.123456Z",
+  "metadata": {
+    "program": {
+      "id": "text_completion",
+      "version": "1.0.0",
+      "name": "Predictor"
+    },
+    "model": {
+      "id": "gpt-4o-mini",
+      "provider": "openai",
+      "base_model": "gpt-4o-mini",
+      "model_name": "openai/gpt-4o-mini"
+    },
+    "performance": {
+      "timing": {
+        "total_ms": 750.25
+      },
+      "tokens": {
+        "input": 50,
+        "output": 150,
+        "total": 200,
+        "cost_usd": 0.0001
+      },
+      "trace_id": "a7b3c9e1-f8d2-4e6a-9b1c-8d5f7e9a2c4b"
+    },
+    "execution_id": "3a7e9f12-d8e2-4b01-9861-4f3a8e72c5a3",
+    // Any additional request parameters (like temperature) will also appear here
+    "temperature": 0.7
+  }
 }
 ```
 
