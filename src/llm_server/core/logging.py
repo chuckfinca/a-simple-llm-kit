@@ -3,12 +3,33 @@ import logging.config
 import sys
 from pathlib import Path
 from typing import ClassVar, Optional
+import json
 
 import pydantic
 
 # Create default logger first
 logger = logging.getLogger("llm_server")
 logger.addHandler(logging.NullHandler())
+
+
+class JsonFormatter(logging.Formatter):
+    """
+    Formats log records as a JSON object, including any 'extra' data.
+    """
+    def format(self, record):
+        # Create a dictionary from the log record
+        log_object = {
+            "timestamp": self.formatTime(record, self.datefmt),
+            "level": record.levelname,
+            "message": record.getMessage(),
+        }
+
+        # Add any 'extra' data passed to the logger
+        # The 'extra' dictionary is dynamically created, so we use getattr for type safety.
+        # This safely gets the attribute or returns an empty dict if it's missing.
+        log_object.update(getattr(record, "extra", {}))
+
+        return json.dumps(log_object)
 
 
 class LogConfig(pydantic.BaseModel):
@@ -25,8 +46,8 @@ class LogConfig(pydantic.BaseModel):
     disable_existing_loggers: bool = False
     formatters: dict = {
         "default": {
-            "format": LOG_FORMAT,
-            "datefmt": "%Y-%m-%d %H:%M:%S",
+            "()": JsonFormatter,
+            "datefmt": "%Y-%m-%dT%H:%M:%S%z",
         },
     }
     handlers: dict = {
@@ -88,3 +109,5 @@ def error(msg: str, *args, exc_info=True, **kwargs):
 
 def critical(msg: str, *args, **kwargs):
     logger.critical(msg, *args, **kwargs)
+
+

@@ -1,3 +1,4 @@
+import copy
 import json
 from datetime import datetime, timezone
 from typing import Any
@@ -15,6 +16,7 @@ from llm_server.api.schemas.responses import (
     QueryResponseData,
 )
 from llm_server.core import logging
+from llm_server.core.config import get_settings
 from llm_server.core.metrics_factory import (
     create_metrics_enabled_extract_contact_processor,
     create_metrics_enabled_text_processor,
@@ -104,13 +106,17 @@ def _build_response(
         response_data = PipelineResponseData(
             content=result.content, media_type=result.media_type, metadata={}
         )
-
-    return response_model(
+        
+    final_response = response_model(
         success=True,
         data=response_data,
         metadata=response_metadata,
         timestamp=datetime.now(timezone.utc),
     )
+
+    logging.info(f"Final Response Data: {final_response.model_dump_json(indent=2)}")
+
+    return final_response
 
 
 # --- Route Handler Factory ---
@@ -211,14 +217,23 @@ async def predict_pipeline(request: Request, body: dict[str, Any] = Body(...)): 
 
 @main_router.post("/extract-contact", response_model=ExtractContactResponse)
 async def process_extract_contact(request: Request, body: dict[str, Any] = Body(...)):  # noqa: B008
+    settings = get_settings()
     try:
-        # Log the body as formatted JSON for readability
-        # Use logging.info initially to ensure it shows up, can change to logging.debug later
         logging.info("--- /v1/extract-contact Request Body ---")
-        logging.info(json.dumps(body, indent=2))
+        
+        if settings.log_request_bodies:
+            # Log the full body if enabled
+            logging.info(json.dumps(body, indent=2))
+        else:
+            # Otherwise, log a sanitized version
+            sanitized_body = copy.deepcopy(body)
+            if "request" in sanitized_body and "content" in sanitized_body["request"]:
+                content = sanitized_body["request"]["content"]
+                sanitized_body["request"]["content"] = f"[IMAGE DATA TRUNCATED - Length: {len(str(content))}]"
+            logging.info(json.dumps(sanitized_body, indent=2))
+
         logging.info("--- End Request Body ---")
     except Exception as e:
-        # Log error if formatting/logging fails for some reason
         logging.error(f"Error logging request body for /v1/extract-contact: {e}")
 
     handler = create_versioned_route_handler(

@@ -12,6 +12,7 @@ class Settings(BaseSettings):
     llm_server_api_key: str = os.getenv("LLM_SERVER_API_KEY", "")
     gemini_api_key: str = os.getenv("GEMINI_API_KEY", "")
     log_level: str = "INFO"
+    log_request_bodies: bool = False
 
     class Config:
         env_file = ".env"
