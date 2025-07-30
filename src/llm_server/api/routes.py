@@ -1,3 +1,5 @@
+from typing import Annotated
+
 from fastapi import APIRouter, Body, Depends, HTTPException, Request
 
 from llm_server.core.factories import create_extract_contact_processor
@@ -12,7 +14,7 @@ async def health_check():
     return {"status": "healthy"}
 
 @main_router.post("/extract-contact")
-async def extract_contact(request: Request, body: dict = Body(...)):
+async def extract_contact(request: Request, body: Annotated[dict, Body(...)]):
     model_manager = request.app.state.model_manager
     
     # Basic validation

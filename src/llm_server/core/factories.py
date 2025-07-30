@@ -4,7 +4,6 @@ from llm_server.core.implementations import (
     ModelProcessor,
 )
 from llm_server.core.modules import ContactExtractor
-from llm_server.core.output_processors import ContactExtractorProcessor
 from llm_server.core.pipeline import Pipeline
 from llm_server.core.types import MediaType
 
