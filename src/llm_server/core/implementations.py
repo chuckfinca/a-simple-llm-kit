@@ -36,61 +36,6 @@ class DSPyModelBackend(ModelBackend):
         self.last_prompt_tokens: Optional[int] = None
         self.last_completion_tokens: Optional[int] = None
 
-
-    def _ensure_program_registration(
-        self, signature_class: type[Signature]
-    ) -> Optional[str]:
-        """
-        Ensure the signature class is registered with the program manager.
-        Returns the program ID if successful, None otherwise.
-        """
-        if not self.program_manager:
-            logging.warning("No program manager available for program registration")
-            return None
-
-        # First, check if it's already registered by looking for matching signature class name
-        registered_programs = self.program_manager.registry.list_programs()
-        for prog in registered_programs:
-            prog_class = self.program_manager.registry.get_program(prog.id)
-            if prog_class and prog_class.__name__ == signature_class.__name__:
-                self.program_metadata = prog
-                logging.info(
-                    f"Found existing program registration for {signature_class.__name__} with ID {prog.id}"
-                )
-                return prog.id
-
-        # If not found, register it
-        try:
-            # Try to get a more descriptive name
-            program_name = signature_class.__name__
-
-            # Generate a more user-friendly name if possible (CamelCase -> Spaced Words)
-            import re
-
-            if re.match(r"[A-Z][a-z]+(?:[A-Z][a-z]+)+", program_name):
-                program_name = re.sub(r"([A-Z])", r" \1", program_name).strip()
-
-            self.program_metadata = self.program_manager.register_program(
-                program_class=signature_class,
-                name=program_name,
-                description=signature_class.__doc__
-                or f"DSPy signature for {signature_class.__name__}",
-            )
-            if self.program_metadata:
-                logging.info(
-                    f"Successfully registered {signature_class.__name__} with ID {self.program_metadata.id}"
-                )
-                return self.program_metadata.id
-
-            # If it's None, we should handle that case.
-            return None
-        except Exception as e:
-            logging.error(
-                f"Failed to register program {signature_class.__name__}: {str(e)}",
-                exc_info=True,
-            )
-            return None
-
     def _determine_input_key(
         self, signature_class: type[Signature], input_data: Any
     ) -> dict[str, Any]:
@@ -129,71 +74,41 @@ class DSPyModelBackend(ModelBackend):
     async def predict(self, input: Any) -> ModelOutput:
         max_attempts = 3
         base_delay = 1  # seconds
-
-        # Generate a trace ID for this prediction
         trace_id = str(uuid.uuid4())
-
-        # Convert input to the right format for program tracking
         input_dict = self._determine_input_key(self.signature, input)
-
+    
         for attempt in range(max_attempts):
             try:
                 lm = self.model_manager.models.get(self.model_id)
                 if not lm:
                     raise ValueError(f"Model {self.model_id} not found")
-
-                # If we have a program manager, use it for execution with tracking
-                if self.program_manager and self.program_metadata:
-                    result, execution_info = await self.program_manager.execute_program(
-                        program_id=self.program_metadata.id,
-                        model_id=self.model_id,
-                        input_data=input_dict,
-                        trace_id=trace_id,
-                    )
-
-                    # Add execution info to the result metadata
-                    result_metadata = getattr(result, "metadata", {})
-                    if not isinstance(result_metadata, dict):
-                        result_metadata = {}
-
-                    result_metadata["execution_info"] = execution_info.model_dump()
-
-                    result.metadata = result_metadata
-
-                    return self.signature.process_output(result)
-                else:
-                    # Direct execution should not happen if versioning is required
-                    logging.warning(
-                        f"Executing {self.signature.__name__} without program tracking. "
-                        "This will cause versioning metadata to be missing."
-                    )
-
-                    # Standard execution without tracking
-                    dspy.configure(lm=lm)
-                    predictor = dspy.Predict(self.signature)
-
-                    raw_result = predictor(**input_dict)
-                    return self.signature.process_output(raw_result)
-
+    
+                logging.warning(
+                    f"Executing {self.signature.__name__} without program tracking. "
+                    "This is the expected behavior for the simplified llm-server."
+                )
+    
+                dspy.configure(lm=lm)
+                predictor = dspy.Predict(self.signature)
+    
+                raw_result = predictor(**input_dict)
+                
+                # We now call the new robust processor from here.
+                # This ensures the dual-path logic is always used.
+                from llm_server.core.output_processors import ContactExtractorProcessor
+                processor = ContactExtractorProcessor()
+                return processor.process(raw_result)
+                # --- END OF THE SIMPLIFIED LOGIC ---
+    
             except Exception as e:
                 if attempt == max_attempts - 1:
-                    logging.error(
-                        f"Final attempt failed for model {self.model_id}: {str(e)}",
-                        extra={"trace_id": trace_id},
-                    )
+                    logging.error(f"Final attempt failed for model {self.model_id}: {str(e)}", extra={"trace_id": trace_id})
                     raise
                 delay = base_delay * (2**attempt)
-                logging.warning(
-                    f"API call failed: {str(e)}, "
-                    f"retrying in {delay} seconds... "
-                    f"(attempt {attempt + 1}/{max_attempts})",
-                    extra={"trace_id": trace_id},
-                )
+                logging.warning(f"API call failed: {str(e)}, retrying in {delay} seconds... (attempt {attempt + 1}/{max_attempts})", extra={"trace_id": trace_id})
                 await asyncio.sleep(delay)
-
-        raise RuntimeError(
-            "The prediction loop completed without returning or raising an error."
-        )
+    
+        raise RuntimeError("The prediction loop completed without returning or raising an error.")
 
     def get_lm_history(self):
         """Safely get LM history without exposing the full LM object"""
