@@ -1,6 +1,7 @@
 import json
 import re
 from typing import Any
+
 from llm_server.core import logging
 from llm_server.core.modules import (
     ContactInformation,
@@ -8,7 +9,7 @@ from llm_server.core.modules import (
     PersonName,
     WorkInformation,
 )
-import dspy
+
 
 class DefaultOutputProcessor:
     def process(self, result: Any) -> Any:

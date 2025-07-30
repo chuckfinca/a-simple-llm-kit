@@ -15,30 +15,27 @@ from llm_server.core.types import MediaType, PipelineData
 
 
 class DSPyModelBackend(ModelBackend):
-    """DSPy model backend implementation with tracking and versioning support"""
+    """DSPy model backend implementation."""
 
     def __init__(
         self,
         model_manager,
         model_id: str,
         signature_class: type[Signature],
-        program_manager=None,
+        program_manager=None, # This is now ignored but kept for compatibility
     ):
         self.model_manager = model_manager
         self.model_id = model_id
         self.signature = signature_class
-        self.program_manager = program_manager
-
-        # Track program info if using program manager
+        # The program_manager is no longer used in the simplified server
+        self.program_manager = None
         self.program_metadata = None
-        if program_manager:
-            # Register program if not already registered
-            program_id = self._ensure_program_registration(signature_class)
-            if not program_id:
-                raise ValueError(
-                    f"Failed to register {signature_class.__name__} with program manager. "
-                    "This is required for versioning."
-                )
+
+        # Fulfill the ModelBackend protocol by adding these properties.
+        # They are not used in the simplified server but are required by the interface.
+        self.last_prompt_tokens: Optional[int] = None
+        self.last_completion_tokens: Optional[int] = None
+
 
     def _ensure_program_registration(
         self, signature_class: type[Signature]
@@ -274,8 +271,8 @@ class ImageContent:
     def bytes(self) -> bytes:
         """Get image as bytes, converting if necessary and fixing padding errors."""
         import base64
-        import binascii
-        from llm_server.core import logging # Local import for clarity
+
+        from llm_server.core import logging  # Local import for clarity
     
         if self._bytes is None:
             if isinstance(self._content, bytes):

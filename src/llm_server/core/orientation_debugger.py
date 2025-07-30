@@ -12,7 +12,7 @@ import os
 import uuid
 from collections import deque
 from datetime import datetime
-from typing import Optional
+from typing import Annotated, Optional
 
 from PIL import Image
 

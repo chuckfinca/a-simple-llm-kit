@@ -1,9 +1,9 @@
+import json
 import logging
 import logging.config
 import sys
 from pathlib import Path
 from typing import ClassVar, Optional
-import json
 
 import pydantic
 
