@@ -1,3 +1,5 @@
+from typing import Annotated
+
 from fastapi import Depends, HTTPException, Request, Security
 from fastapi.security.api_key import APIKeyHeader
 
@@ -12,7 +14,7 @@ api_key_header = APIKeyHeader(name=API_KEY_NAME)
 def get_api_key(
     request: Request,
     api_key_header: str = Security(api_key_header),
-    settings: Settings = Depends(get_settings),  # noqa: B008
+    settings: Annotated[Settings, Depends(get_settings)],
 ) -> str:
     # Log the full path for debugging
     path = request.url.path

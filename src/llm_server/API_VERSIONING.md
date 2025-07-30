@@ -23,6 +23,7 @@ There are three ways to add versioning to your endpoints:
 The simplest approach is to use the `get_versioning_info` dependency:
 
 ```python
+from typing import Annotated
 from fastapi import APIRouter, Depends
 from llm_server.core.versioning import get_versioning_info
 
@@ -31,7 +32,7 @@ router = APIRouter()
 @router.post("/my-endpoint")
 async def my_endpoint(
     data: dict[str, Any],
-    versioning: dict[str, Any] = Depends(get_versioning_info)
+    versioning: Annotated[dict[str, Any], Depends(get_versioning_info)]
 ):
     # Process the request
     result = process_data(data)
@@ -50,6 +51,7 @@ async def my_endpoint(
 For more complex cases, use the `VersionedResponse` helper:
 
 ```python
+from typing import Annotated
 from fastapi import APIRouter, Depends
 from llm_server.core.versioning import VersionedResponse
 
@@ -58,7 +60,7 @@ router = APIRouter()
 @router.post("/my-endpoint")
 async def my_endpoint(
     data: dict[str, Any],
-    versioned_response: VersionedResponse = Depends()
+    versioned_response: Annotated[VersionedResponse, Depends()]
 ):
     # Process the request
     result = process_data(data)
@@ -75,6 +77,7 @@ async def my_endpoint(
 If you need to specify a particular model or program:
 
 ```python
+from typing import Annotated
 from fastapi import APIRouter, Depends
 from llm_server.core.versioning import get_versioning_info
 
@@ -84,13 +87,13 @@ router = APIRouter()
 async def my_endpoint(
     data: dict[str, Any],
     model_id: str,
-    versioning: dict[str, Any] = Depends(
+    versioning: Annotated[dict[str, Any], Depends(
         lambda req: get_versioning_info(
             req, 
             model_id=model_id,
             program_id="my_specific_program",
             program_version="1.0.0"
-        )
+        )]
     )
 ):
     # Process the request

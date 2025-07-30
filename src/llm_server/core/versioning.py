@@ -1,5 +1,5 @@
 import uuid
-from typing import Any, Optional
+from typing import Any, Optional, Annotated
 
 from fastapi import Depends, Request
 
@@ -82,7 +82,7 @@ class VersionedResponse:
     Base class for creating versioned API responses.
     """
 
-    def __init__(self, versioning_info: dict[str, Any] = Depends(get_versioning_info)):  # noqa: B008
+    def __init__(self, versioning_info: Annotated[dict[str, Any], Depends(get_versioning_info)]):
         self.versioning_info = versioning_info
 
     def create_response(

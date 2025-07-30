@@ -565,14 +565,14 @@ def create_orientation_debug_routes(app: FastAPI):
         return HTMLResponse(content=html)
 
     @debug_router.get("/images", response_class=JSONResponse, include_in_schema=False)
-    async def get_debug_images(api_key: str = Depends(get_api_key)):
+    async def get_debug_images(api_key: Annotated[str, Depends(get_api_key)]):
         """Get debug images as JSON (Requires API Key in header)"""
         return JSONResponse(
             content={"success": True, "images": OrientationDebugger.get_images()}
         )
 
     @debug_router.post("/clear", include_in_schema=False)
-    async def clear_debug_images(api_key: str = Depends(get_api_key)):
+    async def clear_debug_images(api_key: Annotated[str, Depends(get_api_key)]):
         """Clear all debug images (Requires API Key in header)"""
         OrientationDebugger.clear_images()
         return JSONResponse(content={"success": True, "message": "Images cleared"})

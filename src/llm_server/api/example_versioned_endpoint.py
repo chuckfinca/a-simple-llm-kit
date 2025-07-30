@@ -1,4 +1,4 @@
-from typing import Any
+from typing import Any, Annotated
 
 from fastapi import APIRouter, Depends, Request
 
@@ -12,7 +12,7 @@ router = APIRouter(prefix="/v1/examples")
 async def simple_example(
     request: Request,
     data: dict[str, Any],
-    versioning: dict[str, Any] = Depends(get_versioning_info),  # noqa: B008
+    versioning: Annotated[dict[str, Any], Depends(get_versioning_info)],
 ):
     """
     A simple example endpoint that uses the versioning dependency.
@@ -34,7 +34,7 @@ async def simple_example(
 async def versioned_response_example(
     request: Request,
     data: dict[str, Any],
-    versioned_response: VersionedResponse = Depends(),  # noqa: B008
+    versioned_response: Annotated[VersionedResponse, Depends()],
 ):
     """
     Example using the VersionedResponse helper.
@@ -57,7 +57,7 @@ async def custom_model_example(
     request: Request,
     data: dict[str, Any],
     model_id: str,
-    versioning: dict[str, Any] = Depends(get_versioning_info),  # noqa: B008
+    versioning: Annotated[dict[str, Any], Depends(get_versioning_info)],
 ):
     """
     Example that specifies a custom model ID.
