@@ -10,7 +10,8 @@ from PIL import Image
 
 from llm_server.core import logging
 from llm_server.core.model_interfaces import ModelOutput, Signature
-from llm_server.core.protocols import ModelBackend
+from llm_server.core.output_processors import DefaultOutputProcessor
+from llm_server.core.protocols import ModelBackend, OutputProcessor
 from llm_server.core.types import MediaType, PipelineData
 
 
@@ -22,14 +23,13 @@ class DSPyModelBackend(ModelBackend):
         model_manager,
         model_id: str,
         signature_class: type[Signature],
-        program_manager=None, # This is now ignored but kept for compatibility
+        output_processor: OutputProcessor | None = None
     ):
         self.model_manager = model_manager
         self.model_id = model_id
         self.signature = signature_class
-        # The program_manager is no longer used in the simplified server
-        self.program_manager = None
-        self.program_metadata = None
+        
+        self.output_processor = output_processor or DefaultOutputProcessor()
 
         # Fulfill the ModelBackend protocol by adding these properties.
         # They are not used in the simplified server but are required by the interface.
@@ -53,23 +53,21 @@ class DSPyModelBackend(ModelBackend):
             if hasattr(field, "__origin__") and field.__origin__ == dspy.InputField:
                 input_fields[name] = field
 
-        # If no input fields found or only one input field, use generic approach
-        if len(input_fields) <= 1:
-            # Common input types
-            if signature_class.__name__ == "ContactExtractor":
-                return {"image": input_data}
-            else:
-                return {"input": input_data}
-
-        # For complex inputs with multiple fields, we need content to be a dict already
+        # If there's only one input field, use its name as the key.
+        # This is robust and doesn't rely on hardcoded class names.
+        if len(input_fields) == 1:
+            key = list(input_fields.keys())[0]
+            return {key: input_data}
+        
+        # For complex signatures, the input must be a dict.
         if isinstance(input_data, dict):
             return input_data
-        else:
-            logging.warning(
-                f"Complex signature {signature_class.__name__} with multiple inputs "
-                f"but received non-dict input. Using 'input' as default key."
-            )
-            return {"input": input_data}
+        
+        # Fallback if a non-dict is passed for a multi-input signature
+        raise TypeError(
+            f"Signature {signature_class.__name__} has multiple inputs, "
+            "but a non-dict input was provided."
+        )
 
     async def predict(self, input: Any) -> ModelOutput:
         max_attempts = 3
@@ -93,12 +91,7 @@ class DSPyModelBackend(ModelBackend):
     
                 raw_result = predictor(**input_dict)
                 
-                # We now call the new robust processor from here.
-                # This ensures the dual-path logic is always used.
-                from llm_server.core.output_processors import ContactExtractorProcessor
-                processor = ContactExtractorProcessor()
-                return processor.process(raw_result)
-                # --- END OF THE SIMPLIFIED LOGIC ---
+                return self.output_processor.process(raw_result)
     
             except Exception as e:
                 if attempt == max_attempts - 1:
