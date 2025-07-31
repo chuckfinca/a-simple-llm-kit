@@ -1,6 +1,9 @@
-import yaml
 from typing import Any
-from .core.protocols import StorageAdapter, ConfigProvider
+
+import yaml
+
+from .core.protocols import ConfigProvider, StorageAdapter
+
 
 class InMemoryStorageAdapter(StorageAdapter):
     """Simple in-memory storage for development/testing."""
@@ -13,5 +16,6 @@ class InMemoryStorageAdapter(StorageAdapter):
 class YamlConfigProvider(ConfigProvider):
     """Loads model configuration from a standard YAML file."""
     def __init__(self, config_path: str):
-        with open(config_path) as f: self.config = yaml.safe_load(f)
+        with open(config_path) as f:
+            self.config = yaml.safe_load(f)
     def get_models(self) -> dict[str, Any]: return self.config.get("models", {})
