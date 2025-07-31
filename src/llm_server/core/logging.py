@@ -109,5 +109,3 @@ def error(msg: str, *args, exc_info=True, **kwargs):
 
 def critical(msg: str, *args, **kwargs):
     logger.critical(msg, *args, **kwargs)
-
-

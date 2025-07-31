@@ -2,9 +2,9 @@ import time
 import uuid
 from typing import Any, Optional
 
-from llm_server.core import logging
-from llm_server.core.protocols import ModelBackend, PipelineStep
-from llm_server.core.types import MediaType, PipelineData
+from contactcapture_backend.core import logging
+from contactcapture_backend.core.protocols import ModelBackend, PipelineStep
+from contactcapture_backend.core.types import MediaType, PipelineData
 
 
 class PerformanceMetrics:
