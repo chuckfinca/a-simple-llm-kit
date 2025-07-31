@@ -4,8 +4,8 @@ from enum import Enum
 from functools import wraps
 from typing import Any
 
-from contactcapture_backend.core import logging
-from contactcapture_backend.core.utils import get_utc_now
+from llm_server.core import logging
+from llm_server.core.utils import get_utc_now
 
 
 class State(Enum):

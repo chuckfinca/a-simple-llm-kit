@@ -2,7 +2,7 @@ import time
 import uuid
 from typing import Any, Optional
 
-from contactcapture_backend.core import logging
+from llm_server.src.llm_server.core import logging
 from contactcapture_backend.core.protocols import ModelBackend, PipelineStep
 from contactcapture_backend.core.types import MediaType, PipelineData
 
