@@ -3,7 +3,7 @@ from typing import Any, Optional
 
 import dspy
 
-from llm_server.core.config import Settings
+from llm_server.core.config import FrameworkSettings
 
 
 @dataclass
@@ -22,7 +22,7 @@ class ProviderConfig:
 class ProviderManager:
     """Manages provider configurations and initialization"""
 
-    def __init__(self, settings: Settings):
+    def __init__(self, settings: FrameworkSettings):
         self.providers = {
             "openai": ProviderConfig(
                 api_key=settings.openai_api_key, default_params={}

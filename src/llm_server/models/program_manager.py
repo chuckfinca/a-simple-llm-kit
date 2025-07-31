@@ -1,10 +1,10 @@
 import uuid
-from typing import Any, Optional
+from typing import Any, Callable, Optional
 
 import dspy
+from dspy.signatures.signature import Signature
 
 from llm_server.core import logging
-from llm_server.core.model_interfaces import Signature
 from llm_server.core.program_registry import ProgramRegistry
 from llm_server.core.protocols import StorageAdapter  # <-- NEW: Import the protocol
 from llm_server.core.types import ProgramExecutionInfo, ProgramMetadata
@@ -81,6 +81,7 @@ class ProgramManager:
         input_data: dict[str, Any],
         program_version: str = "latest",
         trace_id: Optional[str] = None,
+        preprocessor: Optional[Callable] = None,
     ) -> tuple[Any, ProgramExecutionInfo, Optional[str]]:
         """
         Executes a program and returns the result, execution info, and raw completion text.
@@ -113,6 +114,10 @@ class ProgramManager:
             timestamp=format_timestamp(),
             trace_id=trace_id,
         )
+        
+        # Apply the preprocessor if one was provided
+        if preprocessor and "image" in input_data:
+            input_data["image"] = preprocessor(input_data["image"])
 
         try:
             dspy.configure(lm=lm)

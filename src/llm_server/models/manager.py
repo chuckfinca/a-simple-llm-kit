@@ -1,11 +1,12 @@
 
 from llm_server.core import logging
+from llm_server.core.config import FrameworkSettings
 from llm_server.core.protocols import ConfigProvider
 from llm_server.core.providers import ProviderManager
 
 
 class ModelManager:
-    def __init__(self, config_provider: ConfigProvider, settings):
+    def __init__(self, config_provider: ConfigProvider, settings: FrameworkSettings):
          self.settings = settings
          self.config_provider = config_provider
          self.config = self.config_provider.get_models()
