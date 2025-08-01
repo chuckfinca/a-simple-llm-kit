@@ -1,0 +1,89 @@
+[build-system]
+requires = ["setuptools>=61.0", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "llm-server"
+version = "0.2.0"
+description = "A lightweight, extensible server for working with large language models, focused on pipeline processing and multi-modal capabilities. Built with FastAPI and DSPy."
+readme = "README.md"
+requires-python = ">=3.9"
+license = "MIT"
+authors = [{ name = "Charles Feinn", email = "charles@appsimple.io" }]
+classifiers = [
+    "Development Status :: 3 - Alpha",
+    "Intended Audience :: Developers",
+    "Programming Language :: Python :: 3.9",
+]
+dependencies = [
+    "fastapi[all]>=0.68.0",
+    "pydantic>=2.0.0",
+    "pydantic-settings>=2.0.0",
+    "python-dotenv>=0.19.0",
+    "pyyaml>=6.0.0",
+    "dspy-ai>=2.0.0",
+    "pillow>=10.0.0",
+    "prometheus-client>=0.17.0",
+    "python-multipart>=0.0.5"
+]
+
+[project.urls]
+Homepage = "https://github.com/chuckfinca/llm-server"
+
+[project.optional-dependencies]
+dev = [
+    "mypy>=1.9.0",
+    "pytest>=7.0.0",
+    "pytest-asyncio",
+    "ruff>=0.4.0",
+    "httpx>=0.23.0",
+    "email-validator>=2.0.0",
+    "pillow-heif",
+    "modal"
+]
+
+[tool.setuptools.packages.find]
+where = ["src"]
+
+[tool.setuptools]
+package-dir = { "" = "src" }
+
+[tool.ruff]
+[tool.ruff.lint]
+# The "Golden Standard" rule selection (Tier 2).
+select = [
+    "F",   # Pyflakes (finds bugs)
+    "E",   # Pycodestyle Errors
+    "W",   # Pycodestyle Warnings
+    "I",   # isort (import sorting)
+    "UP",  # pyupgrade (modernizes code)
+    "C4",  # flake8-comprehensions (better comprehensions)
+    "B",   # flake8-bugbear (finds more complex bugs)
+]
+
+# Disable a few rules that are often too noisy or handled by the formatter.
+# The formatter handles E501 (line-too-long) automatically.
+ignore = ["E501", "W293"]
+
+# Allow unused variables in function signatures if they start with an underscore.
+# This is essential for protocols, FastAPI dependencies, etc.
+dummy-variable-rgx = "^(_+|unused_)"
+
+[tool.ruff.lint.isort]
+# Tell Ruff that "llm_server" is your own code, so it groups imports correctly.
+known-first-party = ["llm_server"]
+
+[tool.mypy]
+python_version = "3.9"
+warn_return_any = true
+ignore_missing_imports = true
+
+[tool.pyright]
+# This tells Pyright where to look for your source code.
+# Based on your file tree, your main package is in 'src/llm_server'.
+# We list the parent 'src' directory.
+include = ["src"]
+
+# (Optional but Recommended)
+# This prevents Pyright from complaining about packages that don't ship with type stubs.
+reportMissingModuleSource = "none"

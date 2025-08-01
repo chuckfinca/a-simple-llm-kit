@@ -1,0 +1,33 @@
+# The name that appears in the GitHub Actions UI
+name: Linting
+
+on:
+  push:
+    branches: [ "main" ]
+  pull_request:
+    branches: [ "main" ]
+
+jobs:
+  # A more descriptive name for the job itself
+  lint-and-format:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check out code
+        uses: actions/checkout@v4
+
+      - name: Set up Python 3.9
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.9'
+
+      - name: Install uv
+        run: pipx install uv
+
+      - name: Install dependencies
+        run: uv pip install -e ".[dev]" --system
+
+      # This step remains the same, but it's now in a dedicated workflow
+      - name: Run Ruff Checks
+        run: |
+          uv run ruff format . --check
+          uv run ruff check .
