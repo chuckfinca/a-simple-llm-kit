@@ -10,6 +10,6 @@ class FrameworkSettings(BaseSettings):
     huggingface_api_key: str = os.getenv("HUGGINGFACE_API_KEY", "")
     gemini_api_key: str = os.getenv("GEMINI_API_KEY", "")
 
-    class Config:
+    class ConfigDict:
         env_file = ".env"
         extra = 'ignore'

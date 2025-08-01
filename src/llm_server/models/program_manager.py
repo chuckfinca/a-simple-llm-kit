@@ -6,7 +6,7 @@ from dspy.signatures.signature import Signature
 
 from llm_server.core import logging
 from llm_server.core.program_registry import ProgramRegistry
-from llm_server.core.protocols import StorageAdapter  # <-- NEW: Import the protocol
+from llm_server.core.protocols import StorageAdapter
 from llm_server.core.types import ProgramExecutionInfo, ProgramMetadata
 from llm_server.core.utils import format_timestamp
 
@@ -14,8 +14,6 @@ from llm_server.core.utils import format_timestamp
 class ProgramManager:
     """
     Manager for DSPy programs, handling registration, execution tracking, and versioning.
-    This version is refactored to be cloud-native and framework-agnostic by
-    depending on a StorageAdapter protocol instead of a local filesystem.
     """
 
     def __init__(self, model_manager, storage_adapter: StorageAdapter):
@@ -28,7 +26,6 @@ class ProgramManager:
                              that defines how and where program metadata is stored.
         """
         self.model_manager = model_manager
-        # ProgramRegistry is now given the storage adapter, not a directory path.
         self.registry = ProgramRegistry(storage_adapter)
         self.executions: list[ProgramExecutionInfo] = []
         self.model_info = self._extract_model_info()
@@ -36,7 +33,6 @@ class ProgramManager:
     def _extract_model_info(self) -> dict[str, dict[str, str]]:
         model_info = {}
         try:
-            # Note: This relies on the ModelManager also being refactored to use a ConfigProvider
             config = self.model_manager.config
             for model_id, model_config in config.items():
                 model_name = model_config.get("model_name", "")
@@ -159,7 +155,6 @@ class ProgramManager:
             )
             raise
 
-    # (The rest of the methods in this file remain the same)
     def get_execution_history(
         self,
         program_id: Optional[str] = None,

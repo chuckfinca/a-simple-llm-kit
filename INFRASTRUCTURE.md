@@ -66,4 +66,4 @@ Private keys are stored in macOS Keychain. Contact system administrator for acce
 ## Relevant Files
 - Tunnel Configuration: `.github/actions/update_tunnel/action.yml`
 - Modal Deployment: `deploy_modal_app.py`
-- Application Logging: `app/core/logging.py`
+- Application Logging: `src/llm_server/core/logging.py`

@@ -22,7 +22,7 @@ def ensure_program_metadata_object(metadata: Any) -> ProgramMetadata | None:
         # Or raise a TypeError, depending on desired strictness
         return None
 
-    # 1. Validate that all REQUIRED fields are present.
+    # Validate that all REQUIRED fields are present.
     required_fields = {"id", "name", "version", "code_hash"}
     for field in required_fields:
         if field not in metadata or not isinstance(metadata[field], str):
@@ -30,7 +30,7 @@ def ensure_program_metadata_object(metadata: Any) -> ProgramMetadata | None:
             # We can't safely create the object.
             return None  # Or raise ValueError(f"Missing or invalid required field: {field}")
 
-    # 2. Build the keyword arguments for the constructor.
+    # Build the keyword arguments for the constructor.
     kwargs = {
         "id": metadata["id"],
         "name": metadata["name"],
@@ -38,13 +38,13 @@ def ensure_program_metadata_object(metadata: Any) -> ProgramMetadata | None:
         "code_hash": metadata["code_hash"],
     }
 
-    # 3. Add OPTIONAL fields if they exist.
+    # Add OPTIONAL fields if they exist.
     optional_fields = {"description", "tags", "parent_id", "parent_version"}
     for field in optional_fields:
         if field in metadata:
             kwargs[field] = metadata[field]
 
-    # 4. Now it's safe to create the object.
+    # Now it's safe to create the object.
     return ProgramMetadata(**kwargs)
 
 

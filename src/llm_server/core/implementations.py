@@ -9,6 +9,7 @@ import dspy
 from PIL import Image
 
 from llm_server.core import logging
+from llm_server.core.circuit_breaker import CircuitBreaker
 from llm_server.core.model_interfaces import ModelOutput
 from llm_server.core.output_processors import DefaultOutputProcessor
 from llm_server.core.protocols import ModelBackend, OutputProcessor
@@ -69,7 +70,8 @@ class DSPyModelBackend(ModelBackend):
             "but a non-dict input was provided."
         )
 
-    async def predict(self, input: Any) -> ModelOutput:
+    @CircuitBreaker()
+    async def predict(self, input: Any) -> ModelOutput: # type: ignore[override]
         max_attempts = 3
         base_delay = 1  # seconds
         trace_id = str(uuid.uuid4())
@@ -176,8 +178,6 @@ class ImageContent:
     def bytes(self) -> bytes:
         """Get image as bytes, converting if necessary and fixing padding errors."""
         import base64
-
-        from llm_server.core import logging  # Local import for clarity
     
         if self._bytes is None:
             if isinstance(self._content, bytes):
@@ -192,15 +192,14 @@ class ImageContent:
                     except ValueError as e:
                         raise ValueError(f"Invalid data URI provided: {e}") from e
     
-                # --- Robust Decoding Logic with Enhanced Logging ---
                 try:
-                    # 1. Log the initial state for diagnostics
+                    # Log the initial state for diagnostics
                     initial_len = len(content_str)
                     logging.info(f"ImageContent: Attempting to decode base64 string. Initial length: {initial_len}")
                     logging.debug(f"ImageContent: First 30 chars of string: '{content_str[:30]}...'")
                     logging.debug(f"ImageContent: Last 30 chars of string: '...{content_str[-30:]}'")
     
-                    # 2. Calculate and log required padding
+                    # Calculate and log required padding
                     missing_padding = len(content_str) % 4
                     logging.debug(f"ImageContent: Calculated missing padding characters: {missing_padding}")
     
@@ -211,15 +210,13 @@ class ImageContent:
                     else:
                         logging.info("ImageContent: String length is valid, no padding needed.")
     
-                    # 3. Attempt the decode operation
+                    # Attempt the decode operation
                     self._bytes = base64.b64decode(content_str)
                     logging.info(f"ImageContent: Successfully decoded base64 string to {len(self._bytes)} bytes.")
     
                 except (binascii.Error, TypeError) as e:
-                    # This log is crucial if the error persists
                     logging.error(f"ImageContent: base64.b64decode FAILED even after padding attempt. Final length was {len(content_str)}.", exc_info=True)
                     raise ValueError(f"Content is not a valid base64 string: {e}") from e
-                # --- End of Enhanced Logic ---
     
         if self._bytes is None:
             raise TypeError("Image content could not be converted to bytes.")
@@ -295,7 +292,7 @@ class ImageProcessor:
 
         return PipelineData(
             media_type=MediaType.IMAGE,
-            content=processed_dspy,  # Now returning dspy.Image instead of PIL Image
+            content=processed_dspy,
             metadata={
                 **data.metadata,
                 "processed": True,

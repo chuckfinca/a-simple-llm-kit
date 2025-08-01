@@ -2,9 +2,9 @@ import time
 import uuid
 from typing import Any, Optional
 
+from llm_server.core import logging
 from llm_server.core.protocols import ModelBackend, PipelineStep
 from llm_server.core.types import MediaType, PipelineData
-from llm_server.src.llm_server.core import logging
 
 
 class PerformanceMetrics:
@@ -78,14 +78,13 @@ class PerformanceMetrics:
         # Cost rates per 1M tokens (input, output) in USD as of March 24, 2025
         pricing = {
             "gpt-4o-mini": (0.15, 0.60),
-            "gpt-4o": (2.5, 10),
+            "gpt-4o": (2.5, 10.0),
             "openai-o3-mini": (1.1, 4.4),
             "claude-3.7-sonnet": (3.0, 15.0),
             "claude-3.5-haiku": (0.8, 4.0),
             "gemini-2.0-flash": (0.1, 0.4),
             "gemini-2.0-flash-lite": (0.075, 0.3),
-            # Fallback rates for unknown models
-            "default": (0.0015, 0.002),
+            "default": (1.5, 2.0),
         }
 
         # Get rate for the model, default to fallback rate if not found
@@ -93,8 +92,8 @@ class PerformanceMetrics:
         input_rate, output_rate = pricing.get(key, pricing["default"])
 
         # Calculate cost
-        input_cost = (self.token_usage["input"] / 1000) * input_rate
-        output_cost = (self.token_usage["output"] / 1000) * output_rate
+        input_cost = (self.token_usage["input"] / 1_000_000) * input_rate
+        output_cost = (self.token_usage["output"] / 1_000_000) * output_rate
         total_cost = input_cost + output_cost
 
         # Store in metadata
@@ -264,7 +263,8 @@ class ModelBackendTracker:
             return self.backend.get_lm_history()
         return []
 
-        # --- Token Usage Strategy Methods ---
+
+    # Token Usage
 
     def _get_tokens_from_dspy_history(self) -> Optional[tuple[int, int]]:
         """Strategy 1: Get token usage from DSPy LM history."""
@@ -311,7 +311,6 @@ class ModelBackendTracker:
         if prompt_tokens is not None and completion_tokens is not None:
             return prompt_tokens, completion_tokens
 
-        # Otherwise, return None
         return None
 
     def _get_tokens_from_estimation(
@@ -324,8 +323,6 @@ class ModelBackendTracker:
         estimated_output = len(str(output_str)) // 3
         logging.info("Token usage estimated from character count.")
         return estimated_input, estimated_output
-
-    # --- Main Method ---
 
     def determine_token_usage(self, result: Any, input_data: Any):
         """

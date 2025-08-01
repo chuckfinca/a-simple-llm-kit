@@ -1,11 +1,16 @@
 import asyncio
+from collections.abc import Coroutine
 from datetime import datetime, timedelta
 from enum import Enum
 from functools import wraps
-from typing import Any
+from typing import Any, Callable, ParamSpec, TypeVar
 
 from llm_server.core import logging
 from llm_server.core.utils import get_utc_now
+
+# --- Define Type Variables for the decorator ---
+P = ParamSpec("P")
+R = TypeVar("R")
 
 
 class State(Enum):
@@ -49,11 +54,13 @@ class CircuitBreaker:
             },
         }
 
-    def __call__(self, func):
+    def __call__(
+        self, func: Callable[P, Coroutine[Any, Any, R]]
+    ) -> Callable[P, Coroutine[Any, Any, R]]:
         self.protected_function_name = func.__name__  # Capture function name
 
         @wraps(func)
-        async def wrapper(*args, **kwargs):
+        async def wrapper(*args: P.args, **kwargs: P.kwargs) -> R:
             self.metrics["total_calls"] += 1
 
             async with self.lock:

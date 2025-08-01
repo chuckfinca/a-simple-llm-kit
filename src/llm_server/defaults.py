@@ -13,6 +13,7 @@ class InMemoryStorageAdapter(StorageAdapter):
     def list_keys(self, prefix: str = ""): return [k for k in self._data if k.startswith(prefix)]
     def delete(self, key: str): return self._data.pop(key, None) is not None
 
+
 class YamlConfigProvider(ConfigProvider):
     """Loads model configuration from a standard YAML file."""
     def __init__(self, config_path: str):

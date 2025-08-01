@@ -335,17 +335,16 @@ pytest tests/
 
 ```
 .
-├── app/
-│   ├── api/            # FastAPI routes and schemas
-│   ├── core/           # Core implementations
-│   ├── models/         # Model interfaces
-│   └── services/       # Business logic
-├── config/             # Configuration files
-├── .github/actions/    # Custom GitHub Actions
-├── prometheus/         # Prometheus configuration
-├── tests/              # Unit tests
-├── docker-compose.yml  # Docker Compose configuration
-└── run.py              # Server entry point
+├── src/
+│   └── llm_server/
+│       ├── core/           # Core framework protocols, components, and logic
+│       ├── models/         # ModelManager, ProgramManager, and default signatures
+│       └── defaults.py     # Default implementations of framework protocols
+├── config/                 # Configuration files (e.g., model_config.yml)
+├── .github/                # GitHub Actions workflows
+├── tests/                  # Unit and integration tests
+├── pyproject.toml          # Project definition and dependencies
+└── ...
 ```
 
 ## Contributing

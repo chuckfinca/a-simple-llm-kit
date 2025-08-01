@@ -25,10 +25,11 @@ class ProgramRegistry:
 
     def _load_programs(self):
         """Load existing programs from the provided storage adapter."""
-        all_keys = self.storage_adapter.list_keys()
-        # Find all keys that look like program metadata files (e.g., "my_program/1.0.0.json")
-        metadata_keys = [k for k in all_keys if '/' in k and k.endswith('.json') and not k.startswith('evaluations/')]
-
+        metadata_keys = [
+            k for k in self.storage_adapter.list_keys()
+            if '/' in k and k.endswith('.json') and not k.startswith('evaluations/')
+        ]
+        
         for key in metadata_keys:
             try:
                 raw_data = self.storage_adapter.load(key)
@@ -130,8 +131,6 @@ class ProgramRegistry:
         except (json.JSONDecodeError, TypeError) as e:
             logging.error(f"Error loading program metadata for {program_id}/{version}: {e}")
             return None
-
-    # --- METHODS TO ADD BACK ---
 
     def register_optimized_program(
         self,
