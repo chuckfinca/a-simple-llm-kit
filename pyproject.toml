@@ -17,7 +17,6 @@ classifiers = [
 ]
 dependencies = [
     "fastapi[all]>=0.68.0",
-    "uvicorn>=0.15.0",
     "pydantic>=2.0.0",
     "pydantic-settings>=2.0.0",
     "python-dotenv>=0.19.0",
@@ -30,9 +29,6 @@ dependencies = [
 
 [project.urls]
 Homepage = "https://github.com/chuckfinca/llm-server"
-
-[project.scripts]
-llm-server = "llm_server.runner:main"
 
 [project.optional-dependencies]
 dev = [
