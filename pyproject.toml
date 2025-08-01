@@ -7,13 +7,13 @@ name = "llm-server"
 version = "0.2.0"
 description = "A lightweight, extensible server for working with large language models, focused on pipeline processing and multi-modal capabilities. Built with FastAPI and DSPy."
 readme = "README.md"
-requires-python = ">=3.10"
+requires-python = ">=3.9"
 license = "MIT"
 authors = [{ name = "Charles Feinn", email = "charles@appsimple.io" }]
 classifiers = [
     "Development Status :: 3 - Alpha",
     "Intended Audience :: Developers",
-    "Programming Language :: Python :: 3.10",
+    "Programming Language :: Python :: 3.9",
 ]
 dependencies = [
     "fastapi[all]>=0.68.0",
@@ -80,7 +80,7 @@ dummy-variable-rgx = "^(_+|unused_)"
 known-first-party = ["llm_server"]
 
 [tool.mypy]
-python_version = "3.10"
+python_version = "3.9"
 warn_return_any = true
 ignore_missing_imports = true
 
