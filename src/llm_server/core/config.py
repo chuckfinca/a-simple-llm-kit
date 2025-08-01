@@ -9,7 +9,7 @@ class FrameworkSettings(BaseSettings):
     anthropic_api_key: str = os.getenv("ANTHROPIC_API_KEY", "")
     huggingface_api_key: str = os.getenv("HUGGINGFACE_API_KEY", "")
     gemini_api_key: str = os.getenv("GEMINI_API_KEY", "")
-    
+
     # --- OpenTelemetry Configuration ---
     # Master switch for the entire OTel integration
     otel_enabled: bool = os.getenv("OTEL_ENABLED", "false").lower() == "true"

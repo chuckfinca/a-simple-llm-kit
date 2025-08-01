@@ -1,5 +1,10 @@
 from collections.abc import Sequence
 
+from llm_server.core.opentelemetry_integration import (
+    _OTEL_ENABLED,
+    _tracer,
+    trace,
+)
 from llm_server.core.protocols import PipelineStep
 from llm_server.core.types import PipelineData
 
@@ -47,7 +52,43 @@ class Pipeline:
         """Execute steps in sequence"""
         self.validator.validate_initial_data(initial_data, self.steps[0])
 
-        current_data = initial_data
-        for step in self.steps:
-            current_data = await step.process(current_data)
-        return current_data
+        if not (_OTEL_ENABLED and _tracer):
+            # Fallback to non-traced execution if OTel is disabled
+            current_data = initial_data
+            for step in self.steps:
+                current_data = await step.process(current_data)
+            return current_data
+
+        # Execute with tracing using the idiomatic nested `with` pattern
+        with _tracer.start_as_current_span(
+            "pipeline.execute", attributes={"pipeline.step_count": len(self.steps)}
+        ) as parent_span:
+            current_data = initial_data
+            for i, step in enumerate(self.steps):
+                step_name = step.__class__.__name__
+                with _tracer.start_as_current_span(
+                    f"pipeline.step.{step_name}", attributes={"pipeline.step.index": i}
+                ) as step_span:
+                    try:
+                        # Add rich attributes before processing
+                        step_span.set_attribute(
+                            "pipeline.step.input_type", current_data.media_type.value
+                        )
+
+                        result = await step.process(current_data)
+
+                        # Add attributes after processing
+                        step_span.set_attribute(
+                            "pipeline.step.output_type", result.media_type.value
+                        )
+                        current_data = result
+
+                    except Exception as e:
+                        step_span.record_exception(e)
+                        step_span.set_status(trace.StatusCode.ERROR, str(e))
+                        parent_span.set_status(
+                            trace.StatusCode.ERROR, f"Step {i} ({step_name}) failed"
+                        )
+                        raise
+
+            return current_data

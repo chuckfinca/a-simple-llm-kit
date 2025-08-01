@@ -1,5 +1,5 @@
 from dataclasses import dataclass, field
-from typing import Any, Optional
+from typing import Any
 
 import dspy
 
@@ -11,7 +11,7 @@ class ProviderConfig:
     """Configuration for a model provider"""
 
     api_key: str
-    base_url: Optional[str] = None
+    base_url: str | None = None
     default_params: dict[str, Any] = field(default_factory=dict)
 
     def __post_init__(self):

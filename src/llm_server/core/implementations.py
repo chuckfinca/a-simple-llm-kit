@@ -3,7 +3,7 @@ import base64
 import binascii
 import io
 import uuid
-from typing import Any, Optional, Union
+from typing import Any
 
 import dspy
 from PIL import Image
@@ -24,7 +24,7 @@ class DSPyModelBackend(ModelBackend):
         model_manager,
         model_id: str,
         signature_class: type[dspy.Signature],
-        output_processor: Optional[OutputProcessor] = None,
+        output_processor: OutputProcessor | None = None,
     ):
         self.model_manager = model_manager
         self.model_id = model_id
@@ -34,8 +34,8 @@ class DSPyModelBackend(ModelBackend):
 
         # Fulfill the ModelBackend protocol by adding these properties.
         # They are not used in the simplified server but are required by the interface.
-        self.last_prompt_tokens: Optional[int] = None
-        self.last_completion_tokens: Optional[int] = None
+        self.last_prompt_tokens: int | None = None
+        self.last_completion_tokens: int | None = None
 
     def _determine_input_key(
         self, signature_class: type[dspy.Signature], input_data: Any
@@ -132,7 +132,7 @@ class ModelProcessor:
         backend: ModelBackend,
         accepted_types: list[MediaType],
         output_type: MediaType,
-        metadata: Optional[dict[str, Any]] = None,
+        metadata: dict[str, Any] | None = None,
     ):
         self.backend = backend
         self._accepted_types = accepted_types
@@ -176,11 +176,11 @@ class ModelProcessor:
 class ImageContent:
     """Wrapper class to handle different image formats and conversions"""
 
-    def __init__(self, content: Union[str, bytes]):
+    def __init__(self, content: str | bytes):
         self._content = content
-        self._bytes: Optional[bytes] = None
-        self._pil_image: Optional[Image.Image] = None
-        self._data_uri: Optional[str] = None
+        self._bytes: bytes | None = None
+        self._pil_image: Image.Image | None = None
+        self._data_uri: str | None = None
 
     @property
     def bytes(self) -> bytes:

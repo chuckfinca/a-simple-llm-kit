@@ -1,11 +1,11 @@
 import datetime as dt
 import uuid
-from typing import Any, Optional
+from typing import Any
 
 from llm_server.core.types import ProgramMetadata
 
 
-def ensure_program_metadata_object(metadata: Any) -> Optional[ProgramMetadata]:
+def ensure_program_metadata_object(metadata: Any) -> ProgramMetadata | None:
     """
     Safely create a ProgramMetadata object from a dictionary,
     ensuring all required fields are present and correctly typed.
@@ -73,9 +73,9 @@ class MetadataCollector:
     def collect_response_metadata(
         result,
         model_id: str,
-        program_metadata: Optional[Any] = None,
-        performance_metrics: Optional[dict[str, Any]] = None,
-        model_info: Optional[dict[str, Any]] = None,
+        program_metadata: Any | None = None,
+        performance_metrics: dict[str, Any] | None = None,
+        model_info: dict[str, Any] | None = None,
     ) -> dict[str, Any]:
         """
         Collect and structure all metadata for the API response.

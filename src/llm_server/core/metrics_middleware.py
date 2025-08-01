@@ -1,5 +1,5 @@
 import json
-from typing import Callable, Optional
+from collections.abc import Callable
 
 from llm_server.core import logging
 
@@ -10,7 +10,7 @@ class PerformanceMetricsMiddleware:
     This version removes the legacy metrics collection and relies entirely on the pipeline metrics.
     """
 
-    def __init__(self, app, tracked_paths: Optional[list] = None):
+    def __init__(self, app, tracked_paths: list | None = None):
         self.app = app
         self.tracked_paths = tracked_paths or [
             "/v1/predict",
