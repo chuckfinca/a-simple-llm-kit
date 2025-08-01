@@ -7,13 +7,13 @@ name = "llm-server"
 version = "0.2.0"
 description = "A lightweight, extensible server for working with large language models, focused on pipeline processing and multi-modal capabilities. Built with FastAPI and DSPy."
 readme = "README.md"
-requires-python = ">=3.9"
+requires-python = ">=3.10"
 license = "MIT"
 authors = [{ name = "Charles Feinn", email = "charles@appsimple.io" }]
 classifiers = [
     "Development Status :: 3 - Alpha",
     "Intended Audience :: Developers",
-    "Programming Language :: Python :: 3.9",
+    "Programming Language :: Python :: 3.10",
 ]
 dependencies = [
     "fastapi[all]>=0.68.0",
@@ -24,12 +24,15 @@ dependencies = [
     "dspy-ai>=2.0.0",
     "pillow>=10.0.0",
     "python-multipart>=0.0.5"
+    # NOTE: prometheus-client is included in the opentelemetry optional dependencies
+    # Remove "llm-server[opentelemetry]" - that's a circular dependency!
 ]
 
 [project.urls]
 Homepage = "https://github.com/chuckfinca/llm-server"
 
 [project.optional-dependencies]
+# This is where OpenTelemetry dependencies belong
 opentelemetry = [
     "opentelemetry-api>=1.25.0",
     "opentelemetry-sdk>=1.25.0",
@@ -45,6 +48,7 @@ dev = [
     "email-validator>=2.0.0",
     "pillow-heif",
     "modal",
+    # This is fine - dev dependencies can include optional features of the same package
     "llm-server[opentelemetry]" 
 ]
 
@@ -80,7 +84,7 @@ dummy-variable-rgx = "^(_+|unused_)"
 known-first-party = ["llm_server"]
 
 [tool.mypy]
-python_version = "3.9"
+python_version = "3.10"
 warn_return_any = true
 ignore_missing_imports = true
 
