@@ -16,21 +16,32 @@ class JsonFormatter(logging.Formatter):
     """
     Formats log records as a JSON object, including any 'extra' data.
     """
+    # Define the standard attributes of a LogRecord so we can exclude them
+    # from the 'extra' data.
+    RESERVED_ATTRS = {
+        'args', 'asctime', 'created', 'exc_info', 'exc_text', 'filename',
+        'funcName', 'levelname', 'levelno', 'lineno', 'message', 'module',
+        'msecs', 'msg', 'name', 'pathname', 'process', 'processName',
+        'relativeCreated', 'stack_info', 'thread', 'threadName'
+    }
+
     def format(self, record):
-        # Create a dictionary from the log record
+        # Start with the standard, required log fields
         log_object = {
             "timestamp": self.formatTime(record, self.datefmt),
             "level": record.levelname,
             "message": record.getMessage(),
         }
 
-        # Add any 'extra' data passed to the logger
-        # The 'extra' dictionary is dynamically created, so we use getattr for type safety.
-        # This safely gets the attribute or returns an empty dict if it's missing.
-        log_object.update(getattr(record, "extra", {}))
+        # Now, iterate through the record's dictionary and add any key that is
+        # NOT a standard, reserved logging attribute. This correctly captures
+        # all data passed in the 'extra' dictionary.
+        for key, value in record.__dict__.items():
+            if key not in self.RESERVED_ATTRS:
+                log_object[key] = value
 
-        return json.dumps(log_object)
-
+        # Use a safe default for JSON serialization to prevent crashes
+        return json.dumps(log_object, default=str)
 
 class LogConfig(pydantic.BaseModel):
     """Logging configuration to be set for the server"""

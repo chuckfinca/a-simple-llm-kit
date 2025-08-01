@@ -9,7 +9,7 @@ import dspy
 from PIL import Image
 
 from llm_server.core import logging
-from llm_server.core.model_interfaces import ModelOutput, Signature
+from llm_server.core.model_interfaces import ModelOutput
 from llm_server.core.output_processors import DefaultOutputProcessor
 from llm_server.core.protocols import ModelBackend, OutputProcessor
 from llm_server.core.types import MediaType, PipelineData
@@ -22,7 +22,7 @@ class DSPyModelBackend(ModelBackend):
         self,
         model_manager,
         model_id: str,
-        signature_class: type[Signature],
+        signature_class: type[dspy.Signature],
         output_processor: OutputProcessor | None = None
     ):
         self.model_manager = model_manager
@@ -37,7 +37,7 @@ class DSPyModelBackend(ModelBackend):
         self.last_completion_tokens: Optional[int] = None
 
     def _determine_input_key(
-        self, signature_class: type[Signature], input_data: Any
+        self, signature_class: type[dspy.Signature], input_data: Any
     ) -> dict[str, Any]:
         """
         Determine the appropriate input key based on the signature class and input data.
@@ -133,9 +133,6 @@ class ModelProcessor:
         result = await self.backend.predict(data.content)
 
         # Combine metadata from multiple sources with priority:
-        # 1. Model execution specific metadata (from result)
-        # 2. Processor instance metadata
-        # 3. Input data metadata
         combined_metadata = {**data.metadata, **self.metadata}
 
         # Add execution info if available from the result

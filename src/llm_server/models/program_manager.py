@@ -38,7 +38,7 @@ class ProgramManager:
         try:
             # Note: This relies on the ModelManager also being refactored to use a ConfigProvider
             config = self.model_manager.config
-            for model_id, model_config in config.get("models", {}).items():
+            for model_id, model_config in config.items():
                 model_name = model_config.get("model_name", "")
                 provider = model_name.split("/")[0] if "/" in model_name else "unknown"
                 base_model = (
@@ -125,11 +125,24 @@ class ProgramManager:
             result = predictor(**input_data)
 
             raw_completion_text = None
+            logging.info("Attempting to extract raw completion from LM history...")
             try:
                 if hasattr(lm, "history") and lm.history:
                     last_interaction = lm.history[-1]
-                    if "outputs" in last_interaction and last_interaction["outputs"]:
+                    
+                    # Robustly check for the raw completion in multiple possible locations
+                    # This handles slight differences in how different LMs store history.
+                    if "response" in last_interaction and "choices" in last_interaction["response"] and last_interaction["response"]["choices"]:
+                        raw_completion_text = last_interaction["response"]["choices"][0].get("text")
+                        logging.info("SUCCESS: Extracted raw completion from history['response']['choices'].")
+                    elif "outputs" in last_interaction and last_interaction["outputs"]:
                         raw_completion_text = last_interaction["outputs"][0]
+                        logging.info("SUCCESS: Extracted raw completion from history['outputs'].")
+                    else:
+                        logging.warning("History entry found, but a known key for raw output ('response' or 'outputs') is missing or empty.")
+                else:
+                    logging.warning("LM history is missing or empty. Cannot extract raw completion.")
+
             except Exception as e:
                 logging.error(
                     f"ProgramManager failed to extract raw completion text: {e}",

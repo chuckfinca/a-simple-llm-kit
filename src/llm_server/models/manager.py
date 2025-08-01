@@ -15,7 +15,7 @@ class ModelManager:
          self._initialize_models()
 
     def _initialize_models(self):
-        for model_id, model_config in self.config["models"].items():
+        for model_id, model_config in self.config.items():
             try:
                 lm = self.provider_manager.initialize_model(
                     model_config["model_name"], model_config
