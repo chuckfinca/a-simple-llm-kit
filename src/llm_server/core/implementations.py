@@ -24,7 +24,7 @@ class DSPyModelBackend(ModelBackend):
         model_manager,
         model_id: str,
         signature_class: type[dspy.Signature],
-        output_processor: OutputProcessor | None = None,
+        output_processor: Optional[OutputProcessor] = None,
     ):
         self.model_manager = model_manager
         self.model_id = model_id

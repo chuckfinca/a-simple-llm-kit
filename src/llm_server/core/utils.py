@@ -5,7 +5,7 @@ from typing import Any, Optional
 from llm_server.core.types import ProgramMetadata
 
 
-def ensure_program_metadata_object(metadata: Any) -> ProgramMetadata | None:
+def ensure_program_metadata_object(metadata: Any) -> Optional[ProgramMetadata]:
     """
     Safely create a ProgramMetadata object from a dictionary,
     ensuring all required fields are present and correctly typed.
