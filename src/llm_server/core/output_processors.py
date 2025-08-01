@@ -11,11 +11,12 @@ class DefaultOutputProcessor(OutputProcessor):
             return result.output
         # Also handle cases where the result might be from a TypedPredictor
         if hasattr(result, "model_dump_json"):
-             try:
-                 # It's a Pydantic model
-                 return json.loads(result.model_dump_json())
-             except Exception:
-                 pass # Fallback to returning the object
-        logging.warning("DefaultOutputProcessor: Result has no 'output' attribute and is not a standard Pydantic model.")
+            try:
+                # It's a Pydantic model
+                return json.loads(result.model_dump_json())
+            except Exception:
+                pass  # Fallback to returning the object
+        logging.warning(
+            "DefaultOutputProcessor: Result has no 'output' attribute and is not a standard Pydantic model."
+        )
         return result
-        

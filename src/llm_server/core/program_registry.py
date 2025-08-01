@@ -26,10 +26,11 @@ class ProgramRegistry:
     def _load_programs(self):
         """Load existing programs from the provided storage adapter."""
         metadata_keys = [
-            k for k in self.storage_adapter.list_keys()
-            if '/' in k and k.endswith('.json') and not k.startswith('evaluations/')
+            k
+            for k in self.storage_adapter.list_keys()
+            if "/" in k and k.endswith(".json") and not k.startswith("evaluations/")
         ]
-        
+
         for key in metadata_keys:
             try:
                 raw_data = self.storage_adapter.load(key)
@@ -50,7 +51,9 @@ class ProgramRegistry:
                             self.programs[program_id] = {}
                         self.programs[program_id][version] = program_class
                     except (ImportError, AttributeError) as e:
-                        logging.warning(f"Failed to dynamically load program {program_id}/{version}: {e}")
+                        logging.warning(
+                            f"Failed to dynamically load program {program_id}/{version}: {e}"
+                        )
             except (json.JSONDecodeError, KeyError) as e:
                 logging.error(f"Error processing program from storage key '{key}': {e}")
 
@@ -71,11 +74,18 @@ class ProgramRegistry:
         code_hash = hashlib.sha256(source_code.encode()).hexdigest()[:8]
 
         metadata = {
-            "id": program_id, "name": name, "description": description or "",
-            "tags": tags or [], "version": version, "code_hash": code_hash,
-            "parent_id": parent_id, "parent_version": parent_version,
-            "class_name": program_class.__name__, "module_path": program_class.__module__,
-            "created_at": format_timestamp(), "source_code": source_code,
+            "id": program_id,
+            "name": name,
+            "description": description or "",
+            "tags": tags or [],
+            "version": version,
+            "code_hash": code_hash,
+            "parent_id": parent_id,
+            "parent_version": parent_version,
+            "class_name": program_class.__name__,
+            "module_path": program_class.__module__,
+            "created_at": format_timestamp(),
+            "source_code": source_code,
         }
 
         storage_key = f"{program_id}/{version}.json"
@@ -84,14 +94,20 @@ class ProgramRegistry:
         if program_id not in self.programs:
             self.programs[program_id] = {}
         self.programs[program_id][version] = program_class
-        return ProgramMetadata(**{k: v for k, v in metadata.items() if k in ProgramMetadata.model_fields})
+        return ProgramMetadata(
+            **{k: v for k, v in metadata.items() if k in ProgramMetadata.model_fields}
+        )
 
-    def get_program(self, program_id: str, version: str = "latest") -> Optional[type[Signature]]:
+    def get_program(
+        self, program_id: str, version: str = "latest"
+    ) -> Optional[type[Signature]]:
         """Get a program class by ID and version."""
         if program_id not in self.programs:
-            logging.warning(f"Program ID '{program_id}' not found in in-memory registry.")
+            logging.warning(
+                f"Program ID '{program_id}' not found in in-memory registry."
+            )
             return None
-    
+
         version_to_get = version
         if version_to_get == "latest":
             # Resolve the latest version string first
@@ -100,36 +116,44 @@ class ProgramRegistry:
                 logging.warning(f"No versions found for program ID '{program_id}'.")
                 return None
             version_to_get = available_versions[-1]
-    
+
         # Now, version_to_get is guaranteed to be a string.
         # We can safely use it to access the dictionary.
         program_class = self.programs[program_id].get(version_to_get)
-    
+
         if program_class is None:
-            logging.warning(f"Version '{version_to_get}' for program '{program_id}' not found in registry.")
-    
+            logging.warning(
+                f"Version '{version_to_get}' for program '{program_id}' not found in registry."
+            )
+
         return program_class
 
-    def get_program_metadata(self, program_id: str, version: str = "latest") -> Optional[ProgramMetadata]:
+    def get_program_metadata(
+        self, program_id: str, version: str = "latest"
+    ) -> Optional[ProgramMetadata]:
         """Get program metadata by loading from storage."""
         if program_id not in self.programs and version != "latest":
-             # If we don't have it in memory, we can't look it up by version
-             return None
+            # If we don't have it in memory, we can't look it up by version
+            return None
         if version == "latest":
             versions = self.list_program_versions(program_id)
             if not versions:
                 return None
             version = versions[-1]
-        
+
         storage_key = f"{program_id}/{version}.json"
         raw_data = self.storage_adapter.load(storage_key)
         if not raw_data:
             return None
         try:
             data = json.loads(raw_data)
-            return ProgramMetadata(**{k: v for k, v in data.items() if k in ProgramMetadata.model_fields})
+            return ProgramMetadata(
+                **{k: v for k, v in data.items() if k in ProgramMetadata.model_fields}
+            )
         except (json.JSONDecodeError, TypeError) as e:
-            logging.error(f"Error loading program metadata for {program_id}/{version}: {e}")
+            logging.error(
+                f"Error loading program metadata for {program_id}/{version}: {e}"
+            )
             return None
 
     def register_optimized_program(
@@ -157,8 +181,13 @@ class ProgramRegistry:
         tags.append(f"optimizer:{optimizer_name}")
 
         return self.register_program(
-            program_class=program_class, name=name, description=description, tags=tags,
-            version=new_version, parent_id=parent_id, parent_version=parent_version,
+            program_class=program_class,
+            name=name,
+            description=description,
+            tags=tags,
+            version=new_version,
+            parent_id=parent_id,
+            parent_version=parent_version,
         )
 
     def get_program_tree(self, program_id: str) -> dict[str, Any]:
@@ -167,7 +196,11 @@ class ProgramRegistry:
         if not root_metadata:
             return {}
 
-        tree = {"metadata": root_metadata.model_dump(), "versions": {}, "derivatives": []}
+        tree = {
+            "metadata": root_metadata.model_dump(),
+            "versions": {},
+            "derivatives": [],
+        }
         all_versions = self.list_program_versions(program_id, with_metadata=True)
         for metadata in all_versions:
             tree["versions"][metadata.version] = metadata.model_dump()
@@ -185,11 +218,17 @@ class ProgramRegistry:
     ):
         """Saves the result of a program evaluation to storage."""
         eval_data = {
-            "evaluation_id": evaluation_id, "program_id": program_id, "version": version,
-            "model_id": model_id, "model_info": model_info, "results": results,
+            "evaluation_id": evaluation_id,
+            "program_id": program_id,
+            "version": version,
+            "model_id": model_id,
+            "model_info": model_info,
+            "results": results,
             "evaluated_at": format_timestamp(),
         }
-        storage_key = f"evaluations/{program_id}/{version}/{model_id}/{evaluation_id}.json"
+        storage_key = (
+            f"evaluations/{program_id}/{version}/{model_id}/{evaluation_id}.json"
+        )
         self.storage_adapter.save(storage_key, json.dumps(eval_data, indent=2))
         logging.info(f"Saved evaluation result to {storage_key}")
 
@@ -205,8 +244,12 @@ class ProgramRegistry:
             prefix += f"{version}/"
         if model_id:
             prefix += f"{model_id}/"
-            
-        eval_keys = [key for key in self.storage_adapter.list_keys(prefix=prefix) if key.endswith('.json')]
+
+        eval_keys = [
+            key
+            for key in self.storage_adapter.list_keys(prefix=prefix)
+            if key.endswith(".json")
+        ]
         results = []
         for key in eval_keys:
             raw_data = self.storage_adapter.load(key)
@@ -217,20 +260,30 @@ class ProgramRegistry:
                     logging.warning(f"Could not parse evaluation file: {key}")
         return results
 
-    def list_program_versions(self, program_id: str, with_metadata: bool = False) -> list:
+    def list_program_versions(
+        self, program_id: str, with_metadata: bool = False
+    ) -> list:
         """Helper to list all version strings or metadata for a given program ID."""
         prefix = f"{program_id}/"
         all_keys = self.storage_adapter.list_keys(prefix=prefix)
-        version_keys = [k for k in all_keys if k.endswith('.json')]
-        versions = [key.replace(prefix, "").replace(".json", "") for key in version_keys]
-        
-        sorted_versions = sorted(versions, key=lambda v: [int(x) for x in v.split('.')])
+        version_keys = [k for k in all_keys if k.endswith(".json")]
+        versions = [
+            key.replace(prefix, "").replace(".json", "") for key in version_keys
+        ]
+
+        sorted_versions = sorted(versions, key=lambda v: [int(x) for x in v.split(".")])
 
         if not with_metadata:
             return sorted_versions
-        
-        return [self.get_program_metadata(program_id, v) for v in sorted_versions if self.get_program_metadata(program_id, v)]
+
+        return [
+            self.get_program_metadata(program_id, v)
+            for v in sorted_versions
+            if self.get_program_metadata(program_id, v)
+        ]
 
     def _generate_program_id(self, name: str) -> str:
         """Generate a unique program ID based on the name."""
-        return "".join(c for c in name.replace(" ", "_") if c.isalnum() or c == "_").lower()
+        return "".join(
+            c for c in name.replace(" ", "_") if c.isalnum() or c == "_"
+        ).lower()

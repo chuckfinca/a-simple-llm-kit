@@ -110,7 +110,7 @@ class ProgramManager:
             timestamp=format_timestamp(),
             trace_id=trace_id,
         )
-        
+
         # Apply the preprocessor if one was provided
         if preprocessor and "image" in input_data:
             input_data["image"] = preprocessor(input_data["image"])
@@ -125,19 +125,33 @@ class ProgramManager:
             try:
                 if hasattr(lm, "history") and lm.history:
                     last_interaction = lm.history[-1]
-                    
+
                     # Robustly check for the raw completion in multiple possible locations
                     # This handles slight differences in how different LMs store history.
-                    if "response" in last_interaction and "choices" in last_interaction["response"] and last_interaction["response"]["choices"]:
-                        raw_completion_text = last_interaction["response"]["choices"][0].get("text")
-                        logging.info("SUCCESS: Extracted raw completion from history['response']['choices'].")
+                    if (
+                        "response" in last_interaction
+                        and "choices" in last_interaction["response"]
+                        and last_interaction["response"]["choices"]
+                    ):
+                        raw_completion_text = last_interaction["response"]["choices"][
+                            0
+                        ].get("text")
+                        logging.info(
+                            "SUCCESS: Extracted raw completion from history['response']['choices']."
+                        )
                     elif "outputs" in last_interaction and last_interaction["outputs"]:
                         raw_completion_text = last_interaction["outputs"][0]
-                        logging.info("SUCCESS: Extracted raw completion from history['outputs'].")
+                        logging.info(
+                            "SUCCESS: Extracted raw completion from history['outputs']."
+                        )
                     else:
-                        logging.warning("History entry found, but a known key for raw output ('response' or 'outputs') is missing or empty.")
+                        logging.warning(
+                            "History entry found, but a known key for raw output ('response' or 'outputs') is missing or empty."
+                        )
                 else:
-                    logging.warning("LM history is missing or empty. Cannot extract raw completion.")
+                    logging.warning(
+                        "LM history is missing or empty. Cannot extract raw completion."
+                    )
 
             except Exception as e:
                 logging.error(
@@ -232,4 +246,3 @@ class ProgramManager:
         return self.registry.get_evaluation_results(
             program_id=program_id, version=version, model_id=model_id
         )
-        

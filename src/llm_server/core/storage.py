@@ -6,6 +6,7 @@ from llm_server.core.protocols import StorageAdapter
 
 class InMemoryStorageAdapter(StorageAdapter):
     """Simple in-memory storage for development and testing."""
+
     def __init__(self):
         self._data: dict[str, str] = {}
 
@@ -24,6 +25,7 @@ class InMemoryStorageAdapter(StorageAdapter):
 
 class FileSystemStorageAdapter(StorageAdapter):
     """Stores program metadata on the local filesystem."""
+
     def __init__(self, base_dir: str = "dspy_programs"):
         self.base_dir = Path(base_dir)
         self.base_dir.mkdir(parents=True, exist_ok=True)
@@ -46,20 +48,20 @@ class FileSystemStorageAdapter(StorageAdapter):
         prefix_path = self.base_dir / prefix
         if not prefix_path.is_dir():
             return []
-        
+
         keys = []
-        for path in prefix_path.rglob('*'):
+        for path in prefix_path.rglob("*"):
             if path.is_file():
                 # Store keys with relative paths and forward slashes
                 keys.append(path.relative_to(self.base_dir).as_posix())
-        
+
         # Also include files directly under the prefix if it's not the root
         if prefix:
-             for path in self.base_dir.glob(f"{prefix}*"):
-                 if path.is_file():
-                     key = path.relative_to(self.base_dir).as_posix()
-                     if key not in keys:
-                         keys.append(key)
+            for path in self.base_dir.glob(f"{prefix}*"):
+                if path.is_file():
+                    key = path.relative_to(self.base_dir).as_posix()
+                    if key not in keys:
+                        keys.append(key)
 
         return keys
 
@@ -69,4 +71,3 @@ class FileSystemStorageAdapter(StorageAdapter):
             path.unlink()
             return True
         return False
-        

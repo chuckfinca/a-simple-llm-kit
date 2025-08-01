@@ -16,13 +16,32 @@ class JsonFormatter(logging.Formatter):
     """
     Formats log records as a JSON object, including any 'extra' data.
     """
+
     # Define the standard attributes of a LogRecord so we can exclude them
     # from the 'extra' data.
     RESERVED_ATTRS = {
-        'args', 'asctime', 'created', 'exc_info', 'exc_text', 'filename',
-        'funcName', 'levelname', 'levelno', 'lineno', 'message', 'module',
-        'msecs', 'msg', 'name', 'pathname', 'process', 'processName',
-        'relativeCreated', 'stack_info', 'thread', 'threadName'
+        "args",
+        "asctime",
+        "created",
+        "exc_info",
+        "exc_text",
+        "filename",
+        "funcName",
+        "levelname",
+        "levelno",
+        "lineno",
+        "message",
+        "module",
+        "msecs",
+        "msg",
+        "name",
+        "pathname",
+        "process",
+        "processName",
+        "relativeCreated",
+        "stack_info",
+        "thread",
+        "threadName",
     }
 
     def format(self, record):
@@ -42,6 +61,7 @@ class JsonFormatter(logging.Formatter):
 
         # Use a safe default for JSON serialization to prevent crashes
         return json.dumps(log_object, default=str)
+
 
 class LogConfig(pydantic.BaseModel):
     """Logging configuration to be set for the server"""

@@ -8,7 +8,7 @@ class ModelOutput(Protocol):
     def to_response(self) -> Any:
         """Convert model output to API response format"""
         ...
-        
+
 
 class SimpleOutput(ModelOutput):
     """A simple wrapper for string outputs to conform to ModelOutput."""

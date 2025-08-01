@@ -24,12 +24,12 @@ class DSPyModelBackend(ModelBackend):
         model_manager,
         model_id: str,
         signature_class: type[dspy.Signature],
-        output_processor: OutputProcessor | None = None
+        output_processor: OutputProcessor | None = None,
     ):
         self.model_manager = model_manager
         self.model_id = model_id
         self.signature = signature_class
-        
+
         self.output_processor = output_processor or DefaultOutputProcessor()
 
         # Fulfill the ModelBackend protocol by adding these properties.
@@ -59,11 +59,11 @@ class DSPyModelBackend(ModelBackend):
         if len(input_fields) == 1:
             key = list(input_fields.keys())[0]
             return {key: input_data}
-        
+
         # For complex signatures, the input must be a dict.
         if isinstance(input_data, dict):
             return input_data
-        
+
         # Fallback if a non-dict is passed for a multi-input signature
         raise TypeError(
             f"Signature {signature_class.__name__} has multiple inputs, "
@@ -71,39 +71,47 @@ class DSPyModelBackend(ModelBackend):
         )
 
     @CircuitBreaker()
-    async def predict(self, input: Any) -> ModelOutput: # type: ignore[override]
+    async def predict(self, input: Any) -> ModelOutput:  # type: ignore[override]
         max_attempts = 3
         base_delay = 1  # seconds
         trace_id = str(uuid.uuid4())
         input_dict = self._determine_input_key(self.signature, input)
-    
+
         for attempt in range(max_attempts):
             try:
                 lm = self.model_manager.models.get(self.model_id)
                 if not lm:
                     raise ValueError(f"Model {self.model_id} not found")
-    
+
                 logging.warning(
                     f"Executing {self.signature.__name__} without program tracking. "
                     "This is the expected behavior for the simplified llm-server."
                 )
-    
+
                 dspy.configure(lm=lm)
                 predictor = dspy.Predict(self.signature)
-    
+
                 raw_result = predictor(**input_dict)
-                
+
                 return self.output_processor.process(raw_result)
-    
+
             except Exception as e:
                 if attempt == max_attempts - 1:
-                    logging.error(f"Final attempt failed for model {self.model_id}: {str(e)}", extra={"trace_id": trace_id})
+                    logging.error(
+                        f"Final attempt failed for model {self.model_id}: {str(e)}",
+                        extra={"trace_id": trace_id},
+                    )
                     raise
                 delay = base_delay * (2**attempt)
-                logging.warning(f"API call failed: {str(e)}, retrying in {delay} seconds... (attempt {attempt + 1}/{max_attempts})", extra={"trace_id": trace_id})
+                logging.warning(
+                    f"API call failed: {str(e)}, retrying in {delay} seconds... (attempt {attempt + 1}/{max_attempts})",
+                    extra={"trace_id": trace_id},
+                )
                 await asyncio.sleep(delay)
-    
-        raise RuntimeError("The prediction loop completed without returning or raising an error.")
+
+        raise RuntimeError(
+            "The prediction loop completed without returning or raising an error."
+        )
 
     def get_lm_history(self):
         """Safely get LM history without exposing the full LM object"""
@@ -178,49 +186,68 @@ class ImageContent:
     def bytes(self) -> bytes:
         """Get image as bytes, converting if necessary and fixing padding errors."""
         import base64
-    
+
         if self._bytes is None:
             if isinstance(self._content, bytes):
                 self._bytes = self._content
             elif isinstance(self._content, str):
                 content_str = self._content
-                
+
                 if content_str.startswith("data:"):
                     try:
                         _, base64_data = content_str.split(",", 1)
                         content_str = base64_data
                     except ValueError as e:
                         raise ValueError(f"Invalid data URI provided: {e}") from e
-    
+
                 try:
                     # Log the initial state for diagnostics
                     initial_len = len(content_str)
-                    logging.info(f"ImageContent: Attempting to decode base64 string. Initial length: {initial_len}")
-                    logging.debug(f"ImageContent: First 30 chars of string: '{content_str[:30]}...'")
-                    logging.debug(f"ImageContent: Last 30 chars of string: '...{content_str[-30:]}'")
-    
+                    logging.info(
+                        f"ImageContent: Attempting to decode base64 string. Initial length: {initial_len}"
+                    )
+                    logging.debug(
+                        f"ImageContent: First 30 chars of string: '{content_str[:30]}...'"
+                    )
+                    logging.debug(
+                        f"ImageContent: Last 30 chars of string: '...{content_str[-30:]}'"
+                    )
+
                     # Calculate and log required padding
                     missing_padding = len(content_str) % 4
-                    logging.debug(f"ImageContent: Calculated missing padding characters: {missing_padding}")
-    
+                    logging.debug(
+                        f"ImageContent: Calculated missing padding characters: {missing_padding}"
+                    )
+
                     if missing_padding:
-                        padding_to_add = '=' * (4 - missing_padding)
+                        padding_to_add = "=" * (4 - missing_padding)
                         content_str += padding_to_add
-                        logging.info(f"ImageContent: Applied '{padding_to_add}' padding. New length: {len(content_str)}")
+                        logging.info(
+                            f"ImageContent: Applied '{padding_to_add}' padding. New length: {len(content_str)}"
+                        )
                     else:
-                        logging.info("ImageContent: String length is valid, no padding needed.")
-    
+                        logging.info(
+                            "ImageContent: String length is valid, no padding needed."
+                        )
+
                     # Attempt the decode operation
                     self._bytes = base64.b64decode(content_str)
-                    logging.info(f"ImageContent: Successfully decoded base64 string to {len(self._bytes)} bytes.")
-    
+                    logging.info(
+                        f"ImageContent: Successfully decoded base64 string to {len(self._bytes)} bytes."
+                    )
+
                 except (binascii.Error, TypeError) as e:
-                    logging.error(f"ImageContent: base64.b64decode FAILED even after padding attempt. Final length was {len(content_str)}.", exc_info=True)
-                    raise ValueError(f"Content is not a valid base64 string: {e}") from e
-    
+                    logging.error(
+                        f"ImageContent: base64.b64decode FAILED even after padding attempt. Final length was {len(content_str)}.",
+                        exc_info=True,
+                    )
+                    raise ValueError(
+                        f"Content is not a valid base64 string: {e}"
+                    ) from e
+
         if self._bytes is None:
             raise TypeError("Image content could not be converted to bytes.")
-    
+
         return self._bytes
 
     @property

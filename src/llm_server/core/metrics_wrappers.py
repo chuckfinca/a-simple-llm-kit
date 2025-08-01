@@ -263,7 +263,6 @@ class ModelBackendTracker:
             return self.backend.get_lm_history()
         return []
 
-
     # Token Usage
 
     def _get_tokens_from_dspy_history(self) -> Optional[tuple[int, int]]:

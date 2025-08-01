@@ -12,4 +12,4 @@ class FrameworkSettings(BaseSettings):
 
     class ConfigDict:
         env_file = ".env"
-        extra = 'ignore'
+        extra = "ignore"
