@@ -1,153 +1,181 @@
-LLM Server
-A production-ready, extensible server for large language models with advanced pipeline processing, multi-modal capabilities, and enterprise-grade reliability features. Built with FastAPI, DSPy, and a composable architecture.
-🚀 Key Features
-Core Architecture
+# LLM Server Framework
 
-Pipeline-First Design: Composable, type-safe pipeline steps for complex processing workflows
-Protocol-Based Framework: Clean interfaces enabling easy extension and testing
-Multi-Modal Processing: Unified handling of text, images, and structured data
-Performance Tracking: Comprehensive metrics collection with step-by-step timing analysis
+A production-ready Python library for building LLM-powered applications with advanced pipeline processing, multi-modal capabilities, and enterprise-grade reliability features. Built with FastAPI, DSPy, and a composable architecture.
 
-Reliability & Monitoring
+**This is a framework/library, not a standalone server.** Use it as a dependency in your own FastAPI applications.
 
-Circuit Breaker Pattern: Built-in failure protection with automatic recovery
-Distributed Tracing: Request tracking across pipeline steps with unique trace IDs
-Prometheus Integration: Production-ready metrics for monitoring and alerting
-Structured Logging: JSON-formatted logs with context preservation
+## 🚀 Key Features
 
-Model & Provider Support
+### Core Architecture
+- **Pipeline-First Design**: Composable, type-safe pipeline steps for complex processing workflows
+- **Protocol-Based Framework**: Clean interfaces enabling easy extension and testing
+- **Multi-Modal Processing**: Unified handling of text, images, and structured data
+- **Performance Tracking**: Comprehensive metrics collection with step-by-step timing analysis
 
-Multi-Provider: OpenAI, Anthropic, Google Gemini, and Hugging Face
-Flexible Configuration: YAML-based model configuration with parameter overrides
-Token Management: Accurate token counting and cost estimation
-Program Versioning: DSPy program management with optimization tracking
+### Reliability & Monitoring
+- **Circuit Breaker Pattern**: Built-in failure protection with automatic recovery
+- **Distributed Tracing**: Request tracking across pipeline steps with unique trace IDs
+- **Prometheus Integration**: Production-ready metrics for monitoring and alerting
+- **Structured Logging**: JSON-formatted logs with context preservation
 
-Specialized Capabilities
+### Model & Provider Support
+- **Multi-Provider**: OpenAI, Anthropic, Google Gemini, and Hugging Face
+- **Flexible Configuration**: YAML-based model configuration with parameter overrides
+- **Token Management**: Accurate token counting and cost estimation
+- **Program Versioning**: DSPy program management with optimization tracking
 
-Contact Extraction: Advanced business card OCR with structured data output
-Image Processing: Intelligent resizing, format conversion, and optimization
-Type Safety: Full Pydantic integration with runtime protocol checking
-Hot Reloading: Development-friendly auto-reload for rapid iteration
+### Specialized Capabilities
+- **Contact Extraction**: Advanced business card OCR with structured data output
+- **Image Processing**: Intelligent resizing, format conversion, and optimization
+- **Type Safety**: Full Pydantic integration with runtime protocol checking
 
-🏗️ Architecture Overview
-The server is built around a composable pipeline architecture where each step implements the PipelineStep protocol:
-python# Core pipeline concept
+## 🏗️ Architecture Overview
+
+The server is built around a composable pipeline architecture where each step implements the `PipelineStep` protocol:
+
+```python
+# Core pipeline concept
 Pipeline([
     ImageProcessor(max_size=(800, 800)),           # Resize and optimize images
     ModelProcessor(backend, [MediaType.IMAGE]),    # Send to vision model
     OutputProcessor()                              # Format response
 ])
-Key Components
+```
 
-Core Framework (src/llm_server/core/): Protocols, types, and base implementations
-Model Management (src/llm_server/models/): Provider abstraction and program management
-Pipeline System: Composable processing steps with automatic validation
-Metrics & Monitoring: Performance tracking, circuit breakers, and observability
+### Key Components
 
-🚀 Quick Start
-Option 1: Docker (Production-Ready)
-bash# Set up environment variables
-cat > .env << EOL
-OPENAI_API_KEY=your_key_here
-ANTHROPIC_API_KEY=your_key_here
-HUGGINGFACE_API_KEY=your_key_here
-GEMINI_API_KEY=your_key_here
-LLM_SERVER_API_KEY=your_server_key_here
-EOL
+- **Core Framework** (`src/llm_server/core/`): Protocols, types, and base implementations
+- **Model Management** (`src/llm_server/models/`): Provider abstraction and program management
+- **Pipeline System**: Composable processing steps with automatic validation
+- **Metrics & Monitoring**: Performance tracking, circuit breakers, and observability
 
-# Build and run
-docker-compose up --build
-The server will be available at http://localhost:8000 with automatic metrics collection.
-Option 2: Local Development with uv
-bash# Install uv if needed
-curl -LsSf https://astral.sh/uv/install.sh | sh
+## 💻 Using the LLM Server Framework
 
-# Set up project
-uv venv
-uv pip install -e ".[dev]"
+The LLM Server is a Python library designed to provide a structured, extensible framework for building your own LLM-powered applications. It is **not a standalone server** and is meant to be used as a dependency in your own FastAPI project.
 
-# Run with hot-reloading
-LLM_SERVER_RELOAD=true uv run llm-server
-📡 API Examples
-Health & System Status
-bashcurl -X GET http://localhost:8000/v1/health
-Text Completion with Advanced Parameters
-bashcurl -X POST http://localhost:8000/v1/predict \
-  -H "Content-Type: application/json" \
-  -H "X-API-Key: your_server_key_here" \
-  -d '{
-    "request": {
-      "prompt": "Explain quantum computing in simple terms",
-      "model_id": "gpt-4o-mini",
-      "temperature": 0.7,
-      "top_p": 0.95,
-      "frequency_penalty": 0.2,
-      "presence_penalty": 0.1,
-      "stop": [".", "\n"],
-      "max_tokens": 500
-    }
-  }'
-Business Card Contact Extraction
-Extract structured contact information from business card images:
-bash# Encode image as base64
-IMAGE_B64=$(base64 < path/to/business_card.png | tr -d '\n')
+### Installation
 
-curl -X POST http://localhost:8000/v1/extract-contact \
-  -H "Content-Type: application/json" \
-  -H "X-API-Key: your_server_key_here" \
-  -d '{
-    "request": {
-      "pipeline_id": "extract-contact",
-      "content": "'"$IMAGE_B64"'",
-      "media_type": "image",
-      "params": {
-        "model_id": "gpt-4o-mini",
-        "temperature": 0.1
-      }
-    }
-  }'
-Structured Response Example:
-json{
-  "success": true,
-  "data": {
-    "name": {
-      "given_name": "John",
-      "family_name": "Smith"
-    },
-    "work": {
-      "job_title": "Software Engineer",
-      "organization_name": "Innovate Corp"
-    },
-    "contact": {
-      "phone_numbers": [{"label": "work", "value": "123-456-7890"}],
-      "email_addresses": [{"label": "work", "value": "john.smith@innovatecorp.com"}],
-      "postal_addresses": [{
-        "label": "work",
-        "value": {
-          "street": "123 Innovation Drive",
-          "city": "Techville",
-          "state": "CA",
-          "postal_code": "12345",
-          "country": "USA"
+```bash
+# Install from PyPI (when published)
+pip install llm-server
+
+# Or install from source for development
+git clone https://github.com/chuckfinca/llm-server
+cd llm-server
+pip install -e ".[dev]"
+```
+
+### Basic Usage Example
+
+Here's how to use the framework to build a simple FastAPI application:
+
+**Your Application's `main.py`:**
+
+```python
+from fastapi import FastAPI, HTTPException
+from contextlib import asynccontextmanager
+from pydantic import BaseModel
+
+# 1. Import the framework's core components
+from llm_server.models.manager import ModelManager
+from llm_server.models.program_manager import ProgramManager
+from llm_server.core.config import FrameworkSettings
+from llm_server.defaults import YamlConfigProvider, FileSystemStorageAdapter
+from llm_server.models.predictor import Predictor  # Basic text completion
+
+class PredictionRequest(BaseModel):
+    prompt: str
+    model_id: str = "gpt-4o-mini"
+    temperature: float = 0.7
+
+@asynccontextmanager
+async def lifespan(app: FastAPI):
+    # 2. Configure and instantiate the framework managers
+    settings = FrameworkSettings()  # Loads API keys from .env
+    config_provider = YamlConfigProvider("config/model_config.yml")
+    storage_adapter = FileSystemStorageAdapter(base_dir="dspy_programs")
+
+    model_manager = ModelManager(config_provider=config_provider, settings=settings)
+    program_manager = ProgramManager(model_manager=model_manager, storage_adapter=storage_adapter)
+
+    # 3. Register your application's DSPy programs
+    program_manager.register_program(program_class=Predictor, name="Text Completion")
+
+    # 4. Make managers available to your API routes
+    app.state.model_manager = model_manager
+    app.state.program_manager = program_manager
+    
+    yield
+    
+    # Cleanup
+    app.state.model_manager = None
+    app.state.program_manager = None
+
+app = FastAPI(lifespan=lifespan)
+
+@app.post("/predict")
+async def predict_text(request: PredictionRequest):
+    """Your custom prediction endpoint"""
+    try:
+        # The program_id is auto-generated from the class name ('Predictor' becomes 'predictor')
+        result, execution_info, raw_completion = await app.state.program_manager.execute_program(
+            program_id="predictor",
+            model_id=request.model_id,
+            input_data={"input": request.prompt}
+        )
+        
+        # The execution_info object already contains rich, structured metadata
+        return {
+            "success": True,
+            "data": {"response": result.output},
+            # Use the full, rich metadata object from the framework
+            "metadata": execution_info.model_dump()
         }
-      }]
-    }
-  },
-  "metadata": {
-    "performance": {
-      "timing": {"total_ms": 1250.45},
-      "tokens": {"input": 1245, "output": 387, "cost_usd": 0.001547},
-      "trace_id": "a7b3c9e1-f8d2-4e6a-9b1c-8d5f7e9a2c4b"
-    },
-    "model": {
-      "id": "gpt-4o-mini",
-      "provider": "openai"
-    }
-  }
-}
-📊 Response Format
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+# Add more custom endpoints using the framework...
+```
+
+**Required Configuration (`config/model_config.yml`):**
+
+```yaml
+models:
+  gpt-4o-mini:
+    model_name: "openai/gpt-4o-mini"
+    max_tokens: 3000
+  claude-3.5-sonnet:
+    model_name: "anthropic/claude-3-5-sonnet-20241022"
+    max_tokens: 4000
+```
+
+**Environment Variables (`.env`):**
+
+```env
+OPENAI_API_KEY=your_openai_key_here
+ANTHROPIC_API_KEY=your_anthropic_key_here
+HUGGINGFACE_API_KEY=your_hf_key_here
+GEMINI_API_KEY=your_gemini_key_here
+```
+
+### Running Your Application
+
+```bash
+# Run your FastAPI application
+uvicorn main:app --reload
+
+# Test your custom endpoint
+curl -X POST http://localhost:8000/predict \
+  -H "Content-Type: application/json" \
+  -d '{"prompt": "Hello, world!", "model_id": "gpt-4o-mini"}'
+```
+
+## 📊 Response Format
+
 All API responses follow a consistent envelope with comprehensive metadata:
-json{
+
+```json
+{
   "success": true,
   "data": {
     // Endpoint-specific response data
@@ -183,9 +211,14 @@ json{
     "execution_id": "unique-execution-id"
   }
 }
-⚙️ Configuration
-Model Configuration (config/model_config.yml)
-yamlmodels:
+```
+
+## ⚙️ Configuration
+
+### Model Configuration (`config/model_config.yml`)
+
+```yaml
+models:
   gpt-4o-mini:
     model_name: "openai/gpt-4o-mini"
     max_tokens: 3000
@@ -209,8 +242,12 @@ yamlmodels:
     max_tokens: 2048
     additional_params:
       temperature: 0.9
-Environment Variables
-env# Required API Keys
+```
+
+### Environment Variables
+
+```env
+# Required API Keys
 OPENAI_API_KEY=your_openai_key
 ANTHROPIC_API_KEY=your_anthropic_key
 HUGGINGFACE_API_KEY=your_hf_key
@@ -222,10 +259,16 @@ LLM_SERVER_RELOAD=false  # Set to true for development
 
 # Optional: Custom config path
 LLM_CONFIG_PATH=config/model_config.yml
-🔧 Building Custom Pipelines
-The framework's strength lies in its composable pipeline architecture. Create custom processing steps by implementing the PipelineStep protocol:
-Custom Pipeline Step
-pythonfrom llm_server.core.protocols import PipelineStep
+```
+
+## 🔧 Building Custom Pipelines
+
+The framework's strength lies in its composable pipeline architecture. Create custom processing steps by implementing the `PipelineStep` protocol:
+
+### Custom Pipeline Step
+
+```python
+from llm_server.core.protocols import PipelineStep
 from llm_server.core.types import MediaType, PipelineData
 
 class TextSummarizerStep(PipelineStep):
@@ -253,8 +296,12 @@ class TextSummarizerStep(PipelineStep):
                 "summarized": True
             }
         )
-Custom Model Backend
-pythonfrom llm_server.core.protocols import ModelBackend
+```
+
+### Custom Model Backend
+
+```python
+from llm_server.core.protocols import ModelBackend
 from llm_server.core.model_interfaces import ModelOutput
 
 class CustomModelBackend(ModelBackend):
@@ -271,8 +318,12 @@ class CustomModelBackend(ModelBackend):
     
     def get_lm_history(self) -> list[Any]:
         return []  # Return model interaction history
-Combining Custom Components
-pythonfrom llm_server.core.pipeline import Pipeline
+```
+
+### Combining Custom Components
+
+```python
+from llm_server.core.pipeline import Pipeline
 from llm_server.core.implementations import ModelProcessor
 
 # Create a custom pipeline
@@ -287,34 +338,67 @@ custom_pipeline = Pipeline([
 
 # Execute the pipeline
 result = await custom_pipeline.execute(initial_data)
-🚢 Production Deployment
-Modal.com (Recommended)
-The project includes GitHub Actions workflows for seamless deployment:
-yaml# .github/workflows/deploy_modal.yml
-name: Deploy to Modal
-on:
-  push:
-    branches: [main]
-jobs:
-  deploy:
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v4
-      - name: Deploy to Modal
-        run: |
-          pip install modal
-          modal deploy deploy_modal_app.py
-Infrastructure Components
+```
 
-Cloudflare Tunnel: Secure ingress with automatic HTTPS
-Prometheus Metrics: Application and system monitoring
-Structured Logging: JSON logs with trace correlation
-Health Checks: Automated service monitoring
+## 🔧 Framework Integration Patterns
 
-See INFRASTRUCTURE.md for detailed deployment and monitoring setup.
-🧪 Testing
-Run All Tests
-bash# Install test dependencies
+### Pipeline-Based Processing
+
+Build complex processing workflows using the pipeline architecture:
+
+```python
+from llm_server.core.pipeline import Pipeline
+from llm_server.core.implementations import ImageProcessor, ModelProcessor
+from llm_server.core.types import MediaType, PipelineData
+
+# Create a multi-step image processing pipeline
+image_pipeline = Pipeline([
+    ImageProcessor(max_size=(800, 800)),
+    ModelProcessor(
+        backend=your_model_backend,
+        accepted_types=[MediaType.IMAGE],
+        output_type=MediaType.TEXT
+    )
+])
+
+# Execute with automatic validation and metrics
+result = await image_pipeline.execute(initial_data)
+```
+
+### Circuit Breaker Integration
+
+Protect your application from cascading failures:
+
+```python
+from llm_server.core.circuit_breaker import CircuitBreaker
+
+@CircuitBreaker(failure_threshold=5, reset_timeout=60)
+async def protected_model_call(input_data):
+    # Your model call logic
+    return await model.predict(input_data)
+```
+
+### Performance Monitoring
+
+Track metrics across your application:
+
+```python
+from llm_server.core.metrics_wrappers import PerformanceMetrics, ModelBackendTracker
+
+# Wrap your backends with performance tracking
+metrics = PerformanceMetrics()
+tracked_backend = ModelBackendTracker(your_backend, metrics)
+
+# Get comprehensive performance data
+performance_summary = metrics.get_summary()
+```
+
+## 🧪 Testing
+
+### Run All Tests
+
+```bash
+# Install test dependencies
 uv pip install -e ".[dev]"
 
 # Run the full test suite
@@ -322,14 +406,18 @@ pytest tests/
 
 # Run with coverage
 pytest tests/ --cov=llm_server --cov-report=html
-Test Categories
+```
 
-Unit Tests: Core protocol and implementation testing
-Integration Tests: End-to-end pipeline validation
-Performance Tests: Circuit breaker and metrics validation
+### Test Categories
 
-Example Test
-python@pytest.mark.asyncio
+- **Unit Tests**: Core protocol and implementation testing
+- **Integration Tests**: End-to-end pipeline validation
+- **Performance Tests**: Circuit breaker and metrics validation
+
+### Example Test
+
+```python
+@pytest.mark.asyncio
 async def test_custom_pipeline():
     """Test custom pipeline with multiple steps"""
     text_data = PipelineData(
@@ -345,7 +433,11 @@ async def test_custom_pipeline():
     
     result = await pipeline.execute(text_data)
     assert result.metadata["summarized"] is True
-📁 Project Structure
+```
+
+## 📁 Project Structure
+
+```
 llm-server/
 ├── src/llm_server/           # Main application package
 │   ├── core/                 # Core framework components
@@ -364,56 +456,54 @@ llm-server/
 ├── config/                   # Configuration files
 │   └── model_config.yml      # Model definitions
 ├── tests/                    # Test suite
-├── .github/workflows/        # CI/CD pipelines
-├── INFRASTRUCTURE.md         # Deployment documentation
 └── README.md                 # This file
-🔍 Monitoring & Observability
-Metrics Available
+```
 
-Request latency and throughput
-Token usage and cost tracking
-Circuit breaker state and recovery
-Pipeline step performance
-Model provider health
+## 🔍 Monitoring & Observability
 
-Logging Features
+### Metrics Available
 
-Structured JSON logging
-Distributed tracing with correlation IDs
-Performance metrics integration
-Error context preservation
+- Request latency and throughput
+- Token usage and cost tracking
+- Circuit breaker state and recovery
+- Pipeline step performance
+- Model provider health
 
-Health Endpoints
-bash# Basic health check
-curl http://localhost:8000/v1/health
+### Logging Features
 
-# Detailed system status
-curl http://localhost:8000/v1/health/detailed
-🤝 Contributing
+- Structured JSON logging
+- Distributed tracing with correlation IDs
+- Performance metrics integration
+- Error context preservation
 
-Fork the repository
-Create a feature branch: git checkout -b feature/amazing-feature
-Run tests: pytest tests/
-Run linting: ruff format . && ruff check .
-Commit changes: git commit -m 'Add amazing feature'
-Push to branch: git push origin feature/amazing-feature
-Open a Pull Request
+## 🤝 Contributing
 
-Development Guidelines
+1. **Fork the repository**
+2. **Create a feature branch**: `git checkout -b feature/amazing-feature`
+3. **Run tests**: `pytest tests/`
+4. **Run linting**: `ruff format . && ruff check .`
+5. **Commit changes**: `git commit -m 'Add amazing feature'`
+6. **Push to branch**: `git push origin feature/amazing-feature`
+7. **Open a Pull Request**
 
-Follow the protocol-based architecture patterns
-Add comprehensive tests for new features
-Update documentation for API changes
-Use type hints and maintain type safety
-Follow the existing code style (Ruff configuration)
+### Development Guidelines
 
-📄 License
-MIT License - see LICENSE file for details
-🆘 Support
+- Follow the protocol-based architecture patterns
+- Add comprehensive tests for new features
+- Update documentation for API changes
+- Use type hints and maintain type safety
+- Follow the existing code style (Ruff configuration)
 
-Documentation: Check the inline code documentation
-Issues: Open GitHub issues for bugs and feature requests
-Discussions: Use GitHub Discussions for questions and ideas
+## 📄 License
 
+MIT License - see [LICENSE](LICENSE) file for details
 
-Built with ❤️ using FastAPI, DSPy, and modern Python patterns
+## 🆘 Support
+
+- **Documentation**: Check the inline code documentation
+- **Issues**: Open GitHub issues for bugs and feature requests
+- **Discussions**: Use GitHub Discussions for questions and ideas
+
+---
+
+**Built with** ❤️ **using FastAPI, DSPy, and modern Python patterns**
