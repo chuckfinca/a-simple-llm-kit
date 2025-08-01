@@ -1,5 +1,6 @@
 import uuid
-from typing import Any, Callable, Optional
+from collections.abc import Callable
+from typing import Any
 
 import dspy
 from dspy.signatures.signature import Signature
@@ -52,9 +53,9 @@ class ProgramManager:
     def register_program(
         self,
         program_class: type[Signature],
-        name: Optional[str] = None,
-        description: Optional[str] = None,
-        tags: Optional[list[str]] = None,
+        name: str | None = None,
+        description: str | None = None,
+        tags: list[str] | None = None,
         version: str = "1.0.0",
     ) -> ProgramMetadata:
         return self.registry.register_program(
@@ -67,7 +68,7 @@ class ProgramManager:
 
     def get_program(
         self, program_id: str, version: str = "latest"
-    ) -> Optional[type[Signature]]:
+    ) -> type[Signature] | None:
         return self.registry.get_program(program_id, version)
 
     async def execute_program(
@@ -76,9 +77,9 @@ class ProgramManager:
         model_id: str,
         input_data: dict[str, Any],
         program_version: str = "latest",
-        trace_id: Optional[str] = None,
-        preprocessor: Optional[Callable] = None,
-    ) -> tuple[Any, ProgramExecutionInfo, Optional[str]]:
+        trace_id: str | None = None,
+        preprocessor: Callable | None = None,
+    ) -> tuple[Any, ProgramExecutionInfo, str | None]:
         """
         Executes a program and returns the result, execution info, and raw completion text.
         """
@@ -171,8 +172,8 @@ class ProgramManager:
 
     def get_execution_history(
         self,
-        program_id: Optional[str] = None,
-        model_id: Optional[str] = None,
+        program_id: str | None = None,
+        model_id: str | None = None,
         limit: int = 100,
     ) -> list[ProgramExecutionInfo]:
         filtered = self.executions
@@ -188,9 +189,9 @@ class ProgramManager:
         parent_id: str,
         optimizer_name: str,
         parent_version: str = "latest",
-        name: Optional[str] = None,
-        description: Optional[str] = None,
-        tags: Optional[list[str]] = None,
+        name: str | None = None,
+        description: str | None = None,
+        tags: list[str] | None = None,
     ) -> ProgramMetadata:
         if parent_version == "latest":
             parent_metadata = self.registry.get_program_metadata(parent_id)
@@ -221,7 +222,7 @@ class ProgramManager:
         model_id: str,
         results: dict[str, Any],
         program_version: str = "latest",
-        evaluation_id: Optional[str] = None,
+        evaluation_id: str | None = None,
     ):
         if program_version == "latest":
             program_metadata = self.registry.get_program_metadata(program_id)
@@ -240,8 +241,8 @@ class ProgramManager:
     def get_evaluation_results(
         self,
         program_id: str,
-        version: Optional[str] = None,
-        model_id: Optional[str] = None,
+        version: str | None = None,
+        model_id: str | None = None,
     ) -> list[dict[str, Any]]:
         return self.registry.get_evaluation_results(
             program_id=program_id, version=version, model_id=model_id

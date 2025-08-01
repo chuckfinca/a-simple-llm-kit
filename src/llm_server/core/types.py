@@ -1,5 +1,5 @@
 from enum import Enum
-from typing import Any, Optional
+from typing import Any
 
 import pydantic
 
@@ -26,8 +26,8 @@ class ProgramMetadata(pydantic.BaseModel):
     code_hash: str
     description: str = ""
     tags: list[str] = []
-    parent_id: Optional[str] = None
-    parent_version: Optional[str] = None
+    parent_id: str | None = None
+    parent_version: str | None = None
 
 
 class ProgramExecutionInfo(pydantic.BaseModel):
@@ -40,4 +40,4 @@ class ProgramExecutionInfo(pydantic.BaseModel):
     model_info: dict[str, Any] = {}
     execution_id: str
     timestamp: str
-    trace_id: Optional[str] = None
+    trace_id: str | None = None

@@ -1,4 +1,4 @@
-from typing import Any, Optional
+from typing import Any
 
 import pytest
 
@@ -44,12 +44,12 @@ class MockPipelineStep:
 class MockModelBackend:
     """Simple mock model that appends text"""
 
-    program_metadata: Optional[ProgramMetadata] = None
+    program_metadata: ProgramMetadata | None = None
 
     model_id: str = "mock-model"
 
-    last_prompt_tokens: Optional[int] = 0
-    last_completion_tokens: Optional[int] = 0
+    last_prompt_tokens: int | None = 0
+    last_completion_tokens: int | None = 0
 
     async def predict(self, input: str) -> str:
         return f"{input}_predicted"

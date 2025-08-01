@@ -1,4 +1,4 @@
-from typing import Any, Optional, Protocol, runtime_checkable
+from typing import Any, Protocol, runtime_checkable
 
 from llm_server.core.types import MediaType, PipelineData, ProgramMetadata
 
@@ -19,9 +19,9 @@ class ModelBackend(Protocol):
 
     model_id: str
 
-    program_metadata: Optional[ProgramMetadata]
-    last_prompt_tokens: Optional[int]
-    last_completion_tokens: Optional[int]
+    program_metadata: ProgramMetadata | None
+    last_prompt_tokens: int | None
+    last_completion_tokens: int | None
 
     async def predict(self, input: Any) -> Any: ...
 
@@ -32,7 +32,7 @@ class StorageAdapter(Protocol):
     """Defines the contract for how the framework stores and retrieves program metadata."""
 
     def save(self, key: str, data: str) -> None: ...
-    def load(self, key: str) -> Optional[str]: ...
+    def load(self, key: str) -> str | None: ...
     def list_keys(self, prefix: str = "") -> list[str]: ...
     def delete(self, key: str) -> bool: ...
 

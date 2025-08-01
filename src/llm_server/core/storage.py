@@ -1,5 +1,4 @@
 from pathlib import Path
-from typing import Optional
 
 from llm_server.core.protocols import StorageAdapter
 
@@ -13,7 +12,7 @@ class InMemoryStorageAdapter(StorageAdapter):
     def save(self, key: str, data: str) -> None:
         self._data[key] = data
 
-    def load(self, key: str) -> Optional[str]:
+    def load(self, key: str) -> str | None:
         return self._data.get(key)
 
     def list_keys(self, prefix: str = "") -> list[str]:
@@ -38,7 +37,7 @@ class FileSystemStorageAdapter(StorageAdapter):
         path.parent.mkdir(parents=True, exist_ok=True)
         path.write_text(data, encoding="utf-8")
 
-    def load(self, key: str) -> Optional[str]:
+    def load(self, key: str) -> str | None:
         path = self._get_path(key)
         if path.exists():
             return path.read_text(encoding="utf-8")

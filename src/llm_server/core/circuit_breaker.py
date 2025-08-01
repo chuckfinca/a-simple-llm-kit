@@ -1,18 +1,26 @@
 import asyncio
-import sys
-from collections.abc import Coroutine
+from collections.abc import Callable, Coroutine
 from datetime import datetime, timedelta
 from enum import Enum
 from functools import wraps
-from typing import Any, Callable, TypeVar
-
-if sys.version_info >= (3, 10):
-    from typing import ParamSpec
-else:
-    from typing_extensions import ParamSpec
+from typing import Any, ParamSpec, TypeVar
 
 from llm_server.core import logging
 from llm_server.core.utils import get_utc_now
+
+# --- OTel Integration ---
+# Import the new metric instruments. They will be `None` if OTel is disabled.
+try:
+    from llm_server.core.opentelemetry_integration import (
+        CIRCUIT_BREAKER_FAILURES_TOTAL,
+        CIRCUIT_BREAKER_STATE,
+        CIRCUIT_BREAKER_STATE_CHANGES_TOTAL,
+    )
+except ImportError:
+    CIRCUIT_BREAKER_FAILURES_TOTAL = None
+    CIRCUIT_BREAKER_STATE = None
+    CIRCUIT_BREAKER_STATE_CHANGES_TOTAL = None
+# --- End OTel Integration ---
 
 # --- Define Type Variables for the decorator ---
 P = ParamSpec("P")
@@ -171,6 +179,11 @@ class CircuitBreaker:
         self.failures += 1
         self.last_failure_time = datetime.now()
 
+        # --- OTel Instrumentation ---
+        if CIRCUIT_BREAKER_FAILURES_TOTAL:
+            attributes = {"function.name": self.protected_function_name or "unknown"}
+            CIRCUIT_BREAKER_FAILURES_TOTAL.add(1, attributes)
+
         # Update consecutive failures metric
         self.metrics["consecutive_failures"] += 1
         self.metrics["max_consecutive_failures"] = max(
@@ -226,6 +239,23 @@ class CircuitBreaker:
 
         # Reset timestamp for the new state
         self.metrics["state_change_timestamps"][to_state.value] = current_time
+
+        # --- OTel Instrumentation ---
+        attributes = {
+            "function.name": self.protected_function_name,
+            "from": from_state.value,
+            "to": to_state.value,
+        }
+        if CIRCUIT_BREAKER_STATE_CHANGES_TOTAL:
+            CIRCUIT_BREAKER_STATE_CHANGES_TOTAL.add(1, attributes)
+
+        if CIRCUIT_BREAKER_STATE:
+            # Breaker is OPEN (tripped)
+            if to_state == State.OPEN:
+                CIRCUIT_BREAKER_STATE.add(1, attributes)
+            # Breaker is returning to CLOSED from OPEN or HALF_OPEN
+            elif from_state == State.OPEN or from_state == State.HALF_OPEN:
+                CIRCUIT_BREAKER_STATE.add(-1, attributes)
 
         # Log state change
         logging.info(

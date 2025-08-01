@@ -3,7 +3,7 @@ import logging
 import logging.config
 import sys
 from pathlib import Path
-from typing import ClassVar, Optional
+from typing import ClassVar
 
 import pydantic
 
@@ -100,7 +100,7 @@ class LogConfig(pydantic.BaseModel):
     }
 
 
-def setup_logging(config: Optional[LogConfig] = None) -> None:
+def setup_logging(config: LogConfig | None = None) -> None:
     """Configure logging for the application"""
     if config is None:
         config = LogConfig()

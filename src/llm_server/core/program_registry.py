@@ -2,7 +2,7 @@ import hashlib
 import importlib
 import inspect
 import json
-from typing import Any, Optional
+from typing import Any
 
 from dspy.signatures.signature import Signature
 
@@ -60,12 +60,12 @@ class ProgramRegistry:
     def register_program(
         self,
         program_class: type[Signature],
-        name: Optional[str] = None,
-        description: Optional[str] = None,
-        tags: Optional[list[str]] = None,
+        name: str | None = None,
+        description: str | None = None,
+        tags: list[str] | None = None,
         version: str = "1.0.0",
-        parent_id: Optional[str] = None,
-        parent_version: Optional[str] = None,
+        parent_id: str | None = None,
+        parent_version: str | None = None,
     ) -> ProgramMetadata:
         """Register a DSPy program signature class and persist its metadata."""
         name = name or program_class.__name__
@@ -100,7 +100,7 @@ class ProgramRegistry:
 
     def get_program(
         self, program_id: str, version: str = "latest"
-    ) -> Optional[type[Signature]]:
+    ) -> type[Signature] | None:
         """Get a program class by ID and version."""
         if program_id not in self.programs:
             logging.warning(
@@ -130,7 +130,7 @@ class ProgramRegistry:
 
     def get_program_metadata(
         self, program_id: str, version: str = "latest"
-    ) -> Optional[ProgramMetadata]:
+    ) -> ProgramMetadata | None:
         """Get program metadata by loading from storage."""
         if program_id not in self.programs and version != "latest":
             # If we don't have it in memory, we can't look it up by version
@@ -162,9 +162,9 @@ class ProgramRegistry:
         parent_id: str,
         parent_version: str,
         optimizer_name: str,
-        name: Optional[str] = None,
-        description: Optional[str] = None,
-        tags: Optional[list[str]] = None,
+        name: str | None = None,
+        description: str | None = None,
+        tags: list[str] | None = None,
     ) -> ProgramMetadata:
         """Registers an optimized version of a program."""
         parent_metadata = self.get_program_metadata(parent_id, parent_version)
@@ -235,8 +235,8 @@ class ProgramRegistry:
     def get_evaluation_results(
         self,
         program_id: str,
-        version: Optional[str] = None,
-        model_id: Optional[str] = None,
+        version: str | None = None,
+        model_id: str | None = None,
     ) -> list[dict[str, Any]]:
         """Retrieves evaluation results from storage."""
         prefix = f"evaluations/{program_id}/"

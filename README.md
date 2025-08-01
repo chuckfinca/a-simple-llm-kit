@@ -10,28 +10,28 @@ A production-ready Python library for building LLM-powered applications with adv
 - **Pipeline-First Design**: Composable, type-safe pipeline steps for complex processing workflows
 - **Protocol-Based Framework**: Clean interfaces enabling easy extension and testing
 - **Multi-Modal Processing**: Unified handling of text, images, and structured data
-- **Performance Tracking**: Comprehensive metrics collection with step-by-step timing analysis
+- **Performance Tracking**: Comprehensive, per-request metrics collection with step-by-step timing
 
-### Reliability & Monitoring
+### Reliability & Observability
 - **Circuit Breaker Pattern**: Built-in failure protection with automatic recovery
-- **Distributed Tracing**: Request tracking across pipeline steps with unique trace IDs
-- **Prometheus Integration**: Production-ready metrics for monitoring and alerting
+- **OpenTelemetry Integration**: Vendor-neutral metrics and tracing for any backend (Prometheus, Datadog, etc.)
+- **Semantic Conventions**: Adheres to `llm.*` OTel conventions for out-of-the-box compatibility with observability tools
 - **Structured Logging**: JSON-formatted logs with context preservation
 
 ### Model & Provider Support
 - **Multi-Provider**: OpenAI, Anthropic, Google Gemini, and Hugging Face
 - **Flexible Configuration**: YAML-based model configuration with parameter overrides
-- **Token Management**: Accurate token counting and cost estimation
+- **Token Management**: Robust and accurate token counting with cost estimation
 - **Program Versioning**: DSPy program management with optimization tracking
 
 ### Specialized Capabilities
-- **Contact Extraction**: Advanced business card OCR with structured data output
 - **Image Processing**: Intelligent resizing, format conversion, and optimization
 - **Type Safety**: Full Pydantic integration with runtime protocol checking
+- **Custom Extensions**: Easy-to-implement custom pipeline steps and model backends
 
 ## 🏗️ Architecture Overview
 
-The server is built around a composable pipeline architecture where each step implements the `PipelineStep` protocol:
+The framework is built around a composable pipeline architecture where each step implements the `PipelineStep` protocol:
 
 ```python
 # Core pipeline concept
@@ -49,15 +49,13 @@ Pipeline([
 - **Pipeline System**: Composable processing steps with automatic validation
 - **Metrics & Monitoring**: Performance tracking, circuit breakers, and observability
 
-## 💻 Using the LLM Server Framework
-
-The LLM Server is a Python library designed to provide a structured, extensible framework for building your own LLM-powered applications. It is **not a standalone server** and is meant to be used as a dependency in your own FastAPI project.
+## 💻 Installation & Basic Usage
 
 ### Installation
 
 ```bash
 # Install from PyPI (when published)
-pip install llm-server
+pip install llm-server-framework
 
 # Or install from source for development
 git clone https://github.com/chuckfinca/llm-server
@@ -67,31 +65,33 @@ pip install -e ".[dev]"
 
 ### Basic Usage Example
 
-Here's how to use the framework to build a simple FastAPI application:
+Here's how to build a simple FastAPI application that uses the framework to provide a text completion endpoint with full performance tracking.
 
 **Your Application's `main.py`:**
 
 ```python
+import time
 from fastapi import FastAPI, HTTPException
 from contextlib import asynccontextmanager
 from pydantic import BaseModel
+import dspy
 
 # 1. Import the framework's core components
-from llm_server.models.manager import ModelManager
-from llm_server.models.program_manager import ProgramManager
 from llm_server.core.config import FrameworkSettings
-from llm_server.defaults import YamlConfigProvider, FileSystemStorageAdapter
-from llm_server.models.predictor import Predictor  # Basic text completion
+from llm_server.core.metrics_wrappers import PerformanceMetrics, ModelBackendTracker
+from llm_server.defaults import FileSystemStorageAdapter, YamlConfigProvider
+from llm_server.models.manager import ModelManager
+from llm_server.models.predictor import Predictor # A basic dspy.Signature
+from llm_server.models.program_manager import ProgramManager
 
 class PredictionRequest(BaseModel):
     prompt: str
     model_id: str = "gpt-4o-mini"
-    temperature: float = 0.7
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     # 2. Configure and instantiate the framework managers
-    settings = FrameworkSettings()  # Loads API keys from .env
+    settings = FrameworkSettings()
     config_provider = YamlConfigProvider("config/model_config.yml")
     storage_adapter = FileSystemStorageAdapter(base_dir="dspy_programs")
 
@@ -102,42 +102,55 @@ async def lifespan(app: FastAPI):
     program_manager.register_program(program_class=Predictor, name="Text Completion")
 
     # 4. Make managers available to your API routes
-    app.state.model_manager = model_manager
     app.state.program_manager = program_manager
-    
     yield
-    
-    # Cleanup
-    app.state.model_manager = None
     app.state.program_manager = None
 
 app = FastAPI(lifespan=lifespan)
 
 @app.post("/predict")
 async def predict_text(request: PredictionRequest):
-    """Your custom prediction endpoint"""
+    """Your custom prediction endpoint with performance tracking."""
     try:
-        # The program_id is auto-generated from the class name ('Predictor' becomes 'predictor')
-        result, execution_info, raw_completion = await app.state.program_manager.execute_program(
+        # A) Instantiate metrics for this request. This also sets up OTel context.
+        metrics = PerformanceMetrics()
+        program_manager: ProgramManager = app.state.program_manager
+
+        # B) Get the original model backend and wrap it with the performance tracker
+        original_backend = program_manager.model_manager.get_model(request.model_id)
+        tracked_backend = ModelBackendTracker(original_backend, metrics)
+
+        # C) Temporarily configure DSPy to use the tracked backend for this request
+        dspy.configure(lm=tracked_backend)
+
+        # D) Execute the program. The program_id is auto-generated from the class name ('Predictor' -> 'predictor')
+        result, execution_info, _ = await program_manager.execute_program(
             program_id="predictor",
             model_id=request.model_id,
-            input_data={"input": request.prompt}
+            input_data={"input": request.prompt},
         )
         
-        # The execution_info object already contains rich, structured metadata
+        # E) Combine the execution info and detailed performance data
+        final_metadata = execution_info.model_dump()
+        final_metadata["performance"] = metrics.get_summary()
+
         return {
             "success": True,
             "data": {"response": result.output},
-            # Use the full, rich metadata object from the framework
-            "metadata": execution_info.model_dump()
+            "metadata": final_metadata,
         }
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
-
-# Add more custom endpoints using the framework...
+    finally:
+        # F) Always reset DSPy config and finalize metrics
+        dspy.configure(lm=None)
+        if 'metrics' in locals():
+            metrics.finish()
 ```
 
-**Required Configuration (`config/model_config.yml`):**
+### Required Configuration
+
+**`config/model_config.yml`:**
 
 ```yaml
 models:
@@ -170,6 +183,87 @@ curl -X POST http://localhost:8000/predict \
   -d '{"prompt": "Hello, world!", "model_id": "gpt-4o-mini"}'
 ```
 
+## 🔭 Observability with OpenTelemetry
+
+The framework is deeply instrumented with OpenTelemetry to provide vendor-neutral metrics and traces, giving you immediate insight into your application's performance.
+
+### Enabling Observability
+
+**1. Install the optional dependencies:**
+
+```bash
+pip install "llm-server-framework[opentelemetry]"
+```
+
+**2. Enable via Environment Variables:**
+
+Create a `.env` file in your application's root directory:
+
+```env
+# --- Enable OTel ---
+OTEL_ENABLED=true
+OTEL_SERVICE_NAME="MyLLMApp"
+OTEL_SERVICE_VERSION="1.0.0"
+
+# --- Your API Keys ---
+OPENAI_API_KEY=your_openai_key_here
+# ...
+```
+
+**3. Configure the OTel SDK in Your Application:**
+
+The library emits signals, but your application is responsible for configuring an "exporter" to send them to a backend. Here is an example of setting up a Prometheus exporter in your `main.py`:
+
+```python
+# In your main.py
+
+from fastapi import FastAPI
+from contextlib import asynccontextmanager
+
+# --- OTel Imports ---
+from opentelemetry import metrics
+from opentelemetry.sdk.metrics import MeterProvider
+from opentelemetry.sdk.resources import Resource
+from opentelemetry.exporter.prometheus import PrometheusMetricReader
+from prometheus_client import make_asgi_app
+# --- End OTel Imports ---
+
+# Import your settings to get service name
+from llm_server.core.config import FrameworkSettings
+
+@asynccontextmanager
+async def lifespan(app: FastAPI):
+    settings = FrameworkSettings()
+    
+    # --- OTel SDK Setup ---
+    if settings.otel_enabled:
+        resource = Resource.create({"service.name": settings.otel_service_name, "service.version": settings.otel_service_version})
+        reader = PrometheusMetricReader()
+        provider = MeterProvider(resource=resource, metric_readers=[reader])
+        metrics.set_meter_provider(provider)
+    # --- End OTel SDK Setup ---
+    
+    # ... your existing lifespan logic for managers ...
+    yield
+
+# Create the main FastAPI app
+app = FastAPI(lifespan=lifespan)
+
+# Create and mount the Prometheus metrics endpoint
+settings = FrameworkSettings()
+if settings.otel_enabled:
+    metrics_app = make_asgi_app()
+    app.mount("/metrics", metrics_app)
+
+# ... your API routes (@app.post("/predict"), etc.) ...
+```
+
+### Available Instrumentation
+
+- **Automatic Tracing**: Key methods like `ModelBackend.predict` and each step in a Pipeline are automatically wrapped in trace spans with rich, LLM-specific attributes
+- **Automatic Metrics**: The framework emits metrics for model calls, circuit breaker failures and state changes, and overall request latency
+- **Rich Per-Request Data**: The `PerformanceMetrics` object, accessible in your API response, provides a detailed breakdown of timing and token usage for debugging individual requests
+
 ## 📊 Response Format
 
 All API responses follow a consistent envelope with comprehensive metadata:
@@ -178,13 +272,11 @@ All API responses follow a consistent envelope with comprehensive metadata:
 {
   "success": true,
   "data": {
-    // Endpoint-specific response data
+    "response": "Model response content"
   },
-  "error": null,
-  "timestamp": "2025-08-01T10:30:00.123456Z",
   "metadata": {
     "program": {
-      "id": "text_completion",
+      "id": "predictor",
       "version": "1.0.0",
       "name": "Predictor"
     },
@@ -196,7 +288,6 @@ All API responses follow a consistent envelope with comprehensive metadata:
     "performance": {
       "timing": {
         "total_ms": 750.25,
-        "preparation_complete_ms": 12.34,
         "model_complete_ms": 738.91
       },
       "tokens": {
@@ -208,57 +299,10 @@ All API responses follow a consistent envelope with comprehensive metadata:
       },
       "trace_id": "unique-trace-identifier"
     },
-    "execution_id": "unique-execution-id"
+    "execution_id": "unique-execution-id",
+    "timestamp": "2025-08-01T10:30:00.123456Z"
   }
 }
-```
-
-## ⚙️ Configuration
-
-### Model Configuration (`config/model_config.yml`)
-
-```yaml
-models:
-  gpt-4o-mini:
-    model_name: "openai/gpt-4o-mini"
-    max_tokens: 3000
-    additional_params:
-      temperature: 0.7
-      top_p: 1.0
-      
-  claude-3.5-sonnet:
-    model_name: "anthropic/claude-3-5-sonnet-20241022"
-    max_tokens: 4000
-    additional_params:
-      temperature: 0.8
-      
-  Meta-Llama-3.1-8B-Instruct:
-    model_name: "huggingface/meta-llama/Meta-Llama-3.1-8B-Instruct"
-    max_tokens: 3000
-    additional_params: {}
-    
-  gemini-2.0-flash:
-    model_name: "gemini/gemini-2.0-flash"
-    max_tokens: 2048
-    additional_params:
-      temperature: 0.9
-```
-
-### Environment Variables
-
-```env
-# Required API Keys
-OPENAI_API_KEY=your_openai_key
-ANTHROPIC_API_KEY=your_anthropic_key
-HUGGINGFACE_API_KEY=your_hf_key
-GEMINI_API_KEY=your_gemini_key
-
-# Server Configuration
-LLM_SERVER_API_KEY=your_secure_server_key
-LLM_SERVER_RELOAD=false  # Set to true for development
-
-# Optional: Custom config path
-LLM_CONFIG_PATH=config/model_config.yml
 ```
 
 ## 🔧 Building Custom Pipelines
@@ -340,6 +384,55 @@ custom_pipeline = Pipeline([
 result = await custom_pipeline.execute(initial_data)
 ```
 
+## ⚙️ Configuration
+
+### Model Configuration (`config/model_config.yml`)
+
+```yaml
+models:
+  gpt-4o-mini:
+    model_name: "openai/gpt-4o-mini"
+    max_tokens: 3000
+    additional_params:
+      temperature: 0.7
+      top_p: 1.0
+      
+  claude-3.5-sonnet:
+    model_name: "anthropic/claude-3-5-sonnet-20241022"
+    max_tokens: 4000
+    additional_params:
+      temperature: 0.8
+      
+  Meta-Llama-3.1-8B-Instruct:
+    model_name: "huggingface/meta-llama/Meta-Llama-3.1-8B-Instruct"
+    max_tokens: 3000
+    additional_params: {}
+    
+  gemini-2.0-flash:
+    model_name: "gemini/gemini-2.0-flash"
+    max_tokens: 2048
+    additional_params:
+      temperature: 0.9
+```
+
+### Environment Variables
+
+```env
+# Required API Keys
+OPENAI_API_KEY=your_openai_key
+ANTHROPIC_API_KEY=your_anthropic_key
+HUGGINGFACE_API_KEY=your_hf_key
+GEMINI_API_KEY=your_gemini_key
+
+# Optional: Custom config path
+LLM_CONFIG_PATH=config/model_config.yml
+
+# OpenTelemetry Configuration
+OTEL_ENABLED=true
+OTEL_SERVICE_NAME="MyLLMApp"
+OTEL_SERVICE_VERSION="1.0.0"
+```
+
 ## 🔧 Framework Integration Patterns
 
 ### Pipeline-Based Processing
@@ -399,7 +492,7 @@ performance_summary = metrics.get_summary()
 
 ```bash
 # Install test dependencies
-uv pip install -e ".[dev]"
+pip install -e ".[dev]"
 
 # Run the full test suite
 pytest tests/
@@ -447,6 +540,7 @@ llm-server/
 │   │   ├── implementations.py # Standard implementations
 │   │   ├── circuit_breaker.py # Reliability patterns
 │   │   ├── metrics_*.py      # Performance monitoring
+│   │   ├── opentelemetry_integration.py # OTel instruments
 │   │   └── ...
 │   ├── models/               # Model management
 │   │   ├── manager.py        # Model lifecycle
