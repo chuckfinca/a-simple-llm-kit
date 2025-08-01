@@ -1,9 +1,15 @@
 import asyncio
+import sys
 from collections.abc import Coroutine
 from datetime import datetime, timedelta
 from enum import Enum
 from functools import wraps
-from typing import Any, Callable, ParamSpec, TypeVar
+from typing import Any, Callable, TypeVar
+
+if sys.version_info >= (3, 10):
+    from typing import ParamSpec
+else:
+    from typing_extensions import ParamSpec
 
 from llm_server.core import logging
 from llm_server.core.utils import get_utc_now
