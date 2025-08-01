@@ -159,7 +159,13 @@ def instrument_with_trace(
     ) -> Callable[P, Coroutine[Any, Any, R]]:
         @wraps(func)
         async def wrapper(*args: P.args, **kwargs: P.kwargs) -> R:
-            if not _OTEL_ENABLED or not _tracer or not trace or not StatusCode or not SpanKind:
+            if (
+                not _OTEL_ENABLED
+                or not _tracer
+                or not trace
+                or not StatusCode
+                or not SpanKind
+            ):
                 # If OTel is disabled, just call the original function directly.
                 return await func(*args, **kwargs)
 
