@@ -31,9 +31,10 @@ Homepage = "https://github.com/chuckfinca/llm-server"
 
 [project.optional-dependencies]
 opentelemetry = [
-    "opentelemetry-api>=1.25.0",
-    "opentelemetry-sdk>=1.25.0",
-    "opentelemetry-exporter-prometheus",
+    "opentelemetry-api~=1.25.0",
+    "opentelemetry-sdk~=1.25.0",
+    "opentelemetry-exporter-prometheus~=1.25.0",
+    "opentelemetry-semantic-conventions~=0.46b0", # This aligns with 1.25.0 SDK
     "prometheus-client>=0.17.0"
 ]
 dev = [
@@ -45,7 +46,7 @@ dev = [
     "email-validator>=2.0.0",
     "pillow-heif",
     "modal",
-    "llm-server[opentelemetry]" 
+    "llm-server[opentelemetry]"
 ]
 
 [tool.setuptools.packages.find]
