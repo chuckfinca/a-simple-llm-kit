@@ -76,13 +76,14 @@ class ProgramManager:
         program_id: str,
         model_id: str,
         input_data: dict[str, Any],
-        lm: dspy.LM | None = None,
         program_version: str = "latest",
         trace_id: str | None = None,
         preprocessor: Callable | None = None,
     ) -> tuple[Any, ProgramExecutionInfo, str | None]:
         """
         Executes a program and returns the result, execution info, and raw completion text.
+        
+        Note: The LM should be configured via dspy.context() before calling this method.
         """
         program_class = self.registry.get_program(program_id, program_version)
         if not program_class:
@@ -115,17 +116,20 @@ class ProgramManager:
             input_data["image"] = preprocessor(input_data["image"])
 
         try:
+            # Create predictor and execute using the LM from dspy.context()
             predictor = dspy.Predict(program_class)
-            result = predictor(**input_data, lm=lm)
+            result = predictor(**input_data)
 
+            # Extract raw completion text from the current LM context
             raw_completion_text = None
             logging.info("Attempting to extract raw completion from LM history...")
             try:
-                if hasattr(lm, "history") and lm.history:
-                    last_interaction = lm.history[-1]
+                # Get the current LM from DSPy's context
+                current_lm = dspy.settings.lm
+                if hasattr(current_lm, 'history') and current_lm.history:
+                    last_interaction = current_lm.history[-1]
 
                     # Robustly check for the raw completion in multiple possible locations
-                    # This handles slight differences in how different LMs store history.
                     if (
                         "response" in last_interaction
                         and "choices" in last_interaction["response"]
