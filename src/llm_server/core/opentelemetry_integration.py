@@ -21,6 +21,7 @@ try:
     # These imports will only succeed if the optional [opentelemetry]
     # dependencies are installed.
     from opentelemetry import metrics, trace
+    from opentelemetry.trace import SpanKind
     from opentelemetry.sdk.resources import Resource
     from opentelemetry.semconv.resource import ResourceAttributes
 
