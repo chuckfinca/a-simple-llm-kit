@@ -76,6 +76,7 @@ class ProgramManager:
         program_id: str,
         model_id: str,
         input_data: dict[str, Any],
+        lm: dspy.LM | None = None,
         program_version: str = "latest",
         trace_id: str | None = None,
         preprocessor: Callable | None = None,
@@ -94,13 +95,10 @@ class ProgramManager:
             if metadata:
                 program_version = metadata.version
 
-        lm = self.model_manager.get_model(model_id)
-        if not lm:
-            raise ValueError(f"Model {model_id} not found")
-
         program_metadata = self.registry.get_program_metadata(
             program_id, program_version
         )
+        
         execution_info = ProgramExecutionInfo(
             program_id=program_id,
             program_version=program_version,
@@ -117,9 +115,8 @@ class ProgramManager:
             input_data["image"] = preprocessor(input_data["image"])
 
         try:
-            dspy.configure(lm=lm)
             predictor = dspy.Predict(program_class)
-            result = predictor(**input_data)
+            result = predictor(**input_data, lm=lm)
 
             raw_completion_text = None
             logging.info("Attempting to extract raw completion from LM history...")
