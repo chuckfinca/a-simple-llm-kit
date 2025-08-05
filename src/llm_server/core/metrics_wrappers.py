@@ -192,76 +192,84 @@ class PerformanceMetrics:
 class MetricsTrackingLM:
     """
     DSPy LM wrapper that tracks metrics while preserving the full DSPy LM interface.
-    
+
     This class acts as a transparent proxy to a DSPy LM, intercepting calls to track
     performance metrics without interfering with DSPy's internal mechanisms.
     """
-    
+
     def __init__(self, original_lm, metrics: PerformanceMetrics):
         """
         Initialize the metrics-tracking LM wrapper.
-        
+
         Args:
             original_lm: The original DSPy LM instance
             metrics: PerformanceMetrics instance for tracking
         """
         self.original_lm = original_lm
         self.metrics = metrics
-        
+
         # Forward all non-callable attributes to the original LM
         # This ensures compatibility with DSPy's expectations
         for attr in dir(original_lm):
-            if not attr.startswith('_') and not callable(getattr(original_lm, attr)):
+            if not attr.startswith("_") and not callable(getattr(original_lm, attr)):
                 setattr(self, attr, getattr(original_lm, attr))
-    
+
     def __call__(self, *args, **kwargs):
         """
         Track DSPy LM calls and extract metrics.
-        
+
         This method intercepts the main LM call to track timing and token usage.
         """
         self.metrics.mark_checkpoint("model_start")
         try:
             result = self.original_lm(*args, **kwargs)
             self.metrics.mark_checkpoint("model_complete")
-            
+
             # Extract token usage from DSPy history
             self._extract_and_record_tokens()
-            
+
             return result
-        except Exception as e:
+        except Exception:
             self.metrics.mark_checkpoint("model_error")
             raise
-    
+
     def _extract_and_record_tokens(self):
         """
         Extract token usage from DSPy LM history and record in metrics.
-        
+
         This method attempts multiple strategies to get accurate token counts,
         falling back to estimation if exact counts are unavailable.
         """
         try:
-            if hasattr(self.original_lm, 'history') and self.original_lm.history:
+            if hasattr(self.original_lm, "history") and self.original_lm.history:
                 last_call = self.original_lm.history[-1]
                 usage = last_call.get("usage", {})
-                prompt_tokens = last_call.get("prompt_tokens") or usage.get("prompt_tokens")
-                completion_tokens = last_call.get("completion_tokens") or usage.get("completion_tokens")
-                
+                prompt_tokens = last_call.get("prompt_tokens") or usage.get(
+                    "prompt_tokens"
+                )
+                completion_tokens = last_call.get("completion_tokens") or usage.get(
+                    "completion_tokens"
+                )
+
                 if prompt_tokens is not None and completion_tokens is not None:
                     self.metrics.record_token_usage(prompt_tokens, completion_tokens)
-                    self.metrics.add_metadata("token_count_method", "dspy_history_exact")
+                    self.metrics.add_metadata(
+                        "token_count_method", "dspy_history_exact"
+                    )
                     return
         except Exception as e:
-            logging.warning(f"Could not extract exact token usage from DSPy history: {e}")
-        
+            logging.warning(
+                f"Could not extract exact token usage from DSPy history: {e}"
+            )
+
         # Fallback to estimation if exact tokens unavailable
         logging.info("Using fallback token estimation method")
         self.metrics.add_metadata("token_count_method", "estimation_fallback")
-    
+
     def __getattr__(self, name):
         """
         Forward any other attribute access to the original LM.
-        
+
         This ensures full compatibility with DSPy's LM interface by transparently
         forwarding all method calls and property accesses.
         """
@@ -279,7 +287,7 @@ class ModelBackendTracker:
         if hasattr(backend, "program_metadata"):
             self.program_metadata = backend.program_metadata
 
-    async def predict(self, input: Any) -> Any:
+    async def predict(self, input: Any, pipeline_data: PipelineData | None = None) -> Any:
         """Execute prediction within a dedicated OTel child span."""
         if _OTEL_ENABLED and _tracer and SpanKind and trace:
             with _tracer.start_as_current_span(
@@ -295,7 +303,7 @@ class ModelBackendTracker:
                 )
                 try:
                     self.metrics.mark_checkpoint("model_start")
-                    result = await self.backend.predict(input)
+                    result = await self.backend.predict(input, pipeline_data=pipeline_data)
                     self.metrics.mark_checkpoint("model_complete")
                     self.determine_token_usage(result, input)
 
@@ -323,7 +331,7 @@ class ModelBackendTracker:
         else:
             # Fallback for when OTel is disabled, but preserve original metrics logic
             self.metrics.mark_checkpoint("model_start")
-            result = await self.backend.predict(input)
+            result = await self.backend.predict(input, pipeline_data=pipeline_data)
             self.metrics.mark_checkpoint("model_complete")
             self.determine_token_usage(result, input)
             return result

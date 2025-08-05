@@ -1,6 +1,7 @@
 import asyncio
 import base64
 import binascii
+import inspect
 import io
 import uuid
 from typing import Any
@@ -12,7 +13,7 @@ from llm_server.core import logging
 from llm_server.core.circuit_breaker import CircuitBreaker
 from llm_server.core.model_interfaces import ModelOutput
 from llm_server.core.output_processors import DefaultOutputProcessor
-from llm_server.core.protocols import ModelBackend, OutputProcessor
+from llm_server.core.protocols import ModelBackend, OutputProcessor, ProgramMetadata
 from llm_server.core.types import MediaType, PipelineData
 
 
@@ -25,6 +26,7 @@ class DSPyModelBackend(ModelBackend):
         model_id: str,
         signature_class: type[dspy.Signature],
         output_processor: OutputProcessor | None = None,
+        program_metadata: ProgramMetadata | None = None,
     ):
         self.model_manager = model_manager
         self.model_id = model_id
@@ -33,45 +35,59 @@ class DSPyModelBackend(ModelBackend):
         self.output_processor = output_processor or DefaultOutputProcessor()
 
         # Fulfill the ModelBackend protocol by adding these properties.
-        # They are not used in the simplified server but are required by the interface.
+        self.program_metadata = program_metadata
         self.last_prompt_tokens: int | None = None
         self.last_completion_tokens: int | None = None
 
-    def _determine_input_key(
-        self, signature_class: type[dspy.Signature], input_data: Any
-    ) -> dict[str, Any]:
+    def _determine_input_key(self, signature_class: type[dspy.Signature], input_data: Any) -> dict[str, Any]:
         """
-        Determine the appropriate input key based on the signature class and input data.
-        This handles different input formats for different program types.
+        Determines how to map the input_data to the DSPy signature's input fields
+        by inspecting the Pydantic model fields for a marker left by DSPy.
         """
-        # Get signature fields to determine proper input key
+        logging.debug(f"Determining input key for signature '{signature_class.__name__}'")
+
         input_fields = {}
+        # A DSPy Signature is a Pydantic model. Its fields are in `model_fields`.
+        for name, field_info in signature_class.model_fields.items():
+            # DSPy's InputField() function adds a `__dspy_field_type__` marker
+            # to the Pydantic field's `json_schema_extra` dictionary.
+            extra_schema = field_info.json_schema_extra
+            is_input_field = (
+                isinstance(extra_schema, dict) and
+                extra_schema.get("__dspy_field_type__") == "input"
+            )
+            
+            logging.debug(
+                f"  - Inspecting field '{name}': "
+                f"is_input={is_input_field}, "
+                f"extra_schema={extra_schema}"
+            )
 
-        # Analyze input fields from the signature class
-        annotations = getattr(signature_class, "__annotations__", {})
-        for name, field in annotations.items():
-            # Look for fields marked as dspy.InputField
-            if hasattr(field, "__origin__") and field.__origin__ == dspy.InputField:
-                input_fields[name] = field
+            if is_input_field:
+                input_fields[name] = field_info
 
-        # If there's only one input field, use its name as the key.
-        # This is robust and doesn't rely on hardcoded class names.
+        logging.debug(f"Found {len(input_fields)} input field(s): {list(input_fields.keys())}")
+
+        # If there is exactly one input field, we can confidently wrap the raw input
+        # (like a dspy.Image) into the dictionary the model expects.
         if len(input_fields) == 1:
             key = list(input_fields.keys())[0]
+            logging.info(f"Wrapping single input into dictionary with key: '{key}'")
             return {key: input_data}
 
-        # For complex signatures, the input must be a dict.
+        # If the signature expects multiple inputs, the data must already be a dictionary.
         if isinstance(input_data, dict):
             return input_data
 
-        # Fallback if a non-dict is passed for a multi-input signature
+        # If we reach here, there's a mismatch. Raise a much more informative error.
         raise TypeError(
-            f"Signature {signature_class.__name__} has multiple inputs, "
-            "but a non-dict input was provided."
+            f"Signature '{signature_class.__name__}' expects {len(input_fields)} input(s) "
+            f"({list(input_fields.keys())}), but a non-dict input of type "
+            f"'{type(input_data).__name__}' was provided."
         )
 
     @CircuitBreaker()
-    async def predict(self, input: Any) -> ModelOutput:  # type: ignore[override]
+    async def predict(self, input: Any, pipeline_data: PipelineData) -> ModelOutput:  # type: ignore[override]
         max_attempts = 3
         base_delay = 1  # seconds
         trace_id = str(uuid.uuid4())
@@ -93,7 +109,9 @@ class DSPyModelBackend(ModelBackend):
 
                 raw_result = predictor(**input_dict)
 
-                return self.output_processor.process(raw_result)
+                return self.output_processor.process(
+                    raw_result, pipeline_data=pipeline_data
+                )
 
             except Exception as e:
                 if attempt == max_attempts - 1:
@@ -140,7 +158,7 @@ class ModelProcessor:
         self.metadata = metadata or {}
 
     async def process(self, data: PipelineData) -> PipelineData:
-        result = await self.backend.predict(data.content)
+        result = await self.backend.predict(data.content, pipeline_data=data)
 
         # Combine metadata from multiple sources with priority:
         combined_metadata = {**data.metadata, **self.metadata}

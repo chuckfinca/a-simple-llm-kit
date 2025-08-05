@@ -82,7 +82,7 @@ class ProgramManager:
     ) -> tuple[Any, ProgramExecutionInfo, str | None]:
         """
         Executes a program and returns the result, execution info, and raw completion text.
-        
+
         Note: The LM should be configured via dspy.context() before calling this method.
         """
         program_class = self.registry.get_program(program_id, program_version)
@@ -99,7 +99,7 @@ class ProgramManager:
         program_metadata = self.registry.get_program_metadata(
             program_id, program_version
         )
-        
+
         execution_info = ProgramExecutionInfo(
             program_id=program_id,
             program_version=program_version,
@@ -126,7 +126,7 @@ class ProgramManager:
             try:
                 # Get the current LM from DSPy's context
                 current_lm = dspy.settings.lm
-                if hasattr(current_lm, 'history') and current_lm.history:
+                if hasattr(current_lm, "history") and current_lm.history:
                     last_interaction = current_lm.history[-1]
 
                     # Robustly check for the raw completion in multiple possible locations

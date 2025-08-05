@@ -21,9 +21,9 @@ try:
     # These imports will only succeed if the optional [opentelemetry]
     # dependencies are installed.
     from opentelemetry import metrics, trace
-    from opentelemetry.trace import SpanKind
     from opentelemetry.sdk.resources import Resource
     from opentelemetry.semconv.resource import ResourceAttributes
+    from opentelemetry.trace import SpanKind
 
     _OTEL_ENABLED = True
     print("✅ OpenTelemetry integration is ENABLED.")
