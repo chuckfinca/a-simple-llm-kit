@@ -1,5 +1,4 @@
 from .implementations import (
-    DSPyModelBackend,
     ImageProcessor,
     ModelProcessor,
 )
@@ -15,5 +14,4 @@ __all__ = [
     "ModelBackend",
     "ModelProcessor",
     "ImageProcessor",
-    "DSPyModelBackend",
 ]

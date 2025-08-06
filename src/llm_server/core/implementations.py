@@ -12,164 +12,72 @@ from llm_server.core import logging
 from llm_server.core.circuit_breaker import CircuitBreaker
 from llm_server.core.model_interfaces import ModelOutput
 from llm_server.core.output_processors import DefaultOutputProcessor
-from llm_server.core.protocols import ModelBackend, OutputProcessor, ProgramMetadata
+from llm_server.core.protocols import ModelBackend, OutputProcessor, PipelineStep, ProgramMetadata
 from llm_server.core.types import MediaType, PipelineData
 
 
-class DSPyModelBackend(ModelBackend):
-    """DSPy model backend implementation."""
+class ModelProcessor(PipelineStep):
+    """Standard processor for model-based operations with metadata tracking"""
 
     def __init__(
         self,
-        model_manager,
+        model_manager: Any,  # Replace ModelBackend with the manager
         model_id: str,
         signature_class: type[dspy.Signature],
-        output_processor: OutputProcessor | None = None,
+        input_key: str,  # <-- THE NEW, EXPLICIT PARAMETER
+        output_processor: OutputProcessor,
+        accepted_types: list[MediaType],
+        output_type: MediaType,
         program_metadata: ProgramMetadata | None = None,
     ):
         self.model_manager = model_manager
         self.model_id = model_id
         self.signature = signature_class
-        self.output_processor = output_processor or DefaultOutputProcessor()
-        self.program_metadata = program_metadata
-        self.last_prompt_tokens: int | None = None
-        self.last_completion_tokens: int | None = None
-
-    def _determine_input_key(self, signature_class: type[dspy.Signature], input_data: Any) -> dict[str, Any]:
-        """
-        Determines how to map input_data to the DSPy signature's input fields by
-        inspecting the signature's Pydantic `model_fields` class attribute.
-        This is the correct and robust approach that avoids instantiation issues.
-        """
-        logging.debug(f"--- Starting Input Key Determination for '{signature_class.__name__}' ---")
-
-        input_fields = {}
-        # A DSPy Signature is a Pydantic model. Inspect its fields directly from the class.
-        for name, field_info in signature_class.model_fields.items():
-            # The `InputField` function adds a marker to the `json_schema_extra` dict.
-            extra_schema = field_info.json_schema_extra
-            is_input_field = (
-                isinstance(extra_schema, dict) and
-                extra_schema.get("__dspy_field_type__") == "input"
-            )
-
-            if is_input_field:
-                input_fields[name] = field_info
-        
-        logging.debug(f"--- Finished Inspection. Found {len(input_fields)} input field(s): {list(input_fields.keys())} ---")
-
-        # If there is exactly one input field, we can confidently wrap the raw input.
-        if len(input_fields) == 1:
-            key = list(input_fields.keys())[0]
-            logging.info(f"Wrapping single input into dictionary with key: '{key}'")
-            return {key: input_data}
-
-        # If the signature expects multiple inputs, the data must already be a dictionary.
-        if isinstance(input_data, dict):
-            return input_data
-
-        # If we reach here, there's a mismatch. Raise a much more informative error.
-        raise TypeError(
-            f"Signature '{signature_class.__name__}' expects {len(input_fields)} input(s) "
-            f"({list(input_fields.keys())}), but a non-dict input of type "
-            f"'{type(input_data).__name__}' was provided."
-        )
-
-
-    @CircuitBreaker()
-    async def predict(self, input: Any, pipeline_data: PipelineData) -> ModelOutput:  # type: ignore[override]
-        max_attempts = 3
-        base_delay = 1  # seconds
-        trace_id = str(uuid.uuid4())
-        input_dict = self._determine_input_key(self.signature, input)
-
-        for attempt in range(max_attempts):
-            try:
-                lm = self.model_manager.models.get(self.model_id)
-                if not lm:
-                    raise ValueError(f"Model {self.model_id} not found")
-
-                dspy.configure(lm=lm)
-                predictor = dspy.Predict(self.signature)
-
-                raw_result = predictor(**input_dict)
-
-                return self.output_processor.process(
-                    raw_result, pipeline_data=pipeline_data
-                )
-
-            except Exception as e:
-                if attempt == max_attempts - 1:
-                    logging.error(
-                        f"Final attempt failed for model {self.model_id}: {str(e)}",
-                        extra={"trace_id": trace_id},
-                        exc_info=True,
-                    )
-                    raise
-                delay = base_delay * (2**attempt)
-                logging.warning(
-                    f"API call failed: {str(e)}, retrying in {delay} seconds... (attempt {attempt + 1}/{max_attempts})",
-                    extra={"trace_id": trace_id},
-                )
-                await asyncio.sleep(delay)
-
-        raise RuntimeError(
-            "The prediction loop completed without returning or raising an error."
-        )
-
-    def get_lm_history(self):
-        """Safely get LM history without exposing the full LM object"""
-        try:
-            lm = self.model_manager.models.get(self.model_id)
-            if hasattr(lm, "history"):
-                return lm.history
-        except Exception as e:
-            logging.warning(f"Could not access LM history: {str(e)}")
-        return []
-
-
-class ModelProcessor:
-    """Standard processor for model-based operations with metadata tracking"""
-
-    def __init__(
-        self,
-        backend: ModelBackend,
-        accepted_types: list[MediaType],
-        output_type: MediaType,
-        metadata: dict[str, Any] | None = None,
-    ):
-        self.backend = backend
+        self.input_key = input_key
+        self.output_processor = output_processor
         self._accepted_types = accepted_types
         self.output_type = output_type
-        self.metadata = metadata or {}
+        self.program_metadata = program_metadata
+
+    @CircuitBreaker()
+    async def _protected_predict(self, input_dict: dict[str, Any]) -> Any:
+        """
+        Internal method that runs the DSPy predictor. This is the operation
+        that is protected by the circuit breaker.
+        """
+        lm = self.model_manager.get_model(self.model_id)
+        if not lm:
+            raise ValueError(f"Model {self.model_id} not found")
+
+        # Configure DSPy for this specific call
+        dspy.configure(lm=lm)
+
+        # Create and run the predictor
+        predictor = dspy.Predict(self.signature)
+        return predictor(**input_dict)
 
     async def process(self, data: PipelineData) -> PipelineData:
-        result = await self.backend.predict(data.content, pipeline_data=data)
+        """
+        This method conforms to the PipelineStep protocol. It is NOT decorated,
+        so its signature remains compatible for the type checker.
+        """
+        # 1. Prepare the input dictionary for the model
+        input_dict = {self.input_key: data.content}
 
-        # Combine metadata from multiple sources with priority:
-        combined_metadata = {**data.metadata, **self.metadata}
+        # 2. Call the *protected* internal method
+        raw_result = await self._protected_predict(input_dict)
 
-        # Add execution info if available from the result
-        result_metadata = {}
-        if hasattr(result, "metadata") and isinstance(result.metadata, dict):
-            result_metadata = result.metadata
+        # 3. Process the raw output into its final form
+        final_result = self.output_processor.process(raw_result, pipeline_data=data)
 
-        # Get program_metadata from backend in a consistent format
-        if hasattr(self.backend, "program_metadata"):
-            from llm_server.core.utils import ensure_program_metadata_object
-
-            program_metadata = ensure_program_metadata_object(
-                self.backend.program_metadata
-            )
-            if program_metadata:
-                combined_metadata["program_metadata"] = program_metadata
-
-        # Update with result metadata
-        combined_metadata.update(result_metadata)
-        combined_metadata["processed"] = True
+        # 4. Construct and return the final PipelineData object
+        final_metadata = data.metadata.copy()
+        final_metadata["processed"] = True
 
         return PipelineData(
-            media_type=self.output_type, content=result, metadata=combined_metadata
+            media_type=self.output_type,
+            content=final_result,
+            metadata=final_metadata
         )
 
     @property
@@ -287,17 +195,50 @@ class ImageProcessor:
     def __init__(self, max_size: tuple[int, int] = (800, 800)):
         self.max_size = max_size
         self._accepted_types = [MediaType.IMAGE]
+        
+    def _apply_orientation(self, image: Image.Image) -> Image.Image:
+        """Apply EXIF orientation to the image if necessary."""
+        try:
+            exif_data = image.getexif()
+            if not exif_data:
+                return image
 
+            orientation = exif_data.get(0x0112, 1)  # 0x0112 is the EXIF Orientation tag
+            logging.info(f"ImageProcessor found EXIF orientation: {orientation}")
+
+            if orientation == 1: # Normal
+                return image
+            elif orientation == 2: # Mirror horizontal
+                return image.transpose(Image.Transpose.FLIP_LEFT_RIGHT)
+            elif orientation == 3: # Rotate 180
+                return image.transpose(Image.Transpose.ROTATE_180)
+            elif orientation == 4: # Mirror vertical
+                return image.transpose(Image.Transpose.FLIP_TOP_BOTTOM)
+            elif orientation == 5: # Mirror horizontal and rotate 270 CW
+                return image.transpose(Image.Transpose.FLIP_LEFT_RIGHT).transpose(Image.Transpose.ROTATE_270)
+            elif orientation == 6: # Rotate 270 CW (or 90 anti-clockwise)
+                return image.transpose(Image.Transpose.ROTATE_270)
+            elif orientation == 7: # Mirror horizontal and rotate 90 CW
+                return image.transpose(Image.Transpose.FLIP_LEFT_RIGHT).transpose(Image.Transpose.ROTATE_90)
+            elif orientation == 8: # Rotate 90 CW
+                return image.transpose(Image.Transpose.ROTATE_90)
+            return image
+        except Exception as e:
+            logging.warning(f"Could not apply EXIF orientation: {e}")
+            return image # Return original on error
+            
     @property
     def accepted_media_types(self) -> list[MediaType]:
         return self._accepted_types
 
     async def process(self, data: PipelineData) -> PipelineData:
         # Wrap content in ImageContent for unified handling
-        image = ImageContent(data.content)
+        image_content = ImageContent(data.content)
+        pil_image = image_content.pil_image
+        corrected_pil_image = self._apply_orientation(pil_image)
 
         # Get original size before any processing
-        original_size = image.pil_image.size
+        original_size = corrected_pil_image.size
 
         # Calculate resize ratio if needed
         ratio = min(
@@ -311,12 +252,12 @@ class ImageProcessor:
                 int(original_size[1] * ratio),
             )
             # Resize the image
-            processed_pil = image.pil_image.resize(
+            processed_pil = corrected_pil_image.resize(
                 processed_size, Image.Resampling.LANCZOS
             )
         else:
             # If no resize needed, use original
-            processed_pil = image.pil_image
+            processed_pil = corrected_pil_image
 
         # Convert to dspy.Image before returning
         processed_dspy = dspy.Image.from_PIL(processed_pil)
@@ -327,7 +268,7 @@ class ImageProcessor:
             metadata={
                 **data.metadata,
                 "processed": True,
-                "mime_type": image.detect_mime_type(),
+                "mime_type": image_content.detect_mime_type(),
                 "original_size": original_size,
                 "processed_size": processed_size,
                 "compression_ratio": ratio if ratio < 1 else 1.0,
