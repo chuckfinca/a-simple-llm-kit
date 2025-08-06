@@ -7,7 +7,7 @@ from llm_server.core.types import PipelineData
 
 
 class DefaultOutputProcessor(OutputProcessor):
-    def process(self, result: Any, pipeline_data: PipelineData | None = None) -> Any:
+    def process(self, result: Any, pipeline_data: PipelineData) -> Any:
         if hasattr(result, "output"):
             return result.output
         # Also handle cases where the result might be from a TypedPredictor

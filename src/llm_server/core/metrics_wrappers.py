@@ -287,7 +287,7 @@ class ModelBackendTracker:
         if hasattr(backend, "program_metadata"):
             self.program_metadata = backend.program_metadata
 
-    async def predict(self, input: Any, pipeline_data: PipelineData | None = None) -> Any:
+    async def predict(self, input: Any, pipeline_data: PipelineData) -> Any:
         """Execute prediction within a dedicated OTel child span."""
         if _OTEL_ENABLED and _tracer and SpanKind and trace:
             with _tracer.start_as_current_span(

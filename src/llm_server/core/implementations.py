@@ -1,7 +1,6 @@
 import asyncio
 import base64
 import binascii
-import inspect
 import io
 import uuid
 from typing import Any
@@ -31,45 +30,35 @@ class DSPyModelBackend(ModelBackend):
         self.model_manager = model_manager
         self.model_id = model_id
         self.signature = signature_class
-
         self.output_processor = output_processor or DefaultOutputProcessor()
-
-        # Fulfill the ModelBackend protocol by adding these properties.
         self.program_metadata = program_metadata
         self.last_prompt_tokens: int | None = None
         self.last_completion_tokens: int | None = None
 
     def _determine_input_key(self, signature_class: type[dspy.Signature], input_data: Any) -> dict[str, Any]:
         """
-        Determines how to map the input_data to the DSPy signature's input fields
-        by inspecting the Pydantic model fields for a marker left by DSPy.
+        Determines how to map input_data to the DSPy signature's input fields by
+        inspecting the signature's Pydantic `model_fields` class attribute.
+        This is the correct and robust approach that avoids instantiation issues.
         """
-        logging.debug(f"Determining input key for signature '{signature_class.__name__}'")
+        logging.debug(f"--- Starting Input Key Determination for '{signature_class.__name__}' ---")
 
         input_fields = {}
-        # A DSPy Signature is a Pydantic model. Its fields are in `model_fields`.
+        # A DSPy Signature is a Pydantic model. Inspect its fields directly from the class.
         for name, field_info in signature_class.model_fields.items():
-            # DSPy's InputField() function adds a `__dspy_field_type__` marker
-            # to the Pydantic field's `json_schema_extra` dictionary.
+            # The `InputField` function adds a marker to the `json_schema_extra` dict.
             extra_schema = field_info.json_schema_extra
             is_input_field = (
                 isinstance(extra_schema, dict) and
                 extra_schema.get("__dspy_field_type__") == "input"
             )
-            
-            logging.debug(
-                f"  - Inspecting field '{name}': "
-                f"is_input={is_input_field}, "
-                f"extra_schema={extra_schema}"
-            )
 
             if is_input_field:
                 input_fields[name] = field_info
+        
+        logging.debug(f"--- Finished Inspection. Found {len(input_fields)} input field(s): {list(input_fields.keys())} ---")
 
-        logging.debug(f"Found {len(input_fields)} input field(s): {list(input_fields.keys())}")
-
-        # If there is exactly one input field, we can confidently wrap the raw input
-        # (like a dspy.Image) into the dictionary the model expects.
+        # If there is exactly one input field, we can confidently wrap the raw input.
         if len(input_fields) == 1:
             key = list(input_fields.keys())[0]
             logging.info(f"Wrapping single input into dictionary with key: '{key}'")
@@ -86,6 +75,7 @@ class DSPyModelBackend(ModelBackend):
             f"'{type(input_data).__name__}' was provided."
         )
 
+
     @CircuitBreaker()
     async def predict(self, input: Any, pipeline_data: PipelineData) -> ModelOutput:  # type: ignore[override]
         max_attempts = 3
@@ -98,11 +88,6 @@ class DSPyModelBackend(ModelBackend):
                 lm = self.model_manager.models.get(self.model_id)
                 if not lm:
                     raise ValueError(f"Model {self.model_id} not found")
-
-                logging.warning(
-                    f"Executing {self.signature.__name__} without program tracking. "
-                    "This is the expected behavior for the simplified llm-server."
-                )
 
                 dspy.configure(lm=lm)
                 predictor = dspy.Predict(self.signature)
@@ -118,6 +103,7 @@ class DSPyModelBackend(ModelBackend):
                     logging.error(
                         f"Final attempt failed for model {self.model_id}: {str(e)}",
                         extra={"trace_id": trace_id},
+                        exc_info=True,
                     )
                     raise
                 delay = base_delay * (2**attempt)
