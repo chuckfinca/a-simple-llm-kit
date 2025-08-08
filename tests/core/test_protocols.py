@@ -110,7 +110,7 @@ class TestModelProcessor:
         mock_model_manager = MagicMock()
         mock_lm = MagicMock(spec=dspy.LM)
         mock_model_manager.get_model.return_value = mock_lm
-        
+
         mock_predictor_instance = MagicMock()
         mock_prediction_result = MagicMock()
         mock_prediction_result.output = "test content_predicted"
@@ -118,7 +118,7 @@ class TestModelProcessor:
 
         # Create a named mock for the dspy.Predict class
         mock_dspy_predict_class = MagicMock(return_value=mock_predictor_instance)
-        
+
         # Patch using the named mock
         monkeypatch.setattr("dspy.Predict", mock_dspy_predict_class)
         monkeypatch.setattr("dspy.configure", MagicMock())
@@ -139,11 +139,10 @@ class TestModelProcessor:
         # ASSERT
         assert result.content == "test content_predicted"
         assert result.metadata["processed"] is True
-        
+
         # Verify using the named mock, which resolves the type error
         mock_dspy_predict_class.assert_called_once_with(dspy.Signature)
         mock_predictor_instance.assert_called_once_with(input="test content")
-
 
     def test_model_processor_media_types(self):
         """Test model processor media type handling"""
@@ -162,6 +161,7 @@ class TestModelProcessor:
 
         assert processor.accepted_media_types == [MediaType.TEXT, MediaType.IMAGE]
 
+
 class TestImageProcessor:
     @pytest.mark.asyncio
     async def test_image_processing(self, image_data):
@@ -172,7 +172,9 @@ class TestImageProcessor:
         test_image = Image.new("RGB", (1000, 1000))
         img_byte_arr = io.BytesIO()
         test_image.save(img_byte_arr, format="PNG")
-        data = PipelineData(media_type=MediaType.IMAGE, content=img_byte_arr.getvalue(), metadata={})
+        data = PipelineData(
+            media_type=MediaType.IMAGE, content=img_byte_arr.getvalue(), metadata={}
+        )
         processor = ImageProcessor(max_size=(800, 800))
         result = await processor.process(data)
         assert "processed_size" in result.metadata
@@ -183,4 +185,3 @@ class TestImageProcessor:
         """Test image processor media type handling"""
         processor = ImageProcessor()
         assert MediaType.IMAGE in processor.accepted_media_types
-        
