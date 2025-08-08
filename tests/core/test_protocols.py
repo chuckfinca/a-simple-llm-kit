@@ -167,6 +167,7 @@ class TestImageProcessor:
     async def test_image_processing(self, image_data):
         """Test image processor functionality"""
         import io
+
         from PIL import Image
 
         test_image = Image.new("RGB", (1000, 1000))
