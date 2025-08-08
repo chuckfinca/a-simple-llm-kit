@@ -303,7 +303,9 @@ class ModelBackendTracker:
                 )
                 try:
                     self.metrics.mark_checkpoint("model_start")
-                    result = await self.backend.predict(input, pipeline_data=pipeline_data)
+                    result = await self.backend.predict(
+                        input, pipeline_data=pipeline_data
+                    )
                     self.metrics.mark_checkpoint("model_complete")
                     self.determine_token_usage(result, input)
 

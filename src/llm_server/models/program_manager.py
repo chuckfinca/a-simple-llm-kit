@@ -1,3 +1,4 @@
+import asyncio
 import uuid
 from collections.abc import Callable
 from typing import Any
@@ -118,7 +119,7 @@ class ProgramManager:
         try:
             # Create predictor and execute using the LM from dspy.context()
             predictor = dspy.Predict(program_class)
-            result = predictor(**input_data)
+            result = await asyncio.to_thread(predictor, **input_data)
 
             # Extract raw completion text from the current LM context
             raw_completion_text = None

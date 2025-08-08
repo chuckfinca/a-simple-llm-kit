@@ -2,13 +2,16 @@ models:
   gpt-4o-mini:
     model_name: "openai/gpt-4o-mini"
     max_tokens: 3000
-    additional_params: {}
+    additional_params:
+        timeout: 60
   Meta-Llama-3.1-8B-Instruct:
     model_name: "huggingface/meta-llama/Meta-Llama-3.1-8B-Instruct"
     max_tokens: 3000
-    additional_params: {}
+    additional_params:
+        timeout: 60
   gemini-2.0-flash:
     model_name: "gemini/gemini-2.0-flash"
     max_tokens: 2048
-    additional_params: {}
+    additional_params:
+        timeout: 60
     

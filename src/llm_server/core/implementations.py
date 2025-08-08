@@ -2,7 +2,6 @@ import asyncio
 import base64
 import binascii
 import io
-import uuid
 from typing import Any
 
 import dspy
@@ -10,9 +9,11 @@ from PIL import Image
 
 from llm_server.core import logging
 from llm_server.core.circuit_breaker import CircuitBreaker
-from llm_server.core.model_interfaces import ModelOutput
-from llm_server.core.output_processors import DefaultOutputProcessor
-from llm_server.core.protocols import ModelBackend, OutputProcessor, PipelineStep, ProgramMetadata
+from llm_server.core.protocols import (
+    OutputProcessor,
+    PipelineStep,
+    ProgramMetadata,
+)
 from llm_server.core.types import MediaType, PipelineData
 
 
@@ -54,7 +55,9 @@ class ModelProcessor(PipelineStep):
 
         # Create and run the predictor
         predictor = dspy.Predict(self.signature)
-        return predictor(**input_dict)
+
+        # Run the blocking call in a separate thread
+        return await asyncio.to_thread(predictor, **input_dict)
 
     async def process(self, data: PipelineData) -> PipelineData:
         """
@@ -75,9 +78,7 @@ class ModelProcessor(PipelineStep):
         final_metadata["processed"] = True
 
         return PipelineData(
-            media_type=self.output_type,
-            content=final_result,
-            metadata=final_metadata
+            media_type=self.output_type, content=final_result, metadata=final_metadata
         )
 
     @property
@@ -195,7 +196,7 @@ class ImageProcessor:
     def __init__(self, max_size: tuple[int, int] = (800, 800)):
         self.max_size = max_size
         self._accepted_types = [MediaType.IMAGE]
-        
+
     def _apply_orientation(self, image: Image.Image) -> Image.Image:
         """Apply EXIF orientation to the image if necessary."""
         try:
@@ -206,27 +207,31 @@ class ImageProcessor:
             orientation = exif_data.get(0x0112, 1)  # 0x0112 is the EXIF Orientation tag
             logging.info(f"ImageProcessor found EXIF orientation: {orientation}")
 
-            if orientation == 1: # Normal
+            if orientation == 1:  # Normal
                 return image
-            elif orientation == 2: # Mirror horizontal
+            elif orientation == 2:  # Mirror horizontal
                 return image.transpose(Image.Transpose.FLIP_LEFT_RIGHT)
-            elif orientation == 3: # Rotate 180
+            elif orientation == 3:  # Rotate 180
                 return image.transpose(Image.Transpose.ROTATE_180)
-            elif orientation == 4: # Mirror vertical
+            elif orientation == 4:  # Mirror vertical
                 return image.transpose(Image.Transpose.FLIP_TOP_BOTTOM)
-            elif orientation == 5: # Mirror horizontal and rotate 270 CW
-                return image.transpose(Image.Transpose.FLIP_LEFT_RIGHT).transpose(Image.Transpose.ROTATE_270)
-            elif orientation == 6: # Rotate 270 CW (or 90 anti-clockwise)
+            elif orientation == 5:  # Mirror horizontal and rotate 270 CW
+                return image.transpose(Image.Transpose.FLIP_LEFT_RIGHT).transpose(
+                    Image.Transpose.ROTATE_270
+                )
+            elif orientation == 6:  # Rotate 270 CW (or 90 anti-clockwise)
                 return image.transpose(Image.Transpose.ROTATE_270)
-            elif orientation == 7: # Mirror horizontal and rotate 90 CW
-                return image.transpose(Image.Transpose.FLIP_LEFT_RIGHT).transpose(Image.Transpose.ROTATE_90)
-            elif orientation == 8: # Rotate 90 CW
+            elif orientation == 7:  # Mirror horizontal and rotate 90 CW
+                return image.transpose(Image.Transpose.FLIP_LEFT_RIGHT).transpose(
+                    Image.Transpose.ROTATE_90
+                )
+            elif orientation == 8:  # Rotate 90 CW
                 return image.transpose(Image.Transpose.ROTATE_90)
             return image
         except Exception as e:
             logging.warning(f"Could not apply EXIF orientation: {e}")
-            return image # Return original on error
-            
+            return image  # Return original on error
+
     @property
     def accepted_media_types(self) -> list[MediaType]:
         return self._accepted_types

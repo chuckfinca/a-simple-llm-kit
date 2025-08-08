@@ -7,9 +7,29 @@ from typing import ClassVar
 
 import pydantic
 
+from llm_server.core.context import get_current_metrics
+
 # Create default logger first
 logger = logging.getLogger("llm_server")
 logger.addHandler(logging.NullHandler())
+
+
+class ContextualFilter(logging.Filter):
+    """
+    A logging filter that injects contextual information, like a trace_id,
+    from a context variable into the log record.
+    """
+
+    def filter(self, record):
+        # Attempt to get the current metrics object from the context
+        metrics = get_current_metrics()
+        if metrics:
+            # If we found it, add its trace_id to the log record
+            record.trace_id = metrics.trace_id
+        else:
+            # Otherwise, set a default value
+            record.trace_id = "not-in-request"
+        return True
 
 
 class JsonFormatter(logging.Formatter):
@@ -75,6 +95,12 @@ class LogConfig(pydantic.BaseModel):
 
     version: int = 1
     disable_existing_loggers: bool = False
+    filters: dict = {
+        "contextual": {
+            "()": ContextualFilter,
+        },
+    }
+
     formatters: dict = {
         "default": {
             "()": JsonFormatter,
@@ -86,13 +112,15 @@ class LogConfig(pydantic.BaseModel):
             "formatter": "default",
             "class": "logging.StreamHandler",
             "stream": "ext://sys.stdout",
+            "filters": ["contextual"],  # <-- 4. Attach the filter
         },
         "file": {
             "formatter": "default",
             "class": "logging.handlers.RotatingFileHandler",
             "filename": str(LOG_DIR / "app.log"),
-            "maxBytes": 10000000,  # 10MB
+            "maxBytes": 10000000,
             "backupCount": 5,
+            "filters": ["contextual"],  # <-- 4. Attach the filter
         },
     }
     loggers: dict = {
