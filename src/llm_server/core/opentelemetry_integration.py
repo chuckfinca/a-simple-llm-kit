@@ -23,6 +23,7 @@ try:
     from opentelemetry import metrics, trace
     from opentelemetry.sdk.resources import Resource
     from opentelemetry.semconv.resource import ResourceAttributes
+    from opentelemetry.trace import SpanKind
 
     _OTEL_ENABLED = True
     print("✅ OpenTelemetry integration is ENABLED.")

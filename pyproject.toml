@@ -31,9 +31,13 @@ Homepage = "https://github.com/chuckfinca/llm-server"
 
 [project.optional-dependencies]
 opentelemetry = [
-    "opentelemetry-api>=1.25.0",
-    "opentelemetry-sdk>=1.25.0",
-    "opentelemetry-exporter-prometheus",
+    "opentelemetry-api~=1.25.0",
+    "opentelemetry-sdk~=1.25.0",
+    "opentelemetry-exporter-otlp~=1.25.0", 
+    
+    # Keep prometheus for local metrics, pinned to a compatible version
+    "opentelemetry-exporter-prometheus~=0.46b0",
+    "opentelemetry-semantic-conventions~=0.46b0", # Aligns with 1.25.0 SDK
     "prometheus-client>=0.17.0"
 ]
 dev = [
@@ -45,7 +49,7 @@ dev = [
     "email-validator>=2.0.0",
     "pillow-heif",
     "modal",
-    "llm-server[opentelemetry]" 
+    "llm-server[opentelemetry]"
 ]
 
 [tool.setuptools.packages.find]
@@ -85,11 +89,5 @@ warn_return_any = true
 ignore_missing_imports = true
 
 [tool.pyright]
-# This tells Pyright where to look for your source code.
-# Based on your file tree, your main package is in 'src/llm_server'.
-# We list the parent 'src' directory.
 include = ["src"]
-
-# (Optional but Recommended)
-# This prevents Pyright from complaining about packages that don't ship with type stubs.
 reportMissingModuleSource = "none"

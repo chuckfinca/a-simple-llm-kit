@@ -1,3 +1,4 @@
+import asyncio
 import uuid
 from collections.abc import Callable
 from typing import Any
@@ -82,6 +83,8 @@ class ProgramManager:
     ) -> tuple[Any, ProgramExecutionInfo, str | None]:
         """
         Executes a program and returns the result, execution info, and raw completion text.
+
+        Note: The LM should be configured via dspy.context() before calling this method.
         """
         program_class = self.registry.get_program(program_id, program_version)
         if not program_class:
@@ -94,13 +97,10 @@ class ProgramManager:
             if metadata:
                 program_version = metadata.version
 
-        lm = self.model_manager.get_model(model_id)
-        if not lm:
-            raise ValueError(f"Model {model_id} not found")
-
         program_metadata = self.registry.get_program_metadata(
             program_id, program_version
         )
+
         execution_info = ProgramExecutionInfo(
             program_id=program_id,
             program_version=program_version,
@@ -117,18 +117,20 @@ class ProgramManager:
             input_data["image"] = preprocessor(input_data["image"])
 
         try:
-            dspy.configure(lm=lm)
+            # Create predictor and execute using the LM from dspy.context()
             predictor = dspy.Predict(program_class)
-            result = predictor(**input_data)
+            result = await asyncio.to_thread(predictor, **input_data)
 
+            # Extract raw completion text from the current LM context
             raw_completion_text = None
             logging.info("Attempting to extract raw completion from LM history...")
             try:
-                if hasattr(lm, "history") and lm.history:
-                    last_interaction = lm.history[-1]
+                # Get the current LM from DSPy's context
+                current_lm = dspy.settings.lm
+                if hasattr(current_lm, "history") and current_lm.history:
+                    last_interaction = current_lm.history[-1]
 
                     # Robustly check for the raw completion in multiple possible locations
-                    # This handles slight differences in how different LMs store history.
                     if (
                         "response" in last_interaction
                         and "choices" in last_interaction["response"]

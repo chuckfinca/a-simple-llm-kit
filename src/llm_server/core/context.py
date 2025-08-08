@@ -14,6 +14,6 @@ def get_current_metrics() -> Optional["PerformanceMetrics"]:
     return _current_metrics.get()
 
 
-def set_current_metrics(metrics: "PerformanceMetrics") -> None:
+def set_current_metrics(metrics: Optional["PerformanceMetrics"]) -> None:
     """Sets the current metrics instance in the context."""
     _current_metrics.set(metrics)
