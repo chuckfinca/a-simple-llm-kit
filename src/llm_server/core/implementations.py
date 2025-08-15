@@ -51,13 +51,13 @@ class ModelProcessor(PipelineStep):
             raise ValueError(f"Model {self.model_id} not found")
 
         # Configure DSPy for this specific call
-        dspy.configure(lm=lm)
-
-        # Create and run the predictor
-        predictor = dspy.Predict(self.signature)
-
-        # Run the blocking call in a separate thread
-        return await asyncio.to_thread(predictor, **input_dict)
+        with dspy.context(lm=lm):
+            
+            # Create and run the predictor
+            predictor = dspy.Predict(self.signature)
+    
+            # Run the blocking call in a separate thread
+            return await asyncio.to_thread(predictor, **input_dict)
 
     async def process(self, data: PipelineData) -> PipelineData:
         """
