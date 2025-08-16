@@ -9,6 +9,13 @@ class MediaType(Enum):
     IMAGE = "image"
 
 
+class Usage(pydantic.BaseModel):
+    """A generic, provider-agnostic model for token usage."""
+
+    prompt_tokens: int = 0
+    completion_tokens: int = 0
+
+
 class PipelineData(pydantic.BaseModel):
     """Container for data passing through pipeline steps"""
 

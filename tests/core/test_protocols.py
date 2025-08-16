@@ -73,7 +73,7 @@ def test_model_backend_protocol_conformance():
 
 
 # Pipeline Tests
-@pytest.mark.asyncio
+@pytest.mark.anyio
 async def test_pipeline_single_processor(text_data):
     """Test pipeline with a single processor"""
     processor = MockPipelineStep()
@@ -83,7 +83,7 @@ async def test_pipeline_single_processor(text_data):
     assert result.metadata["processed"] is True
 
 
-@pytest.mark.asyncio
+@pytest.mark.anyio
 async def test_pipeline_multiple_processors(text_data):
     """Test pipeline with multiple processors in sequence"""
     processors = [MockPipelineStep("first_"), MockPipelineStep("second_")]
@@ -92,7 +92,7 @@ async def test_pipeline_multiple_processors(text_data):
     assert result.content == "second_first_test content"
 
 
-@pytest.mark.asyncio
+@pytest.mark.anyio
 async def test_pipeline_validation():
     """Test that pipeline validates media type compatibility"""
     text_processor = MockPipelineStep()
@@ -103,7 +103,7 @@ async def test_pipeline_validation():
 
 # Implementation Tests
 class TestModelProcessor:
-    @pytest.mark.asyncio
+    @pytest.mark.anyio
     async def test_model_processor_basic(self, text_data, monkeypatch):
         """Test basic model processor functionality, borrowing mocking patterns from contactcapture-backend."""
         # ARRANGE
@@ -163,7 +163,7 @@ class TestModelProcessor:
 
 
 class TestImageProcessor:
-    @pytest.mark.asyncio
+    @pytest.mark.anyio
     async def test_image_processing(self, image_data):
         """Test image processor functionality"""
         import io

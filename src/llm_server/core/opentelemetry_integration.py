@@ -121,6 +121,27 @@ try:
         else None
     )
 
+    # Application & Business Metrics
+    TOKEN_USAGE_TOTAL = (
+        _meter.create_counter(
+            name="app.token.usage.total",
+            description="Total number of tokens processed, partitioned by type.",
+            unit="1",
+        )
+        if _OTEL_ENABLED
+        else None
+    )
+
+    TOKEN_COST_TOTAL = (
+        _meter.create_counter(
+            name="app.token.cost.total",
+            description="Total estimated cost of token usage in USD.",
+            unit="USD",
+        )
+        if _OTEL_ENABLED
+        else None
+    )
+
 except ImportError:
     # --------------------------------------------------------------------------
     # 4. GRACEFUL DEGRADATION (Dummy Implementation)
@@ -138,6 +159,8 @@ except ImportError:
     CIRCUIT_BREAKER_FAILURES_TOTAL = None
     CIRCUIT_BREAKER_STATE_CHANGES_TOTAL = None
     CIRCUIT_BREAKER_STATE = None
+    TOKEN_USAGE_TOTAL = None
+    TOKEN_COST_TOTAL = None
 #
 # ------------------------------------------------------------------------------
 # 6. TRACING HELPER UTILITIES

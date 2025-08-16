@@ -1,9 +1,10 @@
-import asyncio
 import base64
 import binascii
+import functools
 import io
 from typing import Any
 
+import anyio
 import dspy
 from PIL import Image
 
@@ -14,7 +15,7 @@ from llm_server.core.protocols import (
     PipelineStep,
     ProgramMetadata,
 )
-from llm_server.core.types import MediaType, PipelineData
+from llm_server.core.types import MediaType, PipelineData, Usage
 
 
 class ModelProcessor(PipelineStep):
@@ -22,10 +23,10 @@ class ModelProcessor(PipelineStep):
 
     def __init__(
         self,
-        model_manager: Any,  # Replace ModelBackend with the manager
+        model_manager: Any,
         model_id: str,
         signature_class: type[dspy.Signature],
-        input_key: str,  # <-- THE NEW, EXPLICIT PARAMETER
+        input_key: str,
         output_processor: OutputProcessor,
         accepted_types: list[MediaType],
         output_type: MediaType,
@@ -40,6 +41,38 @@ class ModelProcessor(PipelineStep):
         self.output_type = output_type
         self.program_metadata = program_metadata
 
+    def _extract_usage_from_history(self, lm: Any, model_id: str) -> Usage:
+        """
+        Extracts token usage from a model's history, handling provider differences.
+        This is the core provider-agnostic logic.
+        """
+        if not lm or not hasattr(lm, "history") or not lm.history:
+            return Usage()
+
+        last_call_usage = lm.history[-1].get("usage", {})
+
+        # Provider-agnostic extraction based on model ID prefix
+        if "gpt-" in model_id or "o1-" in model_id:  # OpenAI
+            return Usage(
+                prompt_tokens=last_call_usage.get("prompt_tokens", 0),
+                completion_tokens=last_call_usage.get("completion_tokens", 0),
+            )
+        elif "claude-" in model_id:  # Anthropic
+            return Usage(
+                prompt_tokens=last_call_usage.get("input_tokens", 0),
+                completion_tokens=last_call_usage.get("output_tokens", 0),
+            )
+        # Add other providers like gemini here if their format differs
+
+        # Fallback for providers that use the standard 'prompt_tokens' format
+        if "prompt_tokens" in last_call_usage:
+            return Usage(
+                prompt_tokens=last_call_usage.get("prompt_tokens", 0),
+                completion_tokens=last_call_usage.get("completion_tokens", 0),
+            )
+
+        return Usage()
+
     @CircuitBreaker()
     async def _protected_predict(self, input_dict: dict[str, Any]) -> Any:
         """
@@ -52,12 +85,13 @@ class ModelProcessor(PipelineStep):
 
         # Configure DSPy for this specific call
         with dspy.context(lm=lm):
-            
             # Create and run the predictor
             predictor = dspy.Predict(self.signature)
-    
-            # Run the blocking call in a separate thread
-            return await asyncio.to_thread(predictor, **input_dict)
+
+            # Run the blocking call in a separate thread using anyio for compatibility.
+            # We use functools.partial to correctly pass keyword arguments to the threaded function.
+            callable_with_kwargs = functools.partial(predictor, **input_dict)
+            return await anyio.to_thread.run_sync(callable_with_kwargs)  # type: ignore
 
     async def process(self, data: PipelineData) -> PipelineData:
         """
@@ -69,6 +103,14 @@ class ModelProcessor(PipelineStep):
 
         # 2. Call the *protected* internal method
         raw_result = await self._protected_predict(input_dict)
+
+        # --- EXTRACT AND ATTACH USAGE ---
+        lm = self.model_manager.get_model(self.model_id)
+        usage = self._extract_usage_from_history(lm, self.model_id)
+        data.metadata["usage"] = usage  # Attach the usage object to metadata
+        logging.info(
+            f"Framework extracted token usage: {usage.prompt_tokens} prompt, {usage.completion_tokens} completion"
+        )
 
         # 3. Process the raw output into its final form
         final_result = self.output_processor.process(raw_result, pipeline_data=data)
