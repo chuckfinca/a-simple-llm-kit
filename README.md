@@ -510,7 +510,7 @@ pytest tests/ --cov=llm_server --cov-report=html
 ### Example Test
 
 ```python
-@pytest.mark.asyncio
+@pytest.mark.anyio
 async def test_custom_pipeline():
     """Test custom pipeline with multiple steps"""
     text_data = PipelineData(
