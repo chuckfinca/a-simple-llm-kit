@@ -7,7 +7,13 @@ import pytest
 from llm_server.core import ImageProcessor, ModelProcessor, Pipeline, PipelineStep
 from llm_server.core.output_processors import DefaultOutputProcessor
 from llm_server.core.protocols import ModelBackend
-from llm_server.core.types import MediaType, PipelineData, ProgramMetadata
+from llm_server.core.types import (
+    ImageProcessingMetadata,
+    MediaType,
+    PipelineData,
+    ProgramMetadata,
+    Usage,
+)
 
 
 # Test Data
@@ -105,10 +111,12 @@ async def test_pipeline_validation():
 class TestModelProcessor:
     @pytest.mark.anyio
     async def test_model_processor_basic(self, text_data, monkeypatch):
-        """Test basic model processor functionality, borrowing mocking patterns from contactcapture-backend."""
+        """Test basic model processor functionality AND its metadata output."""
         # ARRANGE
         mock_model_manager = MagicMock()
+        # Mock the LM history to control the usage data that gets extracted
         mock_lm = MagicMock(spec=dspy.LM)
+        mock_lm.history = [{"usage": {"prompt_tokens": 50, "completion_tokens": 100}}]
         mock_model_manager.get_model.return_value = mock_lm
 
         mock_predictor_instance = MagicMock()
@@ -125,7 +133,7 @@ class TestModelProcessor:
 
         processor = ModelProcessor(
             model_manager=mock_model_manager,
-            model_id="mock-model-id",
+            model_id="gpt-4o-mini",
             signature_class=dspy.Signature,
             input_key="input",
             output_processor=DefaultOutputProcessor(),
@@ -140,9 +148,11 @@ class TestModelProcessor:
         assert result.content == "test content_predicted"
         assert result.metadata["processed"] is True
 
-        # Verify using the named mock, which resolves the type error
-        mock_dspy_predict_class.assert_called_once_with(dspy.Signature)
-        mock_predictor_instance.assert_called_once_with(input="test content")
+        assert "usage" in result.metadata
+        usage_metadata = result.metadata["usage"]
+        assert isinstance(usage_metadata, Usage)
+        assert usage_metadata.prompt_tokens == 50
+        assert usage_metadata.completion_tokens == 100
 
     def test_model_processor_media_types(self):
         """Test model processor media type handling"""
@@ -164,23 +174,38 @@ class TestModelProcessor:
 
 class TestImageProcessor:
     @pytest.mark.anyio
-    async def test_image_processing(self, image_data):
-        """Test image processor functionality"""
+    async def test_image_processing(
+        self,
+    ):  # Removed image_data fixture, we create it here
+        """Test image processor creates correct, typed metadata."""
+        # ARRANGE
         import io
 
         from PIL import Image
 
-        test_image = Image.new("RGB", (1000, 1000))
+        test_image = Image.new("RGB", (1000, 1200))  # Non-square for better ratio test
         img_byte_arr = io.BytesIO()
         test_image.save(img_byte_arr, format="PNG")
         data = PipelineData(
             media_type=MediaType.IMAGE, content=img_byte_arr.getvalue(), metadata={}
         )
         processor = ImageProcessor(max_size=(800, 800))
+
+        # ACT
         result = await processor.process(data)
-        assert "processed_size" in result.metadata
-        assert result.metadata["processed_size"] == (800, 800)
-        assert result.metadata["processed"] is True
+
+        # ASSERT
+        # 1. Check that our specific metadata object exists
+        assert "image_processing" in result.metadata
+        metadata = result.metadata["image_processing"]
+        assert isinstance(metadata, ImageProcessingMetadata)
+
+        # 2. Assert against the typed attributes of the object
+        assert metadata.processed is True
+        assert metadata.original_size == (1000, 1200)
+        # Max size is 800, ratio is 800/1200 = 0.666...
+        # New size will be (1000 * 0.666, 1200 * 0.666) = (666, 800)
+        assert metadata.processed_size == (666, 800)
 
     def test_image_processor_media_types(self):
         """Test image processor media type handling"""

@@ -110,42 +110,46 @@ app = FastAPI(lifespan=lifespan)
 
 @app.post("/predict")
 async def predict_text(request: PredictionRequest):
-    """Your custom prediction endpoint with performance tracking."""
+    """A modern endpoint using the pipeline and automatic metadata."""
     try:
-        # A) Instantiate metrics for this request. This also sets up OTel context.
-        metrics = PerformanceMetrics()
         program_manager: ProgramManager = app.state.program_manager
+        metrics = PerformanceMetrics() # 1. Start performance tracking
 
-        # B) Get the original model backend and wrap it with the performance tracker
-        original_backend = program_manager.model_manager.get_model(request.model_id)
-        tracked_backend = ModelBackendTracker(original_backend, metrics)
+        # 2. Define the processing pipeline
+        pipeline = Pipeline([
+            ModelProcessor(
+                model_manager=program_manager.model_manager,
+                model_id=request.model_id,
+                signature_class=Predictor,
+                input_key="input",
+                output_processor=DefaultOutputProcessor(),
+                accepted_types=[MediaType.TEXT],
+                output_type=MediaType.TEXT,
+            )
+        ])
 
-        # C) Temporarily configure DSPy to use the tracked backend for this request
-        dspy.configure(lm=tracked_backend)
-
-        # D) Execute the program. The program_id is auto-generated from the class name ('Predictor' -> 'predictor')
-        result, execution_info, _ = await program_manager.execute_program(
-            program_id="predictor",
-            model_id=request.model_id,
-            input_data={"input": request.prompt},
+        # 3. Execute the pipeline
+        result_data = await pipeline.execute(
+            PipelineData(media_type=MediaType.TEXT, content=request.prompt)
         )
-        
-        # E) Combine the execution info and detailed performance data
-        final_metadata = execution_info.model_dump()
-        final_metadata["performance"] = metrics.get_summary()
+        metrics.mark_checkpoint("pipeline_complete")
+
+        # 4. Automatically collect all consistent metadata
+        final_metadata = MetadataCollector.collect_response_metadata(
+            model_id=request.model_id,
+            program_metadata=program_manager.registry.get_program_metadata("predictor"),
+            performance_metrics=metrics.get_summary(),
+            model_info=program_manager.model_info.get(request.model_id, {}).model_dump(by_alias=True)
+        )
 
         return {
             "success": True,
-            "data": {"response": result.output},
+            "data": {"response": result_data.content},
             "metadata": final_metadata,
         }
     except Exception as e:
+        # Proper error handling
         raise HTTPException(status_code=500, detail=str(e))
-    finally:
-        # F) Always reset DSPy config and finalize metrics
-        dspy.configure(lm=None)
-        if 'metrics' in locals():
-            metrics.finish()
 ```
 
 ### Required Configuration

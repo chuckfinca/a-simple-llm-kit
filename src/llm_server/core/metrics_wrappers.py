@@ -3,9 +3,6 @@ import uuid
 from typing import Any
 
 from llm_server.core.context import _current_metrics
-
-# [OTel] This block handles the optional import of OpenTelemetry components.
-# If OTel is not installed or disabled via config, all instruments will be None.
 from llm_server.core.opentelemetry_integration import (
     _OTEL_ENABLED,
     REQUEST_DURATION_SECONDS,
@@ -13,7 +10,13 @@ from llm_server.core.opentelemetry_integration import (
     trace,
 )
 from llm_server.core.protocols import PipelineStep
-from llm_server.core.types import MediaType, PipelineData, Usage
+from llm_server.core.types import (
+    MediaType,
+    PerformanceSummary,
+    PipelineData,
+    TokenSummary,
+    Usage,
+)
 
 
 class PerformanceMetrics:
@@ -101,27 +104,41 @@ class PerformanceMetrics:
             self._current_span.end()
 
     def get_summary(self) -> dict[str, Any]:
-        """Get a summary of the metrics for the API response."""
+        """Get a summary of the metrics for the API response using Pydantic models."""
         total_time = time.time() - self.start_time
-        summary = {
-            "timing": {"total_ms": round(total_time * 1000, 2)},
-            "trace_id": self.trace_id,
-        }
-        if self.usage:
-            summary["tokens"] = {
-                "input": self.usage.prompt_tokens,
-                "output": self.usage.completion_tokens,
-                "total": self.usage.prompt_tokens + self.usage.completion_tokens,
-            }
-            if "estimated_cost_usd" in self.metadata:
-                summary["tokens"]["cost_usd"] = self.metadata["estimated_cost_usd"]
 
+        # 1. Build the timing dictionary
+        timing_data = {"totalMs": round(total_time * 1000, 2)}
         for name, timestamp in self.checkpoints.items():
             if name != "request_start":
-                summary["timing"][f"{name}_ms"] = round(
+                # Convert snake_case checkpoint names to camelCase for the final JSON
+                parts = name.split("_")
+                camel_name = parts[0] + "".join(x.title() for x in parts[1:])
+                timing_data[f"{camel_name}Ms"] = round(
                     (timestamp - self.start_time) * 1000, 2
                 )
-        return summary
+
+        # 2. Build the token data dictionary if usage exists
+        token_data = None
+        if self.usage:
+            token_data = {
+                "input_tokens": self.usage.prompt_tokens,
+                "output_tokens": self.usage.completion_tokens,
+                "total_tokens": self.usage.prompt_tokens + self.usage.completion_tokens,
+            }
+            if "estimated_cost_usd" in self.metadata:
+                token_data["cost_usd"] = self.metadata["estimated_cost_usd"]
+
+        # 3. Create the main Pydantic model instance
+        summary_model = PerformanceSummary(
+            trace_id=self.trace_id,
+            timing=timing_data,
+            # Unpack the dictionary into keyword arguments for the sub-model
+            tokens=TokenSummary(**token_data) if token_data else None,
+        )
+
+        # 4. Dump the model to a dict, applying camelCase aliases and removing None values
+        return summary_model.model_dump(by_alias=True, exclude_none=True)
 
 
 class PipelineStepTracker:

@@ -2,49 +2,27 @@ import datetime as dt
 import uuid
 from typing import Any
 
-from llm_server.core.types import ProgramMetadata
+from llm_server.core.types import (
+    ModelResponseInfo,
+    ProgramMetadata,
+    ProgramResponseInfo,
+    ResponseMetadata,
+    PerformanceSummary
+)
 
 
 def ensure_program_metadata_object(metadata: Any) -> ProgramMetadata | None:
-    """
-    Safely create a ProgramMetadata object from a dictionary,
-    ensuring all required fields are present and correctly typed.
-    """
-    from llm_server.core.types import ProgramMetadata
-
+    """Safely create a ProgramMetadata object from a dictionary."""
     if metadata is None:
         return None
-
     if isinstance(metadata, ProgramMetadata):
         return metadata
-
     if not isinstance(metadata, dict):
-        # Or raise a TypeError, depending on desired strictness
         return None
-
-    # Validate that all REQUIRED fields are present.
     required_fields = {"id", "name", "version", "code_hash"}
-    for field in required_fields:
-        if field not in metadata or not isinstance(metadata[field], str):
-            # This indicates a programming error or bad data.
-            # We can't safely create the object.
-            return None  # Or raise ValueError(f"Missing or invalid required field: {field}")
-
-    # Build the keyword arguments for the constructor.
-    kwargs = {
-        "id": metadata["id"],
-        "name": metadata["name"],
-        "version": metadata["version"],
-        "code_hash": metadata["code_hash"],
-    }
-
-    # Add OPTIONAL fields if they exist.
-    optional_fields = {"description", "tags", "parent_id", "parent_version"}
-    for field in optional_fields:
-        if field in metadata:
-            kwargs[field] = metadata[field]
-
-    # Now it's safe to create the object.
+    if not all(field in metadata for field in required_fields):
+        return None
+    kwargs = {k: metadata[k] for k in ProgramMetadata.model_fields if k in metadata}
     return ProgramMetadata(**kwargs)
 
 
@@ -64,57 +42,45 @@ def format_timestamp(dt=None) -> str:
 
 
 class MetadataCollector:
-    """
-    Helper class to enforce consistent metadata collection across all processors.
-    This ensures all required information is available in a standard format.
-    """
+    """Helper class to enforce consistent metadata collection using Pydantic models."""
 
     @staticmethod
     def collect_response_metadata(
-        result,
         model_id: str,
         program_metadata: Any | None = None,
         performance_metrics: dict[str, Any] | None = None,
         model_info: dict[str, Any] | None = None,
     ) -> dict[str, Any]:
-        """
-        Collect and structure all metadata for the API response.
-        """
-        # Start with basic metadata
-        metadata: dict[str, Any] = {
-            "execution_id": str(uuid.uuid4()),
-            "timestamp": format_timestamp(),
-        }
-
-        # Use model_info parameter first if provided, then try result metadata
+        """Collect and structure all metadata for the API response using Pydantic."""
         info = model_info or {}
-        if not info and hasattr(result, "metadata") and "model_info" in result.metadata:
-            info = result.metadata["model_info"]
 
-        # Add model info in the standardized format
-        metadata["model"] = {
-            "id": model_id,
-            "provider": info.get("provider", "unknown"),
-            "base_model": info.get("base_model", model_id),
-            "model_name": info.get("model_name", ""),
-        }
+        model_data = ModelResponseInfo(
+            id=model_id,
+            provider=info.get("provider", "unknown"),
+            base_model=info.get("baseModel", model_id),
+            model_name=info.get("modelName", model_id),
+        )
 
-        # Add program info if available - always convert to object first
-        program_metadata = ensure_program_metadata_object(program_metadata)
-        if program_metadata:
-            metadata["program"] = {
-                "id": program_metadata.id,
-                "version": program_metadata.version,
-                "name": program_metadata.name,
-            }
+        program_data = None
+        program_meta_obj = ensure_program_metadata_object(program_metadata)
+        if program_meta_obj:
+            program_data = ProgramResponseInfo(
+                id=program_meta_obj.id,
+                version=program_meta_obj.version,
+                name=program_meta_obj.name,
+            )
 
-        # Add performance metrics if available - only check the standard location
-        if performance_metrics:
-            metadata["performance"] = performance_metrics
-        elif hasattr(result, "metadata") and "performance" in result.metadata:
-            metadata["performance"] = result.metadata["performance"]
+        metadata_model = ResponseMetadata(
+            execution_id=str(uuid.uuid4()),
+            timestamp=format_timestamp(),
+            model=model_data,
+            program=program_data,
+            performance=PerformanceSummary(**performance_metrics)
+            if performance_metrics
+            else None,
+        )
 
-        return metadata
+        return metadata_model.model_dump(by_alias=True, exclude_none=True)
 
 
 def detect_extraction_error(exception):

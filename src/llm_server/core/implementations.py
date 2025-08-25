@@ -15,7 +15,12 @@ from llm_server.core.protocols import (
     PipelineStep,
     ProgramMetadata,
 )
-from llm_server.core.types import MediaType, PipelineData, Usage
+from llm_server.core.types import (
+    ImageProcessingMetadata,
+    MediaType,
+    PipelineData,
+    Usage,
+)
 
 
 class ModelProcessor(PipelineStep):
@@ -309,15 +314,18 @@ class ImageProcessor:
         # Convert to dspy.Image before returning
         processed_dspy = dspy.Image.from_PIL(processed_pil)
 
+        processing_metadata = ImageProcessingMetadata(
+            mime_type=image_content.detect_mime_type(),
+            original_size=original_size,
+            processed_size=processed_size,
+            compression_ratio=ratio if ratio < 1 else 1.0,
+        )
+
+        # Combine existing metadata with the new, structured metadata
+        final_metadata = {**data.metadata, "image_processing": processing_metadata}
+
         return PipelineData(
             media_type=MediaType.IMAGE,
             content=processed_dspy,
-            metadata={
-                **data.metadata,
-                "processed": True,
-                "mime_type": image_content.detect_mime_type(),
-                "original_size": original_size,
-                "processed_size": processed_size,
-                "compression_ratio": ratio if ratio < 1 else 1.0,
-            },
+            metadata=final_metadata,
         )
