@@ -15,7 +15,7 @@ class Usage(pydantic.BaseModel):
 
     prompt_tokens: int = 0
     completion_tokens: int = 0
-    
+
     class ConfigDict:
         alias_generator = to_camel
         populate_by_name = True
@@ -27,7 +27,7 @@ class PipelineData(pydantic.BaseModel):
     media_type: MediaType
     content: Any
     metadata: dict[str, Any] = {}
-    
+
     class ConfigDict:
         alias_generator = to_camel
         populate_by_name = True
@@ -69,7 +69,7 @@ class ProgramMetadata(pydantic.BaseModel):
     tags: list[str] = []
     parent_id: str | None = None
     parent_version: str | None = None
-    
+
     class ConfigDict:
         alias_generator = to_camel
         populate_by_name = True
@@ -86,7 +86,7 @@ class ProgramExecutionInfo(pydantic.BaseModel):
     execution_id: str
     timestamp: str
     trace_id: str | None = None
-    
+
     class ConfigDict:
         alias_generator = to_camel
         populate_by_name = True

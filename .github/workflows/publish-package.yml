@@ -1,0 +1,36 @@
+name: Publish Python Package to GitHub
+
+on:
+  push:
+    tags:
+      - 'v*' # Trigger this workflow when a new tag like 'v0.2.0' is pushed
+
+jobs:
+  build-and-publish:
+    name: Build and publish Python package
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      packages: write # Grant permission to write to GitHub Packages
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v4
+        with:
+          python-version: '3.10'
+
+      - name: Install build dependencies
+        run: python -m pip install --upgrade build
+
+      - name: Build package
+        run: python -m build
+
+      - name: Publish package to GitHub Packages
+        uses: pypa/gh-action-pypi-publish@release/v1
+        with:
+          repository_url: https://pypi.pkg.github.com/${{ github.repository_owner }}
+          # Use GITHUB_TOKEN for authentication with GitHub Packages
+          # This token is automatically created and provided by GitHub Actions.
