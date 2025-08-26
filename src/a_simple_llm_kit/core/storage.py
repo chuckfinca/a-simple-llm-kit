@@ -1,6 +1,6 @@
 from pathlib import Path
 
-from llm_server.core.protocols import StorageAdapter
+from a_simple_llm_kit.core.protocols import StorageAdapter
 
 
 class InMemoryStorageAdapter(StorageAdapter):

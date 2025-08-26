@@ -2,7 +2,7 @@ from collections.abc import Callable, Coroutine
 from functools import wraps
 from typing import TYPE_CHECKING, Any, ParamSpec, TypeVar
 
-from llm_server.core.config import FrameworkSettings
+from a_simple_llm_kit.core.config import FrameworkSettings
 
 if TYPE_CHECKING:
     from opentelemetry.trace import StatusCode
@@ -37,7 +37,7 @@ try:
         {
             ResourceAttributes.SERVICE_NAME: _settings.otel_service_name,
             ResourceAttributes.SERVICE_VERSION: _settings.otel_service_version,
-            "library.name": "llm-server-framework",
+            "library.name": "a-simple-llm-kit-framework",
             "library.version": "0.2.0",  # This could be read from pyproject.toml
         }
     )
@@ -49,8 +49,8 @@ try:
     # 3. GLOBAL METER AND TRACER
     # --------------------------------------------------------------------------
     # These are the entry points for creating all our instruments.
-    _meter = metrics.get_meter("llm_server.framework")
-    _tracer = trace.get_tracer("llm_server.framework")
+    _meter = metrics.get_meter("a-simple-llm-kit.framework")
+    _tracer = trace.get_tracer("a-simple-llm-kit.framework")
 
     # ------------------------------------------------------------------------------
     # 5. METRIC INSTRUMENT DEFINITIONS
@@ -61,7 +61,7 @@ try:
     # Request-level metrics
     REQUESTS_TOTAL = (
         _meter.create_counter(
-            name="llm_server.requests.total",
+            name="a-simple-llm-kit.requests.total",
             description="Total number of requests processed by the framework.",
             unit="1",
         )
@@ -71,7 +71,7 @@ try:
 
     REQUEST_DURATION_SECONDS = (
         _meter.create_histogram(
-            name="llm_server.request.duration_seconds",
+            name="a-simple-llm-kit.request.duration_seconds",
             description="Histogram of request processing time in seconds.",
             unit="s",
         )
@@ -82,7 +82,7 @@ try:
     # Model-level metrics
     MODEL_CALLS_TOTAL = (
         _meter.create_counter(
-            name="llm_server.model_calls.total",
+            name="a-simple-llm-kit.model_calls.total",
             description="Total number of calls to a model backend.",
             unit="1",
         )
@@ -93,7 +93,7 @@ try:
     # Circuit Breaker metrics
     CIRCUIT_BREAKER_FAILURES_TOTAL = (
         _meter.create_counter(
-            name="llm_server.circuit_breaker.failures_total",
+            name="a-simple-llm-kit.circuit_breaker.failures_total",
             description="Total number of failures tracked by circuit breakers.",
             unit="1",
         )
@@ -103,7 +103,7 @@ try:
 
     CIRCUIT_BREAKER_STATE_CHANGES_TOTAL = (
         _meter.create_counter(
-            name="llm_server.circuit_breaker.state_changes_total",
+            name="a-simple-llm-kit.circuit_breaker.state_changes_total",
             description="Total number of times a circuit breaker's state has changed.",
             unit="1",
         )
@@ -113,7 +113,7 @@ try:
 
     CIRCUIT_BREAKER_STATE = (
         _meter.create_up_down_counter(
-            name="llm_server.circuit_breaker.state",
+            name="a-simple-llm-kit.circuit_breaker.state",
             description="The current state of a circuit breaker (1 for OPEN, 0 otherwise).",
             unit="1",
         )

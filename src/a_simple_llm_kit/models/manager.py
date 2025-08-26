@@ -1,7 +1,7 @@
-from llm_server.core import logging
-from llm_server.core.config import FrameworkSettings
-from llm_server.core.protocols import ConfigProvider
-from llm_server.core.providers import ProviderManager
+from a_simple_llm_kit.core import logging
+from a_simple_llm_kit.core.config import FrameworkSettings
+from a_simple_llm_kit.core.protocols import ConfigProvider
+from a_simple_llm_kit.core.providers import ProviderManager
 
 
 class ModelManager:

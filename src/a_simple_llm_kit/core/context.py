@@ -2,7 +2,7 @@ from contextvars import ContextVar
 from typing import TYPE_CHECKING, Optional
 
 if TYPE_CHECKING:
-    from llm_server.core.metrics_wrappers import PerformanceMetrics
+    from a_simple_llm_kit.core.metrics_wrappers import PerformanceMetrics
 
 # Forward reference to avoid circular imports
 _current_metrics: ContextVar[Optional["PerformanceMetrics"]] = ContextVar(

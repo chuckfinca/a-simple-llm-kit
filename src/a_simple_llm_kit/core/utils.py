@@ -2,7 +2,7 @@ import datetime as dt
 import uuid
 from typing import Any
 
-from llm_server.core.types import (
+from a_simple_llm_kit.core.types import (
     ModelResponseInfo,
     PerformanceSummary,
     ProgramMetadata,

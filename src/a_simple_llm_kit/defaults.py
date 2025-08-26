@@ -2,7 +2,7 @@ from typing import Any
 
 import yaml
 
-from llm_server.core.protocols import ConfigProvider
+from a_simple_llm_kit.core.protocols import ConfigProvider
 
 
 class YamlConfigProvider(ConfigProvider):

@@ -5,13 +5,13 @@ from enum import Enum
 from functools import wraps
 from typing import Any, ParamSpec, TypeVar
 
-from llm_server.core import logging
-from llm_server.core.utils import get_utc_now
+from a_simple_llm_kit.core import logging
+from a_simple_llm_kit.core.utils import get_utc_now
 
 # --- OTel Integration ---
 # Import the new metric instruments. They will be `None` if OTel is disabled.
 try:
-    from llm_server.core.opentelemetry_integration import (
+    from a_simple_llm_kit.core.opentelemetry_integration import (
         CIRCUIT_BREAKER_FAILURES_TOTAL,
         CIRCUIT_BREAKER_STATE,
         CIRCUIT_BREAKER_STATE_CHANGES_TOTAL,

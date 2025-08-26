@@ -6,10 +6,10 @@ from typing import Any
 
 from dspy.signatures.signature import Signature
 
-from llm_server.core import logging
-from llm_server.core.protocols import StorageAdapter
-from llm_server.core.types import ProgramMetadata
-from llm_server.core.utils import format_timestamp
+from a_simple_llm_kit.core import logging
+from a_simple_llm_kit.core.protocols import StorageAdapter
+from a_simple_llm_kit.core.types import ProgramMetadata
+from a_simple_llm_kit.core.utils import format_timestamp
 
 
 class ProgramRegistry:

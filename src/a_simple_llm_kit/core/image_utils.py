@@ -8,7 +8,7 @@ from typing import Any
 from PIL import Image
 from PIL.ExifTags import TAGS
 
-from llm_server.core import logging
+from a_simple_llm_kit.core import logging
 
 
 def extract_gps_from_image(image_bytes: bytes) -> dict[str, Any] | None:

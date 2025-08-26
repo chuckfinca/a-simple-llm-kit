@@ -44,8 +44,8 @@ Pipeline([
 
 ### Key Components
 
-- **Core Framework** (`src/llm_server/core/`): Protocols, types, and base implementations
-- **Model Management** (`src/llm_server/models/`): Provider abstraction and program management
+- **Core Framework** (`src/a-simple-llm-kit/core/`): Protocols, types, and base implementations
+- **Model Management** (`src/a-simple-llm-kit/models/`): Provider abstraction and program management
 - **Pipeline System**: Composable processing steps with automatic validation
 - **Metrics & Monitoring**: Performance tracking, circuit breakers, and observability
 
@@ -58,8 +58,8 @@ Pipeline([
 pip install llm-server-framework
 
 # Or install from source for development
-git clone https://github.com/chuckfinca/llm-server
-cd llm-server
+git clone https://github.com/chuckfinca/a-simple-llm-kit
+cd a-simple-llm-kit
 pip install -e ".[dev]"
 ```
 
@@ -77,12 +77,12 @@ from pydantic import BaseModel
 import dspy
 
 # 1. Import the framework's core components
-from llm_server.core.config import FrameworkSettings
-from llm_server.core.metrics_wrappers import PerformanceMetrics, ModelBackendTracker
-from llm_server.defaults import FileSystemStorageAdapter, YamlConfigProvider
-from llm_server.models.manager import ModelManager
-from llm_server.models.predictor import Predictor # A basic dspy.Signature
-from llm_server.models.program_manager import ProgramManager
+from a_simple_llm_kit.core.config import FrameworkSettings
+from a_simple_llm_kit.core.metrics_wrappers import PerformanceMetrics, ModelBackendTracker
+from a_simple_llm_kit.defaults import FileSystemStorageAdapter, YamlConfigProvider
+from a_simple_llm_kit.models.manager import ModelManager
+from a_simple_llm_kit.models.predictor import Predictor # A basic dspy.Signature
+from a_simple_llm_kit.models.program_manager import ProgramManager
 
 class PredictionRequest(BaseModel):
     prompt: str
@@ -233,7 +233,7 @@ from prometheus_client import make_asgi_app
 # --- End OTel Imports ---
 
 # Import your settings to get service name
-from llm_server.core.config import FrameworkSettings
+from a_simple_llm_kit.core.config import FrameworkSettings
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
@@ -316,8 +316,8 @@ The framework's strength lies in its composable pipeline architecture. Create cu
 ### Custom Pipeline Step
 
 ```python
-from llm_server.core.protocols import PipelineStep
-from llm_server.core.types import MediaType, PipelineData
+from a_simple_llm_kit.core.protocols import PipelineStep
+from a_simple_llm_kit.core.types import MediaType, PipelineData
 
 class TextSummarizerStep(PipelineStep):
     def __init__(self, max_length: int = 100):
@@ -349,8 +349,8 @@ class TextSummarizerStep(PipelineStep):
 ### Custom Model Backend
 
 ```python
-from llm_server.core.protocols import ModelBackend
-from llm_server.core.model_interfaces import ModelOutput
+from a_simple_llm_kit.core.protocols import ModelBackend
+from a_simple_llm_kit.core.model_interfaces import ModelOutput
 
 class CustomModelBackend(ModelBackend):
     def __init__(self, model_id: str):
@@ -371,8 +371,8 @@ class CustomModelBackend(ModelBackend):
 ### Combining Custom Components
 
 ```python
-from llm_server.core.pipeline import Pipeline
-from llm_server.core.implementations import ModelProcessor
+from a_simple_llm_kit.core.pipeline import Pipeline
+from a_simple_llm_kit.core.implementations import ModelProcessor
 
 # Create a custom pipeline
 custom_pipeline = Pipeline([
@@ -444,9 +444,9 @@ OTEL_SERVICE_VERSION="1.0.0"
 Build complex processing workflows using the pipeline architecture:
 
 ```python
-from llm_server.core.pipeline import Pipeline
-from llm_server.core.implementations import ImageProcessor, ModelProcessor
-from llm_server.core.types import MediaType, PipelineData
+from a_simple_llm_kit.core.pipeline import Pipeline
+from a_simple_llm_kit.core.implementations import ImageProcessor, ModelProcessor
+from a_simple_llm_kit.core.types import MediaType, PipelineData
 
 # Create a multi-step image processing pipeline
 image_pipeline = Pipeline([
@@ -467,7 +467,7 @@ result = await image_pipeline.execute(initial_data)
 Protect your application from cascading failures:
 
 ```python
-from llm_server.core.circuit_breaker import CircuitBreaker
+from a_simple_llm_kit.core.circuit_breaker import CircuitBreaker
 
 @CircuitBreaker(failure_threshold=5, reset_timeout=60)
 async def protected_model_call(input_data):
@@ -480,7 +480,7 @@ async def protected_model_call(input_data):
 Track metrics across your application:
 
 ```python
-from llm_server.core.metrics_wrappers import PerformanceMetrics, ModelBackendTracker
+from a_simple_llm_kit.core.metrics_wrappers import PerformanceMetrics, ModelBackendTracker
 
 # Wrap your backends with performance tracking
 metrics = PerformanceMetrics()
@@ -502,7 +502,7 @@ pip install -e ".[dev]"
 pytest tests/
 
 # Run with coverage
-pytest tests/ --cov=llm_server --cov-report=html
+pytest tests/ --cov=a-simple-llm-kit --cov-report=html
 ```
 
 ### Test Categories
@@ -535,8 +535,8 @@ async def test_custom_pipeline():
 ## 📁 Project Structure
 
 ```
-llm-server/
-├── src/llm_server/           # Main application package
+a-simple-llm-kit/
+├── src/a-simple-llm-kit/           # Main application package
 │   ├── core/                 # Core framework components
 │   │   ├── protocols.py      # Interface definitions
 │   │   ├── types.py          # Core data types

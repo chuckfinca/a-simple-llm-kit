@@ -4,10 +4,10 @@ from unittest.mock import MagicMock
 import dspy
 import pytest
 
-from llm_server.core import ImageProcessor, ModelProcessor, Pipeline, PipelineStep
-from llm_server.core.output_processors import DefaultOutputProcessor
-from llm_server.core.protocols import ModelBackend
-from llm_server.core.types import (
+from a_simple_llm_kit.core import ImageProcessor, ModelProcessor, Pipeline, PipelineStep
+from a_simple_llm_kit.core.output_processors import DefaultOutputProcessor
+from a_simple_llm_kit.core.protocols import ModelBackend
+from a_simple_llm_kit.core.types import (
     ImageProcessingMetadata,
     MediaType,
     PipelineData,

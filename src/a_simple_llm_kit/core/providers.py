@@ -3,7 +3,7 @@ from typing import Any
 
 import dspy
 
-from llm_server.core.config import FrameworkSettings
+from a_simple_llm_kit.core.config import FrameworkSettings
 
 
 @dataclass

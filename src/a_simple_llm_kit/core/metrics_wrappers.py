@@ -2,15 +2,15 @@ import time
 import uuid
 from typing import Any
 
-from llm_server.core.context import _current_metrics
-from llm_server.core.opentelemetry_integration import (
+from a_simple_llm_kit.core.context import _current_metrics
+from a_simple_llm_kit.core.opentelemetry_integration import (
     _OTEL_ENABLED,
     REQUEST_DURATION_SECONDS,
     _tracer,
     trace,
 )
-from llm_server.core.protocols import PipelineStep
-from llm_server.core.types import (
+from a_simple_llm_kit.core.protocols import PipelineStep
+from a_simple_llm_kit.core.types import (
     MediaType,
     PerformanceSummary,
     PipelineData,

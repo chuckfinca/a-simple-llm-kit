@@ -1,6 +1,6 @@
 from typing import Any, Protocol, runtime_checkable
 
-from llm_server.core.types import MediaType, PipelineData, ProgramMetadata
+from a_simple_llm_kit.core.types import MediaType, PipelineData, ProgramMetadata
 
 
 @runtime_checkable

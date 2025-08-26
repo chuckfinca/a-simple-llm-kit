@@ -1,12 +1,12 @@
 from collections.abc import Sequence
 
-from llm_server.core.opentelemetry_integration import (
+from a_simple_llm_kit.core.opentelemetry_integration import (
     _OTEL_ENABLED,
     _tracer,
     trace,
 )
-from llm_server.core.protocols import PipelineStep
-from llm_server.core.types import PipelineData
+from a_simple_llm_kit.core.protocols import PipelineStep
+from a_simple_llm_kit.core.types import PipelineData
 
 
 class PipelineValidator:

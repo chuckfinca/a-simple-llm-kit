@@ -2,7 +2,7 @@ from typing import Any
 
 import dspy
 
-from llm_server.core.model_interfaces import SimpleOutput
+from a_simple_llm_kit.core.model_interfaces import SimpleOutput
 
 
 class Predictor(dspy.Signature):

@@ -5,10 +5,10 @@ from dspy.signatures.signature import Signature
 from pydantic import BaseModel
 from pydantic.alias_generators import to_camel
 
-from llm_server.core import logging
-from llm_server.core.program_registry import ProgramRegistry
-from llm_server.core.protocols import StorageAdapter
-from llm_server.core.types import ProgramExecutionInfo, ProgramMetadata
+from a_simple_llm_kit.core import logging
+from a_simple_llm_kit.core.program_registry import ProgramRegistry
+from a_simple_llm_kit.core.protocols import StorageAdapter
+from a_simple_llm_kit.core.types import ProgramExecutionInfo, ProgramMetadata
 
 
 class ModelInfo(BaseModel):

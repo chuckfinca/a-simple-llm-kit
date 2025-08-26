@@ -3,8 +3,8 @@ requires = ["setuptools>=61.0", "wheel"]
 build-backend = "setuptools.build_meta"
 
 [project]
-name = "llm-server"
-version = "0.2.1"
+name = "a-simple-llm-kit"
+version = "0.3.0"
 description = "A lightweight, extensible server for working with large language models, focused on pipeline processing and multi-modal capabilities. Built with FastAPI and DSPy."
 readme = "README.md"
 requires-python = ">=3.10"
@@ -27,7 +27,7 @@ dependencies = [
 ]
 
 [project.urls]
-Homepage = "https://github.com/chuckfinca/llm-server"
+Homepage = "https://github.com/chuckfinca/a-simple-llm-kit"
 
 [project.optional-dependencies]
 opentelemetry = [
@@ -50,7 +50,7 @@ dev = [
     "modal",
     "trio",
     "pytest-anyio",
-    "llm-server[opentelemetry]"
+    "a-simple-llm-kit[opentelemetry]"
 ]
 
 [tool.setuptools.packages.find]
@@ -81,8 +81,8 @@ ignore = ["E501", "W293"]
 dummy-variable-rgx = "^(_+|unused_)"
 
 [tool.ruff.lint.isort]
-# Tell Ruff that "llm_server" is your own code, so it groups imports correctly.
-known-first-party = ["llm_server"]
+# Tell Ruff that "a-simple-llm-kit" is your own code, so it groups imports correctly.
+known-first-party = ["a-simple-llm-kit"]
 
 [tool.mypy]
 python_version = "3.10"

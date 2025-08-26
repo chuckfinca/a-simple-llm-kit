@@ -1,9 +1,9 @@
 import json
 from typing import Any
 
-from llm_server.core import logging
-from llm_server.core.protocols import OutputProcessor
-from llm_server.core.types import PipelineData
+from a_simple_llm_kit.core import logging
+from a_simple_llm_kit.core.protocols import OutputProcessor
+from a_simple_llm_kit.core.types import PipelineData
 
 
 class DefaultOutputProcessor(OutputProcessor):

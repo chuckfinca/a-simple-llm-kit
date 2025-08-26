@@ -8,6 +8,77 @@ resolution-markers = [
 ]
 
 [[package]]
+name = "a-simple-llm-kit"
+version = "0.3.0"
+source = { editable = "." }
+dependencies = [
+    { name = "dspy-ai" },
+    { name = "fastapi", extra = ["all"] },
+    { name = "pillow" },
+    { name = "pydantic" },
+    { name = "pydantic-settings" },
+    { name = "python-dotenv" },
+    { name = "python-multipart" },
+    { name = "pyyaml" },
+]
+
+[package.optional-dependencies]
+dev = [
+    { name = "email-validator" },
+    { name = "httpx" },
+    { name = "modal" },
+    { name = "mypy" },
+    { name = "opentelemetry-api" },
+    { name = "opentelemetry-exporter-otlp" },
+    { name = "opentelemetry-exporter-prometheus" },
+    { name = "opentelemetry-sdk" },
+    { name = "opentelemetry-semantic-conventions" },
+    { name = "pillow-heif" },
+    { name = "prometheus-client" },
+    { name = "pytest" },
+    { name = "pytest-anyio" },
+    { name = "ruff" },
+    { name = "trio" },
+]
+opentelemetry = [
+    { name = "opentelemetry-api" },
+    { name = "opentelemetry-exporter-otlp" },
+    { name = "opentelemetry-exporter-prometheus" },
+    { name = "opentelemetry-sdk" },
+    { name = "opentelemetry-semantic-conventions" },
+    { name = "prometheus-client" },
+]
+
+[package.metadata]
+requires-dist = [
+    { name = "a-simple-llm-kit", extras = ["opentelemetry"], marker = "extra == 'dev'" },
+    { name = "dspy-ai", specifier = ">=2.0.0" },
+    { name = "email-validator", marker = "extra == 'dev'", specifier = ">=2.0.0" },
+    { name = "fastapi", extras = ["all"], specifier = ">=0.68.0" },
+    { name = "httpx", marker = "extra == 'dev'", specifier = ">=0.23.0" },
+    { name = "modal", marker = "extra == 'dev'" },
+    { name = "mypy", marker = "extra == 'dev'", specifier = ">=1.9.0" },
+    { name = "opentelemetry-api", marker = "extra == 'opentelemetry'", specifier = "~=1.25.0" },
+    { name = "opentelemetry-exporter-otlp", marker = "extra == 'opentelemetry'", specifier = "~=1.25.0" },
+    { name = "opentelemetry-exporter-prometheus", marker = "extra == 'opentelemetry'", specifier = "~=0.46b0" },
+    { name = "opentelemetry-sdk", marker = "extra == 'opentelemetry'", specifier = "~=1.25.0" },
+    { name = "opentelemetry-semantic-conventions", marker = "extra == 'opentelemetry'", specifier = "~=0.46b0" },
+    { name = "pillow", specifier = ">=10.0.0" },
+    { name = "pillow-heif", marker = "extra == 'dev'" },
+    { name = "prometheus-client", marker = "extra == 'opentelemetry'", specifier = ">=0.17.0" },
+    { name = "pydantic", specifier = ">=2.0.0" },
+    { name = "pydantic-settings", specifier = ">=2.0.0" },
+    { name = "pytest", marker = "extra == 'dev'", specifier = ">=7.0.0" },
+    { name = "pytest-anyio", marker = "extra == 'dev'" },
+    { name = "python-dotenv", specifier = ">=0.19.0" },
+    { name = "python-multipart", specifier = ">=0.0.5" },
+    { name = "pyyaml", specifier = ">=6.0.0" },
+    { name = "ruff", marker = "extra == 'dev'", specifier = ">=0.4.0" },
+    { name = "trio", marker = "extra == 'dev'" },
+]
+provides-extras = ["opentelemetry", "dev"]
+
+[[package]]
 name = "aiohappyeyeballs"
 version = "2.6.1"
 source = { registry = "https://pypi.org/simple" }
@@ -1110,77 +1181,6 @@ dependencies = [
     { name = "tokenizers" },
 ]
 sdist = { url = "https://files.pythonhosted.org/packages/3e/fc/02bfc7dcf6276fbbd5acf0ebcb188f824cf6d4ee8013d7150458c77c7047/litellm-1.74.15.post1.tar.gz", hash = "sha256:8c0f73f89f15603afebbc912cb30ba6f18439eb12249f16a37646752fb76825e", size = 9711380, upload-time = "2025-08-02T22:05:05.361Z" }
-
-[[package]]
-name = "llm-server"
-version = "0.2.1"
-source = { editable = "." }
-dependencies = [
-    { name = "dspy-ai" },
-    { name = "fastapi", extra = ["all"] },
-    { name = "pillow" },
-    { name = "pydantic" },
-    { name = "pydantic-settings" },
-    { name = "python-dotenv" },
-    { name = "python-multipart" },
-    { name = "pyyaml" },
-]
-
-[package.optional-dependencies]
-dev = [
-    { name = "email-validator" },
-    { name = "httpx" },
-    { name = "modal" },
-    { name = "mypy" },
-    { name = "opentelemetry-api" },
-    { name = "opentelemetry-exporter-otlp" },
-    { name = "opentelemetry-exporter-prometheus" },
-    { name = "opentelemetry-sdk" },
-    { name = "opentelemetry-semantic-conventions" },
-    { name = "pillow-heif" },
-    { name = "prometheus-client" },
-    { name = "pytest" },
-    { name = "pytest-anyio" },
-    { name = "ruff" },
-    { name = "trio" },
-]
-opentelemetry = [
-    { name = "opentelemetry-api" },
-    { name = "opentelemetry-exporter-otlp" },
-    { name = "opentelemetry-exporter-prometheus" },
-    { name = "opentelemetry-sdk" },
-    { name = "opentelemetry-semantic-conventions" },
-    { name = "prometheus-client" },
-]
-
-[package.metadata]
-requires-dist = [
-    { name = "dspy-ai", specifier = ">=2.0.0" },
-    { name = "email-validator", marker = "extra == 'dev'", specifier = ">=2.0.0" },
-    { name = "fastapi", extras = ["all"], specifier = ">=0.68.0" },
-    { name = "httpx", marker = "extra == 'dev'", specifier = ">=0.23.0" },
-    { name = "llm-server", extras = ["opentelemetry"], marker = "extra == 'dev'" },
-    { name = "modal", marker = "extra == 'dev'" },
-    { name = "mypy", marker = "extra == 'dev'", specifier = ">=1.9.0" },
-    { name = "opentelemetry-api", marker = "extra == 'opentelemetry'", specifier = "~=1.25.0" },
-    { name = "opentelemetry-exporter-otlp", marker = "extra == 'opentelemetry'", specifier = "~=1.25.0" },
-    { name = "opentelemetry-exporter-prometheus", marker = "extra == 'opentelemetry'", specifier = "~=0.46b0" },
-    { name = "opentelemetry-sdk", marker = "extra == 'opentelemetry'", specifier = "~=1.25.0" },
-    { name = "opentelemetry-semantic-conventions", marker = "extra == 'opentelemetry'", specifier = "~=0.46b0" },
-    { name = "pillow", specifier = ">=10.0.0" },
-    { name = "pillow-heif", marker = "extra == 'dev'" },
-    { name = "prometheus-client", marker = "extra == 'opentelemetry'", specifier = ">=0.17.0" },
-    { name = "pydantic", specifier = ">=2.0.0" },
-    { name = "pydantic-settings", specifier = ">=2.0.0" },
-    { name = "pytest", marker = "extra == 'dev'", specifier = ">=7.0.0" },
-    { name = "pytest-anyio", marker = "extra == 'dev'" },
-    { name = "python-dotenv", specifier = ">=0.19.0" },
-    { name = "python-multipart", specifier = ">=0.0.5" },
-    { name = "pyyaml", specifier = ">=6.0.0" },
-    { name = "ruff", marker = "extra == 'dev'", specifier = ">=0.4.0" },
-    { name = "trio", marker = "extra == 'dev'" },
-]
-provides-extras = ["opentelemetry", "dev"]
 
 [[package]]
 name = "magicattr"

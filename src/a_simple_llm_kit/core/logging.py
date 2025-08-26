@@ -7,10 +7,10 @@ from typing import ClassVar
 
 import pydantic
 
-from llm_server.core.context import get_current_metrics
+from a_simple_llm_kit.core.context import get_current_metrics
 
 # Create default logger first
-logger = logging.getLogger("llm_server")
+logger = logging.getLogger("a-simple-llm-kit")
 logger.addHandler(logging.NullHandler())
 
 
@@ -86,7 +86,7 @@ class JsonFormatter(logging.Formatter):
 class LogConfig(pydantic.BaseModel):
     """Logging configuration to be set for the server"""
 
-    LOGGER_NAME: str = "llm_server"
+    LOGGER_NAME: str = "a-simple-llm-kit"
     LOG_FORMAT: str = "%(asctime)s | %(levelname)s | %(message)s"
     LOG_LEVEL: str = "DEBUG"
 
@@ -124,7 +124,7 @@ class LogConfig(pydantic.BaseModel):
         },
     }
     loggers: dict = {
-        "llm_server": {"handlers": ["default", "file"], "level": LOG_LEVEL},
+        "a-simple-llm-kit": {"handlers": ["default", "file"], "level": LOG_LEVEL},
     }
 
 

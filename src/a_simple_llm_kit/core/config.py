@@ -15,7 +15,7 @@ class FrameworkSettings(BaseSettings):
     otel_enabled: bool = os.getenv("OTEL_ENABLED", "false").lower() == "true"
 
     # Service identifiers used for resource attributes
-    otel_service_name: str = os.getenv("OTEL_SERVICE_NAME", "llm-server-app")
+    otel_service_name: str = os.getenv("OTEL_SERVICE_NAME", "a-simple-llm-kit-app")
     otel_service_version: str = os.getenv("OTEL_SERVICE_VERSION", "0.2.0")
 
     class ConfigDict:

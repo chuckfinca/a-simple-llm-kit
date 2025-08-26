@@ -8,14 +8,14 @@ import anyio
 import dspy
 from PIL import Image
 
-from llm_server.core import logging
-from llm_server.core.circuit_breaker import CircuitBreaker
-from llm_server.core.protocols import (
+from a_simple_llm_kit.core import logging
+from a_simple_llm_kit.core.circuit_breaker import CircuitBreaker
+from a_simple_llm_kit.core.protocols import (
     OutputProcessor,
     PipelineStep,
     ProgramMetadata,
 )
-from llm_server.core.types import (
+from a_simple_llm_kit.core.types import (
     ImageProcessingMetadata,
     MediaType,
     PipelineData,
