@@ -1,4 +1,4 @@
-# LLM Server Framework
+# A Simple LLM Kit
 
 A production-ready Python library for building LLM-powered applications with advanced pipeline processing, multi-modal capabilities, and enterprise-grade reliability features. Built with FastAPI, DSPy, and a composable architecture.
 
@@ -7,27 +7,27 @@ A production-ready Python library for building LLM-powered applications with adv
 ## 🚀 Key Features
 
 ### Core Architecture
-- **Pipeline-First Design**: Composable, type-safe pipeline steps for complex processing workflows
-- **Protocol-Based Framework**: Clean interfaces enabling easy extension and testing
-- **Multi-Modal Processing**: Unified handling of text, images, and structured data
-- **Performance Tracking**: Comprehensive, per-request metrics collection with step-by-step timing
+- **Pipeline-First Design**: Composable, type-safe pipeline steps for complex processing workflows.
+- **Protocol-Based Framework**: Clean interfaces enabling easy extension and testing.
+- **Multi-Modal Processing**: Unified handling of text, images, and structured data.
+- **Performance Tracking**: Comprehensive, per-request metrics collection with step-by-step timing.
 
 ### Reliability & Observability
-- **Circuit Breaker Pattern**: Built-in failure protection with automatic recovery
-- **OpenTelemetry Integration**: Vendor-neutral metrics and tracing for any backend (Prometheus, Datadog, etc.)
-- **Semantic Conventions**: Adheres to `llm.*` OTel conventions for out-of-the-box compatibility with observability tools
-- **Structured Logging**: JSON-formatted logs with context preservation
+- **Circuit Breaker Pattern**: Built-in failure protection with automatic recovery.
+- **OpenTelemetry Integration**: Vendor-neutral metrics and tracing for any backend (Prometheus, Datadog, etc.).
+- **Semantic Conventions**: Adheres to `llm.*` OTel conventions for out-of-the-box compatibility with observability tools.
+- **Structured Logging**: JSON-formatted logs with context preservation.
 
 ### Model & Provider Support
-- **Multi-Provider**: OpenAI, Anthropic, Google Gemini, and Hugging Face
-- **Flexible Configuration**: YAML-based model configuration with parameter overrides
-- **Token Management**: Robust and accurate token counting with cost estimation
-- **Program Versioning**: DSPy program management with optimization tracking
+- **Multi-Provider**: OpenAI, Anthropic, Google Gemini, and Hugging Face.
+- **Flexible Configuration**: YAML-based model configuration with parameter overrides.
+- **Token Management**: Robust and accurate token counting with cost estimation.
+- **Program Versioning**: DSPy program management with optimization tracking.
 
 ### Specialized Capabilities
-- **Image Processing**: Intelligent resizing, format conversion, and optimization
-- **Type Safety**: Full Pydantic integration with runtime protocol checking
-- **Custom Extensions**: Easy-to-implement custom pipeline steps and model backends
+- **Image Processing**: Intelligent resizing, format conversion, and optimization.
+- **Type Safety**: Full Pydantic integration with runtime protocol checking.
+- **Custom Extensions**: Easy-to-implement custom pipeline steps and model backends.
 
 ## 🏗️ Architecture Overview
 
@@ -35,6 +35,10 @@ The framework is built around a composable pipeline architecture where each step
 
 ```python
 # Core pipeline concept
+from a_simple_llm_kit.core.pipeline import Pipeline
+from a_simple_llm_kit.core.implementations import ImageProcessor, ModelProcessor
+from a_simple_llm_kit.core.types import MediaType
+
 Pipeline([
     ImageProcessor(max_size=(800, 800)),           # Resize and optimize images
     ModelProcessor(backend, [MediaType.IMAGE]),    # Send to vision model
@@ -44,18 +48,18 @@ Pipeline([
 
 ### Key Components
 
-- **Core Framework** (`src/a-simple-llm-kit/core/`): Protocols, types, and base implementations
-- **Model Management** (`src/a-simple-llm-kit/models/`): Provider abstraction and program management
-- **Pipeline System**: Composable processing steps with automatic validation
-- **Metrics & Monitoring**: Performance tracking, circuit breakers, and observability
+- **Core Framework** (`src/a_simple_llm_kit/core/`): Protocols, types, and base implementations.
+- **Model Management** (`src/a_simple_llm_kit/models/`): Provider abstraction and program management.
+- **Pipeline System**: Composable processing steps with automatic validation.
+- **Metrics & Monitoring**: Performance tracking, circuit breakers, and observability.
 
 ## 💻 Installation & Basic Usage
 
 ### Installation
 
 ```bash
-# Install from PyPI (when published)
-pip install llm-server-framework
+# Install from PyPI
+pip install a-simple-llm-kit
 
 # Or install from source for development
 git clone https://github.com/chuckfinca/a-simple-llm-kit
@@ -78,10 +82,16 @@ import dspy
 
 # 1. Import the framework's core components
 from a_simple_llm_kit.core.config import FrameworkSettings
-from a_simple_llm_kit.core.metrics_wrappers import PerformanceMetrics, ModelBackendTracker
-from a_simple_llm_kit.defaults import FileSystemStorageAdapter, YamlConfigProvider
+from a_simple_llm_kit.core.metrics_wrappers import PerformanceMetrics
+from a_simple_llm_kit.core.pipeline import Pipeline
+from a_simple_llm_kit.core.implementations import ModelProcessor
+from a_simple_llm_kit.core.output_processors import DefaultOutputProcessor
+from a_simple_llm_kit.core.types import MediaType, PipelineData
+from a_simple_llm_kit.core.utils import MetadataCollector
+from a_simple_llm_kit.defaults import YamlConfigProvider
+from a_simple_llm_kit.core.storage import FileSystemStorageAdapter
 from a_simple_llm_kit.models.manager import ModelManager
-from a_simple_llm_kit.models.predictor import Predictor # A basic dspy.Signature
+from a_simple_llm_kit.models.predictor import Predictor
 from a_simple_llm_kit.models.program_manager import ProgramManager
 
 class PredictionRequest(BaseModel):
@@ -139,7 +149,7 @@ async def predict_text(request: PredictionRequest):
             model_id=request.model_id,
             program_metadata=program_manager.registry.get_program_metadata("predictor"),
             performance_metrics=metrics.get_summary(),
-            model_info=program_manager.model_info.get(request.model_id, {}).model_dump(by_alias=True)
+            model_info=program_manager.model_info.get(request.model_id, {}).model_dump(by_alias=True) if program_manager.model_info.get(request.model_id) else {}
         )
 
         return {
@@ -161,9 +171,23 @@ models:
   gpt-4o-mini:
     model_name: "openai/gpt-4o-mini"
     max_tokens: 3000
-  claude-3.5-sonnet:
+    additional_params:
+      timeout: 60
+  claude-3-5-sonnet:
     model_name: "anthropic/claude-3-5-sonnet-20241022"
     max_tokens: 4000
+    additional_params:
+      timeout: 60
+  Meta-Llama-3.1-8B-Instruct:
+    model_name: "huggingface/meta-llama/Meta-Llama-3.1-8B-Instruct"
+    max_tokens: 3000
+    additional_params:
+      timeout: 60
+  gemini-2.0-flash:
+    model_name: "gemini/gemini-2.0-flash"
+    max_tokens: 2048
+    additional_params:
+      timeout: 60
 ```
 
 **Environment Variables (`.env`):**
@@ -196,7 +220,7 @@ The framework is deeply instrumented with OpenTelemetry to provide vendor-neutra
 **1. Install the optional dependencies:**
 
 ```bash
-pip install "llm-server-framework[opentelemetry]"
+pip install "a-simple-llm-kit[opentelemetry]"
 ```
 
 **2. Enable via Environment Variables:**
@@ -211,7 +235,9 @@ OTEL_SERVICE_VERSION="1.0.0"
 
 # --- Your API Keys ---
 OPENAI_API_KEY=your_openai_key_here
-# ...
+ANTHROPIC_API_KEY=your_anthropic_key_here
+HUGGINGFACE_API_KEY=your_hf_key_here
+GEMINI_API_KEY=your_gemini_key_here
 ```
 
 **3. Configure the OTel SDK in Your Application:**
@@ -241,7 +267,10 @@ async def lifespan(app: FastAPI):
     
     # --- OTel SDK Setup ---
     if settings.otel_enabled:
-        resource = Resource.create({"service.name": settings.otel_service_name, "service.version": settings.otel_service_version})
+        resource = Resource.create({
+            "service.name": settings.otel_service_name, 
+            "service.version": settings.otel_service_version
+        })
         reader = PrometheusMetricReader()
         provider = MeterProvider(resource=resource, metric_readers=[reader])
         metrics.set_meter_provider(provider)
@@ -264,9 +293,9 @@ if settings.otel_enabled:
 
 ### Available Instrumentation
 
-- **Automatic Tracing**: Key methods like `ModelBackend.predict` and each step in a Pipeline are automatically wrapped in trace spans with rich, LLM-specific attributes
-- **Automatic Metrics**: The framework emits metrics for model calls, circuit breaker failures and state changes, and overall request latency
-- **Rich Per-Request Data**: The `PerformanceMetrics` object, accessible in your API response, provides a detailed breakdown of timing and token usage for debugging individual requests
+- **Automatic Tracing**: Key methods like `ModelBackend.predict` and each step in a Pipeline are automatically wrapped in trace spans with rich, LLM-specific attributes.
+- **Automatic Metrics**: The framework emits metrics for model calls, circuit breaker failures and state changes, and overall request latency.
+- **Rich Per-Request Data**: The `PerformanceMetrics` object, accessible in your API response, provides a detailed breakdown of timing and token usage for debugging individual requests.
 
 ## 📊 Response Format
 
@@ -287,23 +316,22 @@ All API responses follow a consistent envelope with comprehensive metadata:
     "model": {
       "id": "gpt-4o-mini",
       "provider": "openai",
-      "base_model": "gpt-4o-mini"
+      "baseModel": "gpt-4o-mini"
     },
     "performance": {
       "timing": {
-        "total_ms": 750.25,
-        "model_complete_ms": 738.91
+        "totalMs": 750.25,
+        "modelCompleteMs": 738.91
       },
       "tokens": {
-        "input": 50,
-        "output": 150,
-        "total": 200,
-        "cost_usd": 0.0001,
-        "method": "dspy_history_exact"
+        "inputTokens": 50,
+        "outputTokens": 150,
+        "totalTokens": 200,
+        "costUsd": 0.0001
       },
-      "trace_id": "unique-trace-identifier"
+      "traceId": "unique-trace-identifier"
     },
-    "execution_id": "unique-execution-id",
+    "executionId": "unique-execution-id",
     "timestamp": "2025-08-01T10:30:00.123456Z"
   }
 }
@@ -351,6 +379,8 @@ class TextSummarizerStep(PipelineStep):
 ```python
 from a_simple_llm_kit.core.protocols import ModelBackend
 from a_simple_llm_kit.core.model_interfaces import ModelOutput
+from a_simple_llm_kit.core.types import PipelineData
+from typing import Any
 
 class CustomModelBackend(ModelBackend):
     def __init__(self, model_id: str):
@@ -359,7 +389,7 @@ class CustomModelBackend(ModelBackend):
         self.last_prompt_tokens = None
         self.last_completion_tokens = None
     
-    async def predict(self, input: Any) -> ModelOutput:
+    async def predict(self, input: Any, pipeline_data: PipelineData) -> ModelOutput:
         # Your custom model logic here
         result = await your_model_call(input)
         return result
@@ -378,7 +408,11 @@ from a_simple_llm_kit.core.implementations import ModelProcessor
 custom_pipeline = Pipeline([
     TextSummarizerStep(max_length=200),
     ModelProcessor(
-        backend=CustomModelBackend("my-model"), 
+        model_manager=your_model_manager,
+        model_id="my-model",
+        signature_class=YourSignature,
+        input_key="input",
+        output_processor=DefaultOutputProcessor(),
         accepted_types=[MediaType.TEXT],
         output_type=MediaType.TEXT
     )
@@ -401,7 +435,7 @@ models:
       temperature: 0.7
       top_p: 1.0
       
-  claude-3.5-sonnet:
+  claude-3-5-sonnet:
     model_name: "anthropic/claude-3-5-sonnet-20241022"
     max_tokens: 4000
     additional_params:
@@ -437,59 +471,6 @@ OTEL_SERVICE_NAME="MyLLMApp"
 OTEL_SERVICE_VERSION="1.0.0"
 ```
 
-## 🔧 Framework Integration Patterns
-
-### Pipeline-Based Processing
-
-Build complex processing workflows using the pipeline architecture:
-
-```python
-from a_simple_llm_kit.core.pipeline import Pipeline
-from a_simple_llm_kit.core.implementations import ImageProcessor, ModelProcessor
-from a_simple_llm_kit.core.types import MediaType, PipelineData
-
-# Create a multi-step image processing pipeline
-image_pipeline = Pipeline([
-    ImageProcessor(max_size=(800, 800)),
-    ModelProcessor(
-        backend=your_model_backend,
-        accepted_types=[MediaType.IMAGE],
-        output_type=MediaType.TEXT
-    )
-])
-
-# Execute with automatic validation and metrics
-result = await image_pipeline.execute(initial_data)
-```
-
-### Circuit Breaker Integration
-
-Protect your application from cascading failures:
-
-```python
-from a_simple_llm_kit.core.circuit_breaker import CircuitBreaker
-
-@CircuitBreaker(failure_threshold=5, reset_timeout=60)
-async def protected_model_call(input_data):
-    # Your model call logic
-    return await model.predict(input_data)
-```
-
-### Performance Monitoring
-
-Track metrics across your application:
-
-```python
-from a_simple_llm_kit.core.metrics_wrappers import PerformanceMetrics, ModelBackendTracker
-
-# Wrap your backends with performance tracking
-metrics = PerformanceMetrics()
-tracked_backend = ModelBackendTracker(your_backend, metrics)
-
-# Get comprehensive performance data
-performance_summary = metrics.get_summary()
-```
-
 ## 🧪 Testing
 
 ### Run All Tests
@@ -514,6 +495,10 @@ pytest tests/ --cov=a-simple-llm-kit --cov-report=html
 ### Example Test
 
 ```python
+import pytest
+from a_simple_llm_kit.core.types import MediaType, PipelineData
+from a_simple_llm_kit.core.pipeline import Pipeline
+
 @pytest.mark.anyio
 async def test_custom_pipeline():
     """Test custom pipeline with multiple steps"""
@@ -531,48 +516,6 @@ async def test_custom_pipeline():
     result = await pipeline.execute(text_data)
     assert result.metadata["summarized"] is True
 ```
-
-## 📁 Project Structure
-
-```
-a-simple-llm-kit/
-├── src/a-simple-llm-kit/           # Main application package
-│   ├── core/                 # Core framework components
-│   │   ├── protocols.py      # Interface definitions
-│   │   ├── types.py          # Core data types
-│   │   ├── pipeline.py       # Pipeline orchestration
-│   │   ├── implementations.py # Standard implementations
-│   │   ├── circuit_breaker.py # Reliability patterns
-│   │   ├── metrics_*.py      # Performance monitoring
-│   │   ├── opentelemetry_integration.py # OTel instruments
-│   │   └── ...
-│   ├── models/               # Model management
-│   │   ├── manager.py        # Model lifecycle
-│   │   ├── program_manager.py # DSPy program management
-│   │   └── predictor.py      # Base prediction logic
-│   └── defaults.py           # Default implementations
-├── config/                   # Configuration files
-│   └── model_config.yml      # Model definitions
-├── tests/                    # Test suite
-└── README.md                 # This file
-```
-
-## 🔍 Monitoring & Observability
-
-### Metrics Available
-
-- Request latency and throughput
-- Token usage and cost tracking
-- Circuit breaker state and recovery
-- Pipeline step performance
-- Model provider health
-
-### Logging Features
-
-- Structured JSON logging
-- Distributed tracing with correlation IDs
-- Performance metrics integration
-- Error context preservation
 
 ## 🤝 Contributing
 
@@ -594,7 +537,7 @@ a-simple-llm-kit/
 
 ## 📄 License
 
-MIT License - see [LICENSE](LICENSE) file for details
+MIT License - see [LICENSE](LICENSE) file for details.
 
 ## 🆘 Support
 
