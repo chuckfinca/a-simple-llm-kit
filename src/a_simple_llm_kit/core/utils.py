@@ -3,6 +3,7 @@ import uuid
 from typing import Any
 
 from a_simple_llm_kit.core.types import (
+    ModelInfo,
     ModelResponseInfo,
     PerformanceSummary,
     ProgramMetadata,
@@ -49,16 +50,15 @@ class MetadataCollector:
         model_id: str,
         program_metadata: Any | None = None,
         performance_metrics: dict[str, Any] | None = None,
-        model_info: dict[str, Any] | None = None,
+        model_info: ModelInfo | None = None,
     ) -> dict[str, Any]:
         """Collect and structure all metadata for the API response using Pydantic."""
-        info = model_info or {}
 
         model_data = ModelResponseInfo(
             id=model_id,
-            provider=info.get("provider", "unknown"),
-            base_model=info.get("baseModel", model_id),
-            model_name=info.get("modelName", model_id),
+            provider=model_info.provider if model_info else "unknown",
+            base_model=model_info.base_model if model_info else model_id,
+            model_name=model_info.model_name if model_info else model_id,
         )
 
         program_data = None
@@ -70,8 +70,14 @@ class MetadataCollector:
                 name=program_meta_obj.name,
             )
 
+        execution_id = (
+            performance_metrics.get("traceId")
+            if performance_metrics
+            else str(uuid.uuid4())
+        )
+
         metadata_model = ResponseMetadata(
-            execution_id=str(uuid.uuid4()),
+            execution_id=str(execution_id),
             timestamp=format_timestamp(),
             model=model_data,
             program=program_data,

@@ -12,6 +12,7 @@ from a_simple_llm_kit.core.opentelemetry_integration import (
 from a_simple_llm_kit.core.protocols import PipelineStep
 from a_simple_llm_kit.core.types import (
     MediaType,
+    ModelInfo,
     PerformanceSummary,
     PipelineData,
     TokenSummary,
@@ -57,16 +58,16 @@ class PerformanceMetrics:
         return elapsed
 
     def set_model_info(
-        self, model_id: str, model_info: dict[str, Any] | None = None
+        self, model_id: str, model_info: ModelInfo | None = None
     ) -> None:
         """Set model info for the API response and OpenTelemetry span."""
         self.model_id = model_id
         if model_info:
-            self.model_info = model_info
-        if self._current_span:
+            if self._current_span:
+                self._current_span.set_attribute("llm.request.model", model_id)
+                self._current_span.set_attribute("llm.vendor", model_info.provider)
+        elif self._current_span:
             self._current_span.set_attribute("llm.request.model", model_id)
-            if model_info and (provider := model_info.get("provider")):
-                self._current_span.set_attribute("llm.vendor", provider)
 
     def add_metadata(self, key: str, value: Any) -> None:
         """Add custom metadata to the API response."""

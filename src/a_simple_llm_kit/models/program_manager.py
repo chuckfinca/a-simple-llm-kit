@@ -2,25 +2,11 @@ import uuid
 from typing import Any
 
 from dspy.signatures.signature import Signature
-from pydantic import BaseModel
-from pydantic.alias_generators import to_camel
 
 from a_simple_llm_kit.core import logging
 from a_simple_llm_kit.core.program_registry import ProgramRegistry
 from a_simple_llm_kit.core.protocols import StorageAdapter
-from a_simple_llm_kit.core.types import ProgramExecutionInfo, ProgramMetadata
-
-
-class ModelInfo(BaseModel):
-    """Defines the structure for model information."""
-
-    provider: str
-    base_model: str
-    model_name: str
-
-    class ConfigDict:
-        alias_generator = to_camel
-        populate_by_name = True
+from a_simple_llm_kit.core.types import ModelInfo, ProgramExecutionInfo, ProgramMetadata
 
 
 class ProgramManager:

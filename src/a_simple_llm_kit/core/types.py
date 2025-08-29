@@ -5,6 +5,18 @@ import pydantic
 from pydantic.alias_generators import to_camel
 
 
+class ModelInfo(pydantic.BaseModel):
+    """Defines the structure for model information."""
+
+    provider: str
+    base_model: str
+    model_name: str
+
+    class ConfigDict:
+        alias_generator = to_camel
+        populate_by_name = True
+
+
 class MediaType(Enum):
     TEXT = "text"
     IMAGE = "image"
