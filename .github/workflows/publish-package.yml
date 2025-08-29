@@ -34,4 +34,4 @@ jobs:
           # Use a specific API token for TestPyPI, stored in a different secret
           password: ${{ secrets.PYPI_API_TOKEN }}
           # Point to the TestPyPI repository
-          repository_url: https://test.pypi.org/legacy/
+          repository-url: https://test.pypi.org/legacy/
