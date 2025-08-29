@@ -1,18 +1,18 @@
-name: Publish Python Package to GitHub
+name: Publish Python Package to PyPI
 
 on:
   push:
     tags:
-      - 'v*' # Trigger this workflow when a new tag like 'v0.2.0' is pushed
+      - 'v*' # Trigger this workflow when a new tag like 'v0.3.0' is pushed
 
 jobs:
   build-and-publish:
-    name: Build and publish Python package
+    name: Build and publish Python package to PyPI
     runs-on: ubuntu-latest
-    permissions:
-      contents: read
-      packages: write # Grant permission to write to GitHub Packages
-
+    # id-token permission is not needed for the token-based approach
+    # permissions:
+    #   id-token: write 
+    
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
@@ -28,9 +28,10 @@ jobs:
       - name: Build package
         run: python -m build
 
-      - name: Publish package to GitHub Packages
+      - name: Publish package to PyPI
         uses: pypa/gh-action-pypi-publish@release/v1
         with:
-          repository_url: https://pypi.pkg.github.com/${{ github.repository_owner }}
-          # Use GITHUB_TOKEN for authentication with GitHub Packages
-          # This token is automatically created and provided by GitHub Actions.
+          # Use a specific API token for TestPyPI, stored in a different secret
+          password: ${{ secrets.PYPI_API_TOKEN }}
+          # Point to the TestPyPI repository
+          repository_url: https://test.pypi.org/legacy/
