@@ -1,6 +1,5 @@
 import base64
 import binascii
-import functools
 import io
 from typing import Any
 
@@ -86,17 +85,23 @@ class ModelProcessor(PipelineStep):
         """
         lm = self.model_manager.get_model(self.model_id)
         if not lm:
-            raise ValueError(f"Model {self.model_id} not found")
+            raise ValueError(f"Model {self.model_id} not found in ModelManager")
 
-        # Configure DSPy for this specific call
-        with dspy.context(lm=lm):
-            # Create and run the predictor
-            predictor = dspy.Predict(self.signature)
+        # Create the predictor instance here, in the main thread.
+        predictor = dspy.Predict(self.signature)
 
-            # Run the blocking call in a separate thread using anyio for compatibility.
-            # We use functools.partial to correctly pass keyword arguments to the threaded function.
-            callable_with_kwargs = functools.partial(predictor, **input_dict)
-            return await anyio.to_thread.run_sync(callable_with_kwargs)  # type: ignore
+        def sync_predictor_call_in_context():
+            """
+            This wrapper function will run in the worker thread.
+            It sets the context and then executes the predictor call.
+            """
+            # By setting the context here, we guarantee it exists in the
+            # same thread that dspy will use to look it up.
+            with dspy.context(lm=lm):
+                return predictor(**input_dict)
+
+        # Execute our new wrapper function in the thread pool.
+        return await anyio.to_thread.run_sync(sync_predictor_call_in_context)  # type: ignore
 
     async def process(self, data: PipelineData) -> PipelineData:
         """

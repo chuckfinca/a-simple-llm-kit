@@ -12,9 +12,7 @@ class ModelInfo(pydantic.BaseModel):
     base_model: str
     model_name: str
 
-    class ConfigDict:
-        alias_generator = to_camel
-        populate_by_name = True
+    model_config = pydantic.ConfigDict(alias_generator=to_camel, populate_by_name=True)
 
 
 class MediaType(Enum):
@@ -28,9 +26,7 @@ class Usage(pydantic.BaseModel):
     prompt_tokens: int = 0
     completion_tokens: int = 0
 
-    class ConfigDict:
-        alias_generator = to_camel
-        populate_by_name = True
+    model_config = pydantic.ConfigDict(alias_generator=to_camel, populate_by_name=True)
 
 
 class PipelineData(pydantic.BaseModel):
@@ -40,9 +36,7 @@ class PipelineData(pydantic.BaseModel):
     content: Any
     metadata: dict[str, Any] = {}
 
-    class ConfigDict:
-        alias_generator = to_camel
-        populate_by_name = True
+    model_config = pydantic.ConfigDict(alias_generator=to_camel, populate_by_name=True)
 
 
 class TokenSummary(pydantic.BaseModel):
@@ -53,9 +47,7 @@ class TokenSummary(pydantic.BaseModel):
     total_tokens: int
     cost_usd: float | None = None
 
-    class ConfigDict:
-        alias_generator = to_camel
-        populate_by_name = True
+    model_config = pydantic.ConfigDict(alias_generator=to_camel, populate_by_name=True)
 
 
 class PerformanceSummary(pydantic.BaseModel):
@@ -65,9 +57,7 @@ class PerformanceSummary(pydantic.BaseModel):
     trace_id: str
     tokens: TokenSummary | None = None
 
-    class ConfigDict:
-        alias_generator = to_camel
-        populate_by_name = True
+    model_config = pydantic.ConfigDict(alias_generator=to_camel, populate_by_name=True)
 
 
 class ProgramMetadata(pydantic.BaseModel):
@@ -82,9 +72,7 @@ class ProgramMetadata(pydantic.BaseModel):
     parent_id: str | None = None
     parent_version: str | None = None
 
-    class ConfigDict:
-        alias_generator = to_camel
-        populate_by_name = True
+    model_config = pydantic.ConfigDict(alias_generator=to_camel, populate_by_name=True)
 
 
 class ProgramExecutionInfo(pydantic.BaseModel):
@@ -99,9 +87,7 @@ class ProgramExecutionInfo(pydantic.BaseModel):
     timestamp: str
     trace_id: str | None = None
 
-    class ConfigDict:
-        alias_generator = to_camel
-        populate_by_name = True
+    model_config = pydantic.ConfigDict(alias_generator=to_camel, populate_by_name=True)
 
 
 class ModelResponseInfo(pydantic.BaseModel):
@@ -112,9 +98,7 @@ class ModelResponseInfo(pydantic.BaseModel):
     base_model: str
     model_name: str
 
-    class ConfigDict:
-        alias_generator = to_camel
-        populate_by_name = True
+    model_config = pydantic.ConfigDict(alias_generator=to_camel, populate_by_name=True)
 
 
 class ProgramResponseInfo(pydantic.BaseModel):
@@ -124,9 +108,7 @@ class ProgramResponseInfo(pydantic.BaseModel):
     version: str
     name: str
 
-    class ConfigDict:
-        alias_generator = to_camel
-        populate_by_name = True
+    model_config = pydantic.ConfigDict(alias_generator=to_camel, populate_by_name=True)
 
 
 class ResponseMetadata(pydantic.BaseModel):
@@ -138,9 +120,7 @@ class ResponseMetadata(pydantic.BaseModel):
     model: ModelResponseInfo | None = None
     performance: PerformanceSummary | None = None
 
-    class ConfigDict:
-        alias_generator = to_camel
-        populate_by_name = True
+    model_config = pydantic.ConfigDict(alias_generator=to_camel, populate_by_name=True)
 
 
 class ImageProcessingMetadata(pydantic.BaseModel):
@@ -152,6 +132,4 @@ class ImageProcessingMetadata(pydantic.BaseModel):
     processed_size: tuple[int, int]
     compression_ratio: float
 
-    class ConfigDict:
-        alias_generator = to_camel
-        populate_by_name = True
+    model_config = pydantic.ConfigDict(alias_generator=to_camel, populate_by_name=True)
