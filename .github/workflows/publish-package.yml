@@ -3,15 +3,12 @@ name: Publish Python Package to PyPI
 on:
   push:
     tags:
-      - 'v*' # Trigger this workflow when a new tag like 'v0.3.0' is pushed
+      - 'v*'
 
 jobs:
   build-and-publish:
     name: Build and publish Python package to PyPI
     runs-on: ubuntu-latest
-    # id-token permission is not needed for the token-based approach
-    # permissions:
-    #   id-token: write 
     
     steps:
       - name: Checkout repository
@@ -31,7 +28,4 @@ jobs:
       - name: Publish package to PyPI
         uses: pypa/gh-action-pypi-publish@release/v1
         with:
-          # Use a specific API token for TestPyPI, stored in a different secret
           password: ${{ secrets.PYPI_API_TOKEN }}
-          # Point to the TestPyPI repository
-          repository-url: https://test.pypi.org/legacy/
