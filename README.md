@@ -1,5 +1,7 @@
 # A Simple LLM Kit
 
+[![PyPI version](https://badge.fury.io/py/a-simple-llm-kit.svg)](https://pypi.org/project/a-simple-llm-kit/)
+
 A production-ready Python library for building LLM-powered applications with advanced pipeline processing, multi-modal capabilities, and enterprise-grade reliability features. Built with FastAPI, DSPy, and a composable architecture.
 
 **This is a framework/library, not a standalone server.** Use it as a dependency in your own FastAPI applications.
