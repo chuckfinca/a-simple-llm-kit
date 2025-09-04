@@ -109,13 +109,10 @@ class PerformanceMetrics:
         total_time = time.time() - self.start_time
 
         # 1. Build the timing dictionary
-        timing_data = {"totalMs": round(total_time * 1000, 2)}
+        timing_data = {"total_ms": round(total_time * 1000, 2)}
         for name, timestamp in self.checkpoints.items():
             if name != "request_start":
-                # Convert snake_case checkpoint names to camelCase for the final JSON
-                parts = name.split("_")
-                camel_name = parts[0] + "".join(x.title() for x in parts[1:])
-                timing_data[f"{camel_name}Ms"] = round(
+                timing_data[f"{name}_ms"] = round(
                     (timestamp - self.start_time) * 1000, 2
                 )
 

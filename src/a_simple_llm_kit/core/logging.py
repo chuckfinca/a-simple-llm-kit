@@ -5,7 +5,7 @@ import sys
 from pathlib import Path
 from typing import ClassVar
 
-import pydantic
+from pydantic import BaseModel
 
 from a_simple_llm_kit.core.context import get_current_metrics
 
@@ -83,7 +83,7 @@ class JsonFormatter(logging.Formatter):
         return json.dumps(log_object, default=str)
 
 
-class LogConfig(pydantic.BaseModel):
+class LogConfig(BaseModel):
     """Logging configuration to be set for the server"""
 
     LOGGER_NAME: str = "a-simple-llm-kit"

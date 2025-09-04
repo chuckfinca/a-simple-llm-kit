@@ -52,7 +52,7 @@ class MetadataCollector:
         performance_metrics: dict[str, Any] | None = None,
         model_info: ModelInfo | None = None,
     ) -> dict[str, Any]:
-        """Collect and structure all metadata for the API response using Pydantic."""
+        """Collect and structure all metadata for the API response using"""
 
         model_data = ModelResponseInfo(
             id=model_id,
