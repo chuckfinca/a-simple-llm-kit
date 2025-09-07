@@ -108,7 +108,6 @@ class PerformanceMetrics:
         """Get a summary of the metrics for the API response using Pydantic models."""
         total_time = time.time() - self.start_time
 
-        # 1. Build the timing dictionary
         timing_data = {"total_ms": round(total_time * 1000, 2)}
         for name, timestamp in self.checkpoints.items():
             if name != "request_start":
@@ -116,7 +115,6 @@ class PerformanceMetrics:
                     (timestamp - self.start_time) * 1000, 2
                 )
 
-        # 2. Build the token data dictionary if usage exists
         token_data = None
         if self.usage:
             token_data = {
@@ -127,15 +125,21 @@ class PerformanceMetrics:
             if "estimated_cost_usd" in self.metadata:
                 token_data["cost_usd"] = self.metadata["estimated_cost_usd"]
 
-        # 3. Create the main Pydantic model instance
-        summary_model = PerformanceSummary(
-            trace_id=self.trace_id,
-            timing=timing_data,
-            # Unpack the dictionary into keyword arguments for the sub-model
-            tokens=TokenSummary(**token_data) if token_data else None,
+        tokens_summary = (
+            TokenSummary(
+                prompt_tokens=self.usage.prompt_tokens,
+                completion_tokens=self.usage.completion_tokens,
+                total_tokens=self.usage.prompt_tokens + self.usage.completion_tokens,
+                cost_usd=self.metadata.get("estimated_cost_usd"),
+            )
+            if self.usage
+            else None
         )
 
-        # 4. Dump the model to a dict, applying camelCase aliases and removing None values
+        summary_model = PerformanceSummary(
+            trace_id=self.trace_id, timing=timing_data, tokens=tokens_summary
+        )
+
         return summary_model.model_dump(by_alias=True, exclude_none=True)
 
 

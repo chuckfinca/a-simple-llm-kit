@@ -44,8 +44,8 @@ class PipelineData(CamelModel):
 class TokenSummary(CamelModel):
     """Defines the structure for token usage in the API response."""
 
-    input_tokens: int
-    output_tokens: int
+    prompt_tokens: int
+    completion_tokens: int
     total_tokens: int
     cost_usd: float | None = None
 
