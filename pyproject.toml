@@ -92,3 +92,7 @@ ignore_missing_imports = true
 [tool.pyright]
 include = ["src"]
 reportMissingModuleSource = "none"
+
+# Auto-generate a version file from the current Git tag for the build process.
+[tool.setuptools_scm]
+write_to = "src/a_simple_llm_kit/_version.py"
