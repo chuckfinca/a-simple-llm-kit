@@ -13,11 +13,23 @@ jobs:
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
+        with: 
+            fetch-depth: 0
 
       - name: Set up Python
         uses: actions/setup-python@v4
         with:
           python-version: '3.10'
+          
+      # ADD THIS NEW DIAGNOSTIC STEP
+      - name: Diagnose Git State
+        run: |
+          echo "--- Listing all tags ---"
+          git tag
+          echo "--- Describing current commit using tags ---"
+          git describe --tags --always
+          echo "--- Current branch ---"
+          git branch
 
       - name: Install build dependencies
         run: python -m pip install --upgrade build
