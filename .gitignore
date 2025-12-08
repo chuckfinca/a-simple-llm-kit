@@ -26,6 +26,7 @@ dist/
 build/
 *.egg-info/
 *.egg
+_version.py
 
 # Coverage / testing
 .coverage
