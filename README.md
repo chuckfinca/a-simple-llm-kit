@@ -455,6 +455,22 @@ models:
       temperature: 0.9
 ```
 
+### Logging
+
+Configure structured JSON logging for your application:
+
+```python
+from a_simple_llm_kit.core.logging import LogConfig, setup_logging
+
+# Basic setup - captures all app logs with JSON formatting
+setup_logging(LogConfig(LOG_LEVEL="DEBUG"))
+
+# Or disable root logger capture (only format ASLK's own logs)
+setup_logging(LogConfig(LOG_LEVEL="DEBUG"), capture_root=False)
+```
+
+The `capture_root=True` (default) attaches ASLK's JSON formatter to the root logger, so your FastAPI app's logs are also JSON-formatted with trace IDs. Set `capture_root=False` if you want to use your own logging configuration for app-level logs.
+
 ### Environment Variables
 
 ```env

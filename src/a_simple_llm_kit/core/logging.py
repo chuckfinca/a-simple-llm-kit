@@ -128,15 +128,42 @@ class LogConfig(BaseModel):
     }
 
 
-def setup_logging(config: LogConfig | None = None) -> None:
-    """Configure logging for the application"""
+def setup_logging(config: LogConfig | None = None, capture_root: bool = True) -> None:
+    """
+    Configure logging for the application.
+
+    Args:
+        config: Custom LogConfig object
+        capture_root: If True (default), configures the Root logger to capture all app logs
+                      with JSON formatting. If False, only configures 'a-simple-llm-kit' logs.
+    """
     if config is None:
         config = LogConfig()
 
     # Ensure log directory exists
     config.LOG_DIR.mkdir(exist_ok=True)
 
-    logging.config.dictConfig(config.model_dump())
+    config_dict = config.model_dump()
+
+    if capture_root:
+        # Attach handlers to Root so consumer app logs are formatted
+        config_dict["loggers"][""] = {
+            "handlers": ["default", "file"],
+            "level": config.LOG_LEVEL,
+        }
+
+        # Ensure ASLK doesn't double-log (propagate to Root, no handlers)
+        if "a-simple-llm-kit" in config_dict["loggers"]:
+            config_dict["loggers"]["a-simple-llm-kit"]["handlers"] = []
+            config_dict["loggers"]["a-simple-llm-kit"]["propagate"] = True
+
+        # Silence noisy third-party libs
+        config_dict["loggers"]["uvicorn.access"] = {"level": "INFO"}
+        config_dict["loggers"]["uvicorn.error"] = {"level": "INFO"}
+        config_dict["loggers"]["httpcore"] = {"level": "WARNING"}
+        config_dict["loggers"]["httpx"] = {"level": "WARNING"}
+
+    logging.config.dictConfig(config_dict)
 
     def handle_exception(exc_type, exc_value, exc_traceback):
         if issubclass(exc_type, KeyboardInterrupt):

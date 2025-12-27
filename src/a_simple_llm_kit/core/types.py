@@ -1,6 +1,9 @@
+from dataclasses import dataclass, field
 from enum import Enum
 from typing import Any
 
+import dspy
+from dspy.experimental import Document
 from pydantic import BaseModel, ConfigDict
 
 from a_simple_llm_kit.core._string_utils import simple_to_camel
@@ -119,3 +122,24 @@ class ImageProcessingMetadata(CamelModel):
     original_size: tuple[int, int]
     processed_size: tuple[int, int]
     compression_ratio: float
+
+
+@dataclass
+class TaskContext:
+    """
+    A container for the 'State' of an execution.
+    This is passed as the content payload in the Pipeline.
+    """
+
+    # 1. The Data
+    documents: list[Document] = field(default_factory=list)
+
+    # 2. The Runtime Configuration
+    system_instruction: str = ""
+    chat_history: str = ""
+
+    # 3. Optimization (Optional N-Shot Examples)
+    examples: list[dspy.Example] = field(default_factory=list)
+
+    def add_document(self, doc: Document):
+        self.documents.append(doc)

@@ -18,6 +18,7 @@ from a_simple_llm_kit.core.types import (
     ImageProcessingMetadata,
     MediaType,
     PipelineData,
+    TaskContext,
     Usage,
 )
 
@@ -113,11 +114,34 @@ class ModelProcessor(PipelineStep):
 
         # 2. Call the *protected* internal method
         raw_result = await self._protected_predict(input_dict)
+        
 
         # --- EXTRACT AND ATTACH USAGE ---
         lm = self.model_manager.get_model(self.model_id)
+        
+        # --- NEW CODE START ---
+        # Check if history exists
+        if lm and hasattr(lm, "history") and lm.history:
+            last_interaction = lm.history[-1]
+            
+            # 1. Log to system logs (Viewable in console/files)
+            # using .get() to be safe, though DSPy usually keys them 'prompt' and 'response'
+            prompt_text = last_interaction.get("prompt", "")
+            response_text = last_interaction.get("response", "")
+            
+            logging.debug(f"📝 PROMPT for {self.model_id}:\n{prompt_text}")
+            logging.debug(f"📝 RESPONSE for {self.model_id}:\n{response_text}")
+
+            # 2. (Optional) Attach to API Response for frontend debugging
+            # Be careful: This makes the JSON response huge if you have large contexts.
+            if "debug" not in data.metadata:
+                data.metadata["debug"] = {}
+            
+            data.metadata["debug"]["last_prompt"] = prompt_text
+            data.metadata["debug"]["last_response"] = response_text
+        # --- NEW CODE END ---
         usage = self._extract_usage_from_history(lm, self.model_id)
-        data.metadata["usage"] = usage  # Attach the usage object to metadata
+        data.metadata["usage"] = usage.model_dump()  # Serialize to dict for JSON compatibility
         logging.info(
             f"Framework extracted token usage: {usage.prompt_tokens} prompt, {usage.completion_tokens} completion"
         )
@@ -317,7 +341,7 @@ class ImageProcessor:
             processed_pil = corrected_pil_image
 
         # Convert to dspy.Image before returning
-        processed_dspy = dspy.Image.from_PIL(processed_pil)
+        processed_dspy = dspy.Image(processed_pil)
 
         processing_metadata = ImageProcessingMetadata(
             mime_type=image_content.detect_mime_type(),
@@ -334,3 +358,136 @@ class ImageProcessor:
             content=processed_dspy,
             metadata=final_metadata,
         )
+
+
+class ContextModelProcessor(PipelineStep):
+    """
+    A specialized processor that unpacks a TaskContext object and
+    injects it into a ContextSignature (DSPy module).
+    """
+
+    def __init__(
+        self,
+        model_manager: Any,
+        model_id: str,
+        signature_class: type[dspy.Signature],  # Must inherit ContextSignature
+        output_processor: OutputProcessor,
+        adapter: Any | None = None,
+    ):
+        self.model_manager = model_manager
+        self.model_id = model_id
+        self.signature_class = signature_class
+        self.output_processor = output_processor
+        self.adapter = adapter
+        self._accepted_types = [MediaType.TEXT]
+
+    # --- 1. COPY USAGE EXTRACTION LOGIC (Or move to a shared mixin later) ---
+    def _extract_usage_from_history(self, lm: Any, model_id: str) -> Usage:
+        """Extracts token usage from model history."""
+        if not lm or not hasattr(lm, "history") or not lm.history:
+            return Usage()
+        
+        last_call_usage = lm.history[-1].get("usage", {})
+        
+        # Anthropic/OpenAI agnostic logic
+        if "gpt-" in model_id or "o1-" in model_id:
+            return Usage(
+                prompt_tokens=last_call_usage.get("prompt_tokens", 0),
+                completion_tokens=last_call_usage.get("completion_tokens", 0),
+            )
+        elif "claude-" in model_id:
+            return Usage(
+                prompt_tokens=last_call_usage.get("input_tokens", 0),
+                completion_tokens=last_call_usage.get("output_tokens", 0),
+            )
+        
+        return Usage(
+            prompt_tokens=last_call_usage.get("prompt_tokens", 0),
+            completion_tokens=last_call_usage.get("completion_tokens", 0),
+        )
+
+    # --- 2. ADD CIRCUIT BREAKER AND THREADING ---
+    @CircuitBreaker()
+    async def _protected_predict(self, task_context: TaskContext, kwargs: dict) -> Any:
+        """
+        Internal protected execution.
+        """
+        lm = self.model_manager.get_model(self.model_id)
+        if not lm:
+            raise ValueError(f"Model {self.model_id} not found")
+
+        # Create predictor in main thread
+        predictor = dspy.ChainOfThought(self.signature_class)
+        
+        # Inject Examples (Optimization)
+        if task_context.examples:
+            predictor.demos = task_context.examples
+
+        def sync_predictor_call():
+            """Runs inside the worker thread to prevent blocking FastAPI."""
+            context_kwargs = {"lm": lm}
+            if self.adapter is not None:
+                context_kwargs["adapter"] = self.adapter
+
+            with dspy.context(**context_kwargs):
+                return predictor(
+                    role_instruction=task_context.system_instruction,
+                    context_documents=task_context.documents,
+                    chat_history=task_context.chat_history,
+                    **kwargs
+                )
+
+        # Offload to thread
+        return await anyio.to_thread.run_sync(sync_predictor_call)
+
+    async def process(self, data: PipelineData) -> PipelineData:
+        # 1. Validate Input
+        task_context = data.content
+        if not isinstance(task_context, TaskContext):
+            raise ValueError("ContextModelProcessor requires TaskContext as content.")
+
+        # 2. Extract specific inputs
+        kwargs = data.metadata.get("input_args", {})
+
+        # 3. Call Protected Method (Async + Circuit Breaker)
+        raw_result = await self._protected_predict(task_context, kwargs)
+
+        # 4. Extract Usage (Observability)
+        lm = self.model_manager.get_model(self.model_id)
+        # --- ADD THIS BLOCK START ---
+        # Retrieve model to get history
+        if lm and hasattr(lm, "history") and lm.history:
+            last_interaction = lm.history[-1]
+            
+            # 1. Try standard prompt (for completion models)
+            prompt_content = last_interaction.get("prompt")
+            
+            # 2. If None, try 'messages' from kwargs (for chat models like Claude)
+            if not prompt_content:
+                kwargs = last_interaction.get("kwargs", {})
+                prompt_content = kwargs.get("messages") or last_interaction.get("messages")
+
+            response_text = last_interaction.get("response", "")
+            
+            logging.debug(f"📝 PROMPT for {self.model_id} (Type: {type(prompt_content)}):\n{prompt_content}")
+            logging.debug(f"📝 RESPONSE for {self.model_id}:\n{response_text}")
+        # --- ADD THIS BLOCK END ---
+        usage = self._extract_usage_from_history(lm, self.model_id)
+        data.metadata["usage"] = usage.model_dump()  # Serialize to dict for JSON compatibility
+        logging.info(
+            f"ContextProcessor usage: {usage.prompt_tokens} prompt, {usage.completion_tokens} completion"
+        )
+
+        # 5. Process Output
+        final_result = self.output_processor.process(raw_result, pipeline_data=data)
+
+        return PipelineData(
+            media_type=MediaType.TEXT,
+            content=final_result,
+            metadata={**data.metadata, "processed": True},
+        )
+
+    @property
+    def accepted_media_types(self) -> list[MediaType]:
+        return self._accepted_types
+        

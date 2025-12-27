@@ -22,6 +22,7 @@ from a_simple_llm_kit.core.types import (
     PipelineData,
     ProgramExecutionInfo,
     ProgramMetadata,
+    TaskContext,
 )
 
 # --- Define the public API for this module ---
@@ -41,4 +42,5 @@ __all__ = [
     "logging",
     "CircuitBreaker",
     "extract_gps_from_image",
+    "TaskContext",
 ]
