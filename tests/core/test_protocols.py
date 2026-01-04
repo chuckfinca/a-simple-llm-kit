@@ -12,7 +12,6 @@ from a_simple_llm_kit.core.types import (
     MediaType,
     PipelineData,
     ProgramMetadata,
-    Usage,
 )
 
 
@@ -150,9 +149,10 @@ class TestModelProcessor:
 
         assert "usage" in result.metadata
         usage_metadata = result.metadata["usage"]
-        assert isinstance(usage_metadata, Usage)
-        assert usage_metadata.prompt_tokens == 50
-        assert usage_metadata.completion_tokens == 100
+        # Usage is now serialized as dict for JSON compatibility
+        assert isinstance(usage_metadata, dict)
+        assert usage_metadata["prompt_tokens"] == 50
+        assert usage_metadata["completion_tokens"] == 100
 
     def test_model_processor_media_types(self):
         """Test model processor media type handling"""

@@ -1,4 +1,5 @@
 import dspy
+from dspy.experimental import Document
 
 
 class ContextSignature(dspy.Signature):
@@ -11,7 +12,7 @@ class ContextSignature(dspy.Signature):
     role_instruction: str = dspy.InputField(
         desc="Role, constraints, and behavior instructions."
     )
-    context_documents: list[dspy.experimental.Document] = dspy.InputField(
-        desc="Reference materials."
+    context_documents: list[Document] = dspy.InputField(
+        desc="Reference materials (text, PDFs, etc.)."
     )
     chat_history: str = dspy.InputField(desc="Conversation context.", default="")

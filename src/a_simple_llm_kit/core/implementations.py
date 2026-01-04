@@ -114,21 +114,20 @@ class ModelProcessor(PipelineStep):
 
         # 2. Call the *protected* internal method
         raw_result = await self._protected_predict(input_dict)
-        
 
         # --- EXTRACT AND ATTACH USAGE ---
         lm = self.model_manager.get_model(self.model_id)
-        
+
         # --- NEW CODE START ---
         # Check if history exists
         if lm and hasattr(lm, "history") and lm.history:
             last_interaction = lm.history[-1]
-            
+
             # 1. Log to system logs (Viewable in console/files)
             # using .get() to be safe, though DSPy usually keys them 'prompt' and 'response'
             prompt_text = last_interaction.get("prompt", "")
             response_text = last_interaction.get("response", "")
-            
+
             logging.debug(f"📝 PROMPT for {self.model_id}:\n{prompt_text}")
             logging.debug(f"📝 RESPONSE for {self.model_id}:\n{response_text}")
 
@@ -136,12 +135,14 @@ class ModelProcessor(PipelineStep):
             # Be careful: This makes the JSON response huge if you have large contexts.
             if "debug" not in data.metadata:
                 data.metadata["debug"] = {}
-            
+
             data.metadata["debug"]["last_prompt"] = prompt_text
             data.metadata["debug"]["last_response"] = response_text
         # --- NEW CODE END ---
         usage = self._extract_usage_from_history(lm, self.model_id)
-        data.metadata["usage"] = usage.model_dump()  # Serialize to dict for JSON compatibility
+        data.metadata["usage"] = (
+            usage.model_dump()
+        )  # Serialize to dict for JSON compatibility
         logging.info(
             f"Framework extracted token usage: {usage.prompt_tokens} prompt, {usage.completion_tokens} completion"
         )
@@ -386,9 +387,9 @@ class ContextModelProcessor(PipelineStep):
         """Extracts token usage from model history."""
         if not lm or not hasattr(lm, "history") or not lm.history:
             return Usage()
-        
+
         last_call_usage = lm.history[-1].get("usage", {})
-        
+
         # Anthropic/OpenAI agnostic logic
         if "gpt-" in model_id or "o1-" in model_id:
             return Usage(
@@ -400,7 +401,7 @@ class ContextModelProcessor(PipelineStep):
                 prompt_tokens=last_call_usage.get("input_tokens", 0),
                 completion_tokens=last_call_usage.get("output_tokens", 0),
             )
-        
+
         return Usage(
             prompt_tokens=last_call_usage.get("prompt_tokens", 0),
             completion_tokens=last_call_usage.get("completion_tokens", 0),
@@ -418,7 +419,7 @@ class ContextModelProcessor(PipelineStep):
 
         # Create predictor in main thread
         predictor = dspy.ChainOfThought(self.signature_class)
-        
+
         # Inject Examples (Optimization)
         if task_context.examples:
             predictor.demos = task_context.examples
@@ -434,7 +435,7 @@ class ContextModelProcessor(PipelineStep):
                     role_instruction=task_context.system_instruction,
                     context_documents=task_context.documents,
                     chat_history=task_context.chat_history,
-                    **kwargs
+                    **kwargs,
                 )
 
         # Offload to thread
@@ -458,22 +459,28 @@ class ContextModelProcessor(PipelineStep):
         # Retrieve model to get history
         if lm and hasattr(lm, "history") and lm.history:
             last_interaction = lm.history[-1]
-            
+
             # 1. Try standard prompt (for completion models)
             prompt_content = last_interaction.get("prompt")
-            
+
             # 2. If None, try 'messages' from kwargs (for chat models like Claude)
             if not prompt_content:
                 kwargs = last_interaction.get("kwargs", {})
-                prompt_content = kwargs.get("messages") or last_interaction.get("messages")
+                prompt_content = kwargs.get("messages") or last_interaction.get(
+                    "messages"
+                )
 
             response_text = last_interaction.get("response", "")
-            
-            logging.debug(f"📝 PROMPT for {self.model_id} (Type: {type(prompt_content)}):\n{prompt_content}")
+
+            logging.debug(
+                f"📝 PROMPT for {self.model_id} (Type: {type(prompt_content)}):\n{prompt_content}"
+            )
             logging.debug(f"📝 RESPONSE for {self.model_id}:\n{response_text}")
         # --- ADD THIS BLOCK END ---
         usage = self._extract_usage_from_history(lm, self.model_id)
-        data.metadata["usage"] = usage.model_dump()  # Serialize to dict for JSON compatibility
+        data.metadata["usage"] = (
+            usage.model_dump()
+        )  # Serialize to dict for JSON compatibility
         logging.info(
             f"ContextProcessor usage: {usage.prompt_tokens} prompt, {usage.completion_tokens} completion"
         )
@@ -490,4 +497,3 @@ class ContextModelProcessor(PipelineStep):
     @property
     def accepted_media_types(self) -> list[MediaType]:
         return self._accepted_types
-        
