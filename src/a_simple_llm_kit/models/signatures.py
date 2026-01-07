@@ -1,18 +1,15 @@
 import dspy
-from dspy.experimental import Document
 
 
 class ContextSignature(dspy.Signature):
     """
-    Base Signature for any module that requires file context and system instructions.
+    Base Signature for modules that require document context.
+    Task description should be in the child class docstring.
     All business logic modules should inherit from this.
     """
 
-    # System logic (Mapped automatically from TaskContext)
-    role_instruction: str = dspy.InputField(
-        desc="Role, constraints, and behavior instructions."
-    )
-    context_documents: list[Document] = dspy.InputField(
-        desc="Reference materials (text, PDFs, etc.)."
+    # Context data (budget tables, metrics, PDF content, etc.)
+    context_documents: str = dspy.InputField(
+        desc="Reference data and documents for analysis."
     )
     chat_history: str = dspy.InputField(desc="Conversation context.", default="")

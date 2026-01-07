@@ -3,7 +3,6 @@ from enum import Enum
 from typing import Any
 
 import dspy
-from dspy.experimental import Document
 from pydantic import BaseModel, ConfigDict
 
 from a_simple_llm_kit.core._string_utils import simple_to_camel
@@ -131,15 +130,11 @@ class TaskContext:
     This is passed as the content payload in the Pipeline.
     """
 
-    # 1. The Data
-    documents: list[Document] = field(default_factory=list)
+    # Context data to pass to the signature's context_documents field
+    context_data: str = ""
 
-    # 2. The Runtime Configuration
-    system_instruction: str = ""
+    # Conversation history
     chat_history: str = ""
 
-    # 3. Optimization (Optional N-Shot Examples)
+    # Optional N-Shot examples for optimization
     examples: list[dspy.Example] = field(default_factory=list)
-
-    def add_document(self, doc: Document):
-        self.documents.append(doc)

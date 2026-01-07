@@ -4,45 +4,23 @@ from dspy.signatures.signature import Signature
 
 class CachingChatAdapter(ChatAdapter):
     """
-    ChatAdapter that hoists role_instruction into the system message
+    ChatAdapter that prepends system instructions to the system message
     for better prompt caching (e.g., Anthropic's prompt caching).
 
-    Use this when you have large static context (like CSV data) that should
-    be cached across multiple calls with varying inputs.
-
     Example:
-        adapter = CachingChatAdapter(role_instruction=csv_data)
+        adapter = CachingChatAdapter(system_instructions="Always be concise.")
         with dspy.context(adapter=adapter):
-            result = predictor(focus_area="executive_summary")
+            result = predictor(tab_name="Executive Summary")
     """
 
-    def __init__(self, role_instruction: str = "", callbacks=None):
+    def __init__(self, system_instructions: str = "", callbacks=None):
         super().__init__(callbacks=callbacks)
-        self._role_instruction = role_instruction
+        self._system_instructions = system_instructions
 
     def format_field_structure(self, signature: type[Signature]) -> str:
-        """Prepend role_instruction to system message for caching."""
+        """Prepend system_instructions to system message."""
         base_structure = super().format_field_structure(signature)
 
-        if self._role_instruction:
-            return f"{self._role_instruction}\n\n{base_structure}"
+        if self._system_instructions:
+            return f"{self._system_instructions}\n\n{base_structure}"
         return base_structure
-
-    def format_user_message_content(
-        self,
-        signature: type[Signature],
-        inputs: dict,
-        prefix: str = "",
-        suffix: str = "",
-        main_request: bool = False,
-    ) -> str:
-        """Exclude role_instruction from user message (it's in system)."""
-        filtered_inputs = {k: v for k, v in inputs.items() if k != "role_instruction"}
-
-        return super().format_user_message_content(
-            signature=signature,
-            inputs=filtered_inputs,
-            prefix=prefix,
-            suffix=suffix,
-            main_request=main_request,
-        )

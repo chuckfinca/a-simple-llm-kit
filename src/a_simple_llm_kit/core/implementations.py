@@ -432,8 +432,7 @@ class ContextModelProcessor(PipelineStep):
 
             with dspy.context(**context_kwargs):
                 return predictor(
-                    role_instruction=task_context.system_instruction,
-                    context_documents=task_context.documents,
+                    context_documents=task_context.context_data,
                     chat_history=task_context.chat_history,
                     **kwargs,
                 )
