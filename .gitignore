@@ -45,3 +45,4 @@ id_rsa
 
 # Local dev tools
 .extractrc
+.claude

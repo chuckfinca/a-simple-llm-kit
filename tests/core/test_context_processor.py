@@ -2,7 +2,6 @@ from unittest.mock import MagicMock
 
 import dspy
 import pytest
-from dspy.experimental import Document
 
 from a_simple_llm_kit.core import MediaType, PipelineData, TaskContext
 from a_simple_llm_kit.core.implementations import ContextModelProcessor
@@ -13,15 +12,8 @@ from a_simple_llm_kit.models.signatures import ContextSignature
 
 
 @pytest.fixture
-def mock_document():
-    return Document(data="test data", media_type="text/plain", title="test.txt")
-
-
-@pytest.fixture
-def task_context(mock_document):
-    context = TaskContext(system_instruction="Be helpful", chat_history="User: Hi")
-    context.add_document(mock_document)
-    return context
+def task_context():
+    return TaskContext(context_data="test document data", chat_history="User: Hi")
 
 
 @pytest.fixture
@@ -43,14 +35,12 @@ class MockContextSignature(ContextSignature):
 # --- Tests ---
 
 
-def test_task_context_structure(mock_document):
+def test_task_context_structure():
     """Unit test for the TaskContext data container"""
-    ctx = TaskContext(system_instruction="Sys", chat_history="Chat")
-    ctx.add_document(mock_document)
+    ctx = TaskContext(context_data="test context", chat_history="Chat")
 
-    assert len(ctx.documents) == 1
-    assert ctx.documents[0].title == "test.txt"
-    assert ctx.system_instruction == "Sys"
+    assert ctx.context_data == "test context"
+    assert ctx.chat_history == "Chat"
 
 
 @pytest.mark.anyio
@@ -112,10 +102,9 @@ async def test_context_processor_success(context_pipeline_data, monkeypatch):
     # Ensure the predictor was called with BOTH the context AND the specific args
     call_kwargs = mock_predictor_instance.call_args[1]
 
-    assert call_kwargs["role_instruction"] == "Be helpful"
+    assert call_kwargs["context_documents"] == "test document data"
     assert call_kwargs["chat_history"] == "User: Hi"
     assert call_kwargs["topic"] == "Finance"  # Came from metadata['input_args']
-    assert len(call_kwargs["context_documents"]) == 1
 
 
 def test_context_processor_validation_error():
