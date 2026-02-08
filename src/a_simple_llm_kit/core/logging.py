@@ -162,6 +162,13 @@ def setup_logging(config: LogConfig | None = None, capture_root: bool = True) ->
         config_dict["loggers"]["uvicorn.error"] = {"level": "INFO"}
         config_dict["loggers"]["httpcore"] = {"level": "WARNING"}
         config_dict["loggers"]["httpx"] = {"level": "WARNING"}
+        config_dict["loggers"]["hpack"] = {"level": "WARNING"}
+        config_dict["loggers"]["h2"] = {"level": "WARNING"}
+        config_dict["loggers"]["h11"] = {"level": "WARNING"}
+        config_dict["loggers"]["urllib3"] = {"level": "WARNING"}
+        config_dict["loggers"]["google.auth"] = {"level": "WARNING"}
+        config_dict["loggers"]["google.api_core"] = {"level": "WARNING"}
+        config_dict["loggers"]["grpc"] = {"level": "WARNING"}
 
     logging.config.dictConfig(config_dict)
 
